@@ -150,13 +150,15 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
 }
 
 // ===================================================================
-// 3. FORM DONASI COMPONENT (Standar Duitku: Tanpa pilihan metode manual)
+// 3. FORM DONASI COMPONENT (Diperbarui untuk iPaymu)
 // ===================================================================
 interface FormProps {
   donorName: string;
   setDonorName: (v: string) => void;
   donorPhone: string;
   setDonorPhone: (v: string) => void;
+  donorEmail: string;
+  setDonorEmail: (v: string) => void;
   amount: string;
   handleAmountChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDonate: () => Promise<void>;
@@ -168,6 +170,8 @@ const DonationFormFields = ({
   setDonorName,
   donorPhone,
   setDonorPhone,
+  donorEmail,
+  setDonorEmail,
   amount,
   handleAmountChange,
   handleDonate,
@@ -195,6 +199,16 @@ const DonationFormFields = ({
       />
     </div>
     <div>
+      <label className="text-xs font-semibold text-slate-700 block mb-1.5">Email (Opsional)</label>
+      <input
+        type="email"
+        placeholder="email@domain.com"
+        className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-[#0d5c91] font-medium"
+        value={donorEmail}
+        onChange={(e) => setDonorEmail(e.target.value)}
+      />
+    </div>
+    <div>
       <label className="text-xs font-semibold text-slate-700 block mb-1.5">Nominal Infak / Zakat (Rp)</label>
       <div className="relative flex items-center">
         <span className="absolute left-3.5 text-sm font-bold text-slate-500">Rp</span>
@@ -206,12 +220,12 @@ const DonationFormFields = ({
           onChange={handleAmountChange}
         />
       </div>
-      <p className="text-[10px] text-slate-400 mt-1">Metode pembayaran (QRIS, VA Bank, E-Wallet) akan dipilih di halaman resmi Duitku.</p>
+      <p className="text-[10px] text-slate-400 mt-1">Metode pembayaran akan dipilih di halaman resmi iPaymu.</p>
     </div>
     <button
       onClick={handleDonate}
       disabled={submitting}
-      className="w-full bg-[#ff2e3b] hover:bg-red-600 active:scale-[0.99] text-white font-bold py-3.5 rounded-xl transition text-sm uppercase tracking-wider disabled:bg-gray-300 shadow-md"
+      className="w-full bg-[#ff2e3b] hover:bg-red-600 active:scale-[0.99] text-white font-bold py-3.5 rounded-xl transition text-sm uppercase tracking-wider disabled:bg-gray-300 shadow-md flex items-center justify-center gap-2"
     >
       {submitting ? 'Memproses...' : 'Lanjut ke Pembayaran 🚀'}
     </button>
@@ -227,6 +241,7 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
   const [amount, setAmount] = useState('');
   const [donorName, setDonorName] = useState('');
   const [donorPhone, setDonorPhone] = useState(''); 
+  const [donorEmail, setDonorEmail] = useState(''); 
   const [submitting, setSubmitting] = useState(false);
   
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
@@ -264,25 +279,28 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/checkout', {
+      // Menggunakan endpoint baru /api/donation/create yang terhubung ke iPaymu
+      const res = await fetch('/api/donation/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          programId: program._id,
+          programTitle: program.title,
           slug: program.slug,
           amount: cleanAmount,
           donorName: donorName.trim() || 'Hamba Allah',
-          donorPhone: donorPhone.trim(), 
-          paymentMethod: 'GQ', // Default ke QRIS/halaman utama Duitku
-          referral: referral,
+          phone: donorPhone.trim(),
+          email: donorEmail.trim(),
+          fundraiserPhone: referral, // Menyertakan data afiliasi fundraiser jika ada
         }),
       });
 
       const json = await res.json();
       if (json.success && json.paymentUrl) {
-        // 🚀 Redirect donatur langsung ke halaman pembayaran resmi Duitku
+        // 🚀 Redirect donatur langsung ke halaman pembayaran resmi iPaymu
         window.location.href = json.paymentUrl;
       } else {
-        alert(json.error || 'Gagal memproses tautan pembayaran.');
+        alert(json.message || 'Gagal memproses tautan pembayaran.');
       }
     } catch (err) {
       alert('Terjadi kesalahan koneksi saat menghubungi server pembayaran.');
@@ -474,6 +492,7 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
             <DonationFormFields 
               donorName={donorName} setDonorName={setDonorName}
               donorPhone={donorPhone} setDonorPhone={setDonorPhone}
+              donorEmail={donorEmail} setDonorEmail={setDonorEmail}
               amount={amount} handleAmountChange={handleAmountChange}
               handleDonate={handleDonate} submitting={submitting}
             />

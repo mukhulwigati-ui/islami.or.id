@@ -16,7 +16,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { donorName, amount, programId, programTitle, phone, email } = body;
 
-    if (!amount || amount <= 0) {
+    // 🚀 Bersihkan string nominal dari titik/koma/karakter lain agar menjadi angka murni
+    const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
+
+    if (!cleanAmount || cleanAmount <= 0) {
       return NextResponse.json({ success: false, message: 'Nominal donasi tidak valid.' }, { status: 400 });
     }
 
@@ -26,7 +29,7 @@ export async function POST(request: Request) {
     // 1. Buat transaksi pembayaran di DOKU
     const dokuResponse = await createDokuCheckout({
       orderId,
-      amount: Number(amount),
+      amount: cleanAmount,
       buyerName: donorName || 'Hamba Allah',
       buyerEmail: email || 'support@islami.or.id',
       buyerPhone: phone || '081225147373',
@@ -39,7 +42,7 @@ export async function POST(request: Request) {
       _type: 'donationTransaction',
       orderId,
       donorName: donorName || 'Hamba Allah',
-      amount: Number(amount),
+      amount: cleanAmount,
       programName: programTitle || 'Sedekah Umum',
       status: 'pending',
       paymentUrl: dokuResponse.paymentUrl,

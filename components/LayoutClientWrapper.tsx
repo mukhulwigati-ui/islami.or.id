@@ -4,15 +4,13 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Header from "@/components/Header";
-import LiveDonationNotification, { Donation } from "@/components/LiveDonationNotification";
 import { X, Download, Smartphone } from 'lucide-react';
 
 interface LayoutClientWrapperProps {
   children: React.ReactNode;
-  donations?: Donation[];
 }
 
-export default function LayoutClientWrapper({ children, donations = [] }: LayoutClientWrapperProps) {
+export default function LayoutClientWrapper({ children }: LayoutClientWrapperProps) {
   const pathname = usePathname();
 
   const isStudioPage = pathname?.startsWith('/studio');
@@ -112,10 +110,7 @@ export default function LayoutClientWrapper({ children, donations = [] }: Layout
   return (
     <>
       {!isStudioPage && (
-        <>
-          <Header />
-          <LiveDonationNotification donations={donations} />
-        </>
+        <Header />
       )}
       
       <main className="flex-grow">
@@ -151,7 +146,7 @@ export default function LayoutClientWrapper({ children, donations = [] }: Layout
               <p className="text-[11px] text-slate-600 leading-relaxed px-1">
                 {showIOSGuide
                   ? "Ketuk ikon Share (Bagikan) di Safari, lalu pilih 'Add to Home Screen' (Tambah ke Layar Utama)."
-                  : "Pasang yaibadurrohman.or.id di perangkat Anda untuk akses layanan yang lebih cepat, praktis, dan seperti aplikasi native."}
+                  : "Pasang islami.or.id di perangkat Anda untuk akses layanan yang lebih cepat, praktis, dan seperti aplikasi native."}
               </p>
             </div>
 

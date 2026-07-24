@@ -5,11 +5,11 @@ import { createClient } from '@sanity/client';
 export const dynamic = 'force-dynamic';
 
 const client = createClient({
-  projectId: '61d8vnuq',
+  projectId: 'xqggeww8',
   dataset: 'production',
   useCdn: false, // Wajib false agar data langsung ditarik real-time
   apiVersion: '2024-01-01',
-  token: 'sk44JM4AlD6urcLa9Ak9vvnRpLGlsRai9aftW1wPA4w9zxwhrCpKREk2ArKU25K4kENIPxVXenu4kZhm2cOSaxGP69kz8az2qM2BZDIVzqyAGLjIvVTGKMu39CExUrKwbw2wCb2bfxKPgZ4lqEt2nwLZT4HEc4XT1qfrZ0i6KYupIlT6IOlP',
+  token: 'skzKLS9YXZtUK01FN8VMv2TUleuscVo9d9SXtqAlcLjt3MvaRh0IWaaruV6ObSlpJwD5UoDI0QpPJ26Xh8EpaZsK7DIIMSZ1aq7EnLzUiCUY7aHsAm1a6LeJZb9I9ygWcRTKjEJzw8c5rRCbcFAxPhzjvAgPF715JSXnJxy2lbtWm6ePtVfl',
 });
 
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {

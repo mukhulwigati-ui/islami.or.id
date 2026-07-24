@@ -4,7 +4,7 @@ import { createClient } from '@sanity/client';
 
 // 🚀 KLIEN KHUSUS WRITE: Menggunakan token tulis dari Vercel
 const writeClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || '915u7hh1',
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'xqggeww8',
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   apiVersion: '2024-01-01',
   token: process.env.SANITY_API_WRITE_TOKEN, // Mengambil langsung dari Vercel

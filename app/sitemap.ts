@@ -17,8 +17,8 @@ const sanityClient = createClient({
   useCdn: true,
 });
 
-// 🚀 URL Domain Utama yaibadurrohman.or.id
-const BASE_URL = 'https://www.yaibadurrohman.or.id';
+// 🚀 URL Domain Utama islami.or.id
+const BASE_URL = 'https://www.islami.or.id';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   

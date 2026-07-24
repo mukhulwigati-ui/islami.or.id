@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 interface CreateDokuCheckoutParams {
   orderId: string;
-  amount: number;
+  amount: number | string;
   buyerName: string;
   buyerEmail?: string;
   buyerPhone?: string;
@@ -20,6 +20,12 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
     throw new Error('🔥 Kredensial DOKU (Client ID atau Secret Key) belum disetel di environment variables.');
   }
 
+  // 🚀 Paksa konversi amount menjadi integer murni dan cegah angka bengkak
+  const cleanAmount = Number(String(params.amount).replace(/[^0-9]/g, ''));
+  if (isNaN(cleanAmount) || cleanAmount <= 0) {
+    throw new Error('Nominal donasi tidak valid.');
+  }
+
   const baseUrl = isSandbox
     ? 'https://api-sandbox.doku.com/checkout/v1/payment'
     : 'https://api.doku.com/checkout/v1/payment';
@@ -29,7 +35,7 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
 
   const requestBody = {
     order: {
-      amount: params.amount,
+      amount: cleanAmount, // Menggunakan nominal yang sudah dibersihkan
       invoice_number: params.orderId,
       currency: 'IDR',
       callback_url: params.returnUrl,

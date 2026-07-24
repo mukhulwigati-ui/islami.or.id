@@ -1,4 +1,4 @@
-// schemas/donationTransaction.ts (atau file schema Anda)
+// schemas/donationTransaction.ts
 import { defineField, defineType } from 'sanity';
 
 export default defineType({
@@ -57,7 +57,7 @@ export default defineType({
     defineField({
       name: 'transactionId',
       title: 'Transaction UUID DOKU',
-      type: 'string',
+      type: 'string', // 🚀 Pastikan tetap 'string' untuk menampung UUID DOKU dengan aman
       readOnly: true,
     }),
     defineField({

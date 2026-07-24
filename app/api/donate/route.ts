@@ -46,7 +46,8 @@ export async function POST(request: Request) {
       programName: programTitle || 'Sedekah Umum',
       status: 'pending',
       paymentUrl: dokuResponse.paymentUrl,
-      transactionId: dokuResponse.transactionId || '',
+      // 🚀 Dipastikan dikonversi menjadi string murni untuk mencegah error range
+      transactionId: String(dokuResponse.transactionId || ''),
     });
 
     // 3. Kembalikan respons sukses ke frontend

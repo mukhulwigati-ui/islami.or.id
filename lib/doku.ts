@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 interface CreateDokuCheckoutParams {
   orderId: string;
-  amount: number | string;
+  amount: number;
   buyerName: string;
   buyerEmail?: string;
   buyerPhone?: string;
@@ -20,10 +20,12 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
     throw new Error('🔥 Kredensial DOKU (Client ID atau Secret Key) belum disetel di environment variables.');
   }
 
-  // 🚀 Paksa konversi amount menjadi integer murni dan cegah angka bengkak
-  const cleanAmount = Number(String(params.amount).replace(/[^0-9]/g, ''));
+  // 🔍 DEBUG: Cetak nilai asli yang masuk ke fungsi DOKU
+  console.log('🔍 DOKU PARAMS RECEIVED:', JSON.stringify(params));
+
+  const cleanAmount = Number(params.amount);
   if (isNaN(cleanAmount) || cleanAmount <= 0) {
-    throw new Error('Nominal donasi tidak valid.');
+    throw new Error('Nominal amount DOKU tidak valid.');
   }
 
   const baseUrl = isSandbox
@@ -35,7 +37,7 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
 
   const requestBody = {
     order: {
-      amount: cleanAmount, // Menggunakan nominal yang sudah dibersihkan
+      amount: cleanAmount,
       invoice_number: params.orderId,
       currency: 'IDR',
       callback_url: params.returnUrl,
@@ -78,6 +80,7 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
   });
 
   const data = await response.json();
+  console.log('🔍 DOKU RESPONSE:', JSON.stringify(data));
 
   if (!response.ok || !data.response?.payment?.url) {
     throw new Error(`Gagal membuat transaksi DOKU: ${data.error?.message || data.message || 'Terjadi kesalahan sistem'}`);
@@ -85,6 +88,7 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
 
   return {
     paymentUrl: data.response.payment.url,
-    transactionId: data.response.uuid,
+    // 🚀 Dipaksa menjadi string teks untuk mencegah error tipe data angka besar
+    transactionId: String(data.response.uuid || ''),
   };
 }

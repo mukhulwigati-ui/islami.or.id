@@ -1,6 +1,6 @@
-// app/api/donation/create/route.ts
+// app/api/donate/route.ts
 import { NextResponse } from 'next/server';
-import { createIpaymuTransaction } from '@/lib/ipaymu';
+import { createDokuCheckout } from '@/lib/doku';
 import { createClient } from '@sanity/client';
 
 const serverClient = createClient({
@@ -23,16 +23,15 @@ export async function POST(request: Request) {
     const orderId = `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.islami.or.id';
 
-    // 1. Buat transaksi di iPaymu
-    const ipaymuResponse = await createIpaymuTransaction({
+    // 1. Buat transaksi pembayaran di DOKU
+    const dokuResponse = await createDokuCheckout({
       orderId,
       amount: Number(amount),
       buyerName: donorName || 'Hamba Allah',
       buyerEmail: email || 'support@islami.or.id',
       buyerPhone: phone || '081225147373',
       returnUrl: `${baseUrl}/donation/success?orderId=${orderId}`,
-      notifyUrl: `${baseUrl}/api/ipaymu/webhook`,
-      cancelUrl: `${baseUrl}/donation/cancel?orderId=${orderId}`,
+      notifyUrl: `${baseUrl}/api/doku/webhook`,
     });
 
     // 2. Simpan record transaksi awal berstatus pending ke Sanity CMS
@@ -43,19 +42,19 @@ export async function POST(request: Request) {
       amount: Number(amount),
       programName: programTitle || 'Sedekah Umum',
       status: 'pending',
-      paymentUrl: ipaymuResponse.Url,
-      transactionId: ipaymuResponse.TransactionId?.toString() || '',
+      paymentUrl: dokuResponse.paymentUrl,
+      transactionId: dokuResponse.transactionId || '',
     });
 
+    // 3. Kembalikan respons sukses ke frontend
     return NextResponse.json({
       success: true,
-      paymentUrl: ipaymuResponse.Url,
-      sessionId: ipaymuResponse.SessionId,
+      paymentUrl: dokuResponse.paymentUrl,
       orderId,
     });
 
   } catch (error: any) {
-    console.error('🔥 Gagal membuat transaksi donasi:', error);
+    console.error('🔥 Gagal membuat transaksi donasi DOKU:', error);
     return NextResponse.json({ success: false, message: error.message || 'Terjadi kesalahan server.' }, { status: 500 });
   }
 }

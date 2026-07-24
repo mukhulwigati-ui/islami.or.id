@@ -150,7 +150,7 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
 }
 
 // ===================================================================
-// 3. FORM DONASI COMPONENT (Diperbarui untuk iPaymu)
+// 3. FORM DONASI COMPONENT (Disesuaikan untuk DOKU)
 // ===================================================================
 interface FormProps {
   donorName: string;
@@ -220,7 +220,7 @@ const DonationFormFields = ({
           onChange={handleAmountChange}
         />
       </div>
-      <p className="text-[10px] text-slate-400 mt-1">Metode pembayaran akan dipilih di halaman resmi iPaymu.</p>
+      <p className="text-[10px] text-slate-400 mt-1">Metode pembayaran akan dipilih di halaman resmi DOKU.</p>
     </div>
     <button
       onClick={handleDonate}
@@ -279,8 +279,8 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
 
     setSubmitting(true);
     try {
-      // Menggunakan endpoint baru /api/donation/create yang terhubung ke iPaymu
-      const res = await fetch('/api/donation/create', {
+      // Memanggil endpoint backend /api/donate yang terhubung ke DOKU
+      const res = await fetch('/api/donate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -291,13 +291,13 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
           donorName: donorName.trim() || 'Hamba Allah',
           phone: donorPhone.trim(),
           email: donorEmail.trim(),
-          fundraiserPhone: referral, // Menyertakan data afiliasi fundraiser jika ada
+          fundraiserPhone: referral,
         }),
       });
 
       const json = await res.json();
       if (json.success && json.paymentUrl) {
-        // 🚀 Redirect donatur langsung ke halaman pembayaran resmi iPaymu
+        // 🚀 Redirect donatur langsung ke halaman pembayaran resmi DOKU
         window.location.href = json.paymentUrl;
       } else {
         alert(json.message || 'Gagal memproses tautan pembayaran.');

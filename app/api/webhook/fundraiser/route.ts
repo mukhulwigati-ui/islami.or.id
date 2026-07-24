@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => null);
     
-    console.log('🚨 WEBHOOK SANITY MASUK:', JSON.stringify(body));
+    console.log('🚨 WEBHOOK SANITY FUNDRAISER MASUK:', JSON.stringify(body));
 
     if (!body) {
       return NextResponse.json({ success: false, message: 'Payload kosong' }, { status: 400 });
@@ -18,7 +18,6 @@ export async function POST(request: Request) {
     const isApproved = status === 'approved' || status === 'Disetujui (Aktif)';
 
     if (isApproved && phone) {
-      // 🚀 FLEKSIBEL: Mendukung kedua nama variabel agar tidak error walau tertukar di Vercel
       const fonnteToken = process.env.FONNTE_TOKEN || process.env.TOKEN_FONNTE;
       
       if (!fonnteToken) {

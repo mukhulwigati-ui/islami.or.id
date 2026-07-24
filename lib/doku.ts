@@ -74,7 +74,7 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
   const data = await response.json();
 
   if (!response.ok || !data.response?.payment?.url) {
-    throw new Error(`Gagal membuat transaksi DOKU: ${data.error?.message || 'Terjadi kesalahan sistem'}`);
+    throw new Error(`Gagal membuat transaksi DOKU: ${data.error?.message || data.message || 'Terjadi kesalahan sistem'}`);
   }
 
   return {

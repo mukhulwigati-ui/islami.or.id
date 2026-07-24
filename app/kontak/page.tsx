@@ -4,9 +4,9 @@ import type { Metadata } from 'next';
 
 // 🚀 MASTER SEO METADATA
 export const metadata: Metadata = {
-  title: 'Hubungi Kami | Layanan Donatur LAZIS Khoiro Ummah',
-  description: 'Miliki pertanyaan mengenai program infak, sedekah subuh, atau cara pembayaran QRIS Pakasir? Hubungi tim admin resmi LAZIS Khoiro Ummah (lazisku.com) sekarang.',
-  keywords: ['kontak lazisku', 'nomor whatsapp lazis khoiro ummah', 'alamat lazisku com', 'layanan donatur'],
+  title: 'Hubungi Kami | Layanan Donatur islami.or.id',
+  description: 'Memiliki pertanyaan mengenai program infak, sedekah subuh, atau cara pembayaran QRIS? Hubungi tim admin resmi islami.or.id sekarang.',
+  keywords: ['kontak islami.or.id', 'nomor whatsapp islami', 'alamat islami.or.id', 'layanan donatur'],
   alternates: {
     canonical: '/kontak',
   },
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function KontakPage() {
   // Nomor WA resmi tanpa spasi/minus untuk integrasi API chat langsung
   const officialWa = '6281225147373';
-  const defaultText = encodeURIComponent('Assalamualaikum Admin LAZIS Khoiro Ummah, saya ingin bertanya mengenai...');
+  const defaultText = encodeURIComponent('Assalamualaikum Admin islami.or.id, saya ingin bertanya mengenai...');
   const waChatUrl = `https://api.whatsapp.com/send?phone=${officialWa}&text=${defaultText}`;
 
   return (
@@ -53,8 +53,8 @@ export default function KontakPage() {
                 <div>
                   <h4 className="text-xs font-black text-gray-800 uppercase tracking-wide">Alamat Pusat</h4>
                   <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                    Kantor Pelayanan LAZIS Khoiro Ummah <br />
-                    Bentar, Salem, Brebes, Jawa Tengah, Indonesia
+                    Kantor Pelayanan islami.or.id <br />
+                    Indonesia
                   </p>
                 </div>
               </div>
@@ -64,7 +64,7 @@ export default function KontakPage() {
                 <div>
                   <h4 className="text-xs font-black text-gray-800 uppercase tracking-wide">Email Korespondensi</h4>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    support@lazisku.com
+                    support@islami.or.id
                   </p>
                 </div>
               </div>
@@ -95,7 +95,7 @@ export default function KontakPage() {
               Konsultasi Instan WhatsApp
             </h2>
             <p className="text-xs text-emerald-800/80 leading-relaxed font-medium">
-              Lebih menyukai obrolan cepat melalui aplikasi ponsel? Hubungi nomor WhatsApp resmi penanganan layanan donatur kami untuk mendapatkan panduan cepat dari tim Customer Support Lazisku.
+              Lebih menyukai obrolan cepat melalui aplikasi ponsel? Hubungi nomor WhatsApp resmi penanganan layanan donatur kami untuk mendapatkan panduan cepat dari tim Customer Support islami.or.id.
             </p>
             
             <div className="bg-white/80 border border-emerald-100 p-4 rounded-none">
@@ -121,7 +121,7 @@ export default function KontakPage() {
      {/* 3. GOOGLE MAPS EMBED SECTION */}
 <div className="w-full bg-gray-100 h-64 border-t border-gray-200 rounded-none overflow-hidden">
   <iframe
-    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3958.764011972125!2d108.80878867454426!3d-7.153261370176541!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6f9d8bcc713919%3A0x7304909c6d3d6f48!2sPondok%20Pesantren%20Khoiro%20Ummah!5e0!3m2!1sid!2sid!4v1783431371414!5m2!1sid!2sid" // 🚀 GANTI URL src ini dengan tautan milik LAZIS Khoiro Ummah dari Google Maps
+    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3958.764011972125!2d108.80878867454426!3d-7.153261370176541!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6f9d8bcc713919%3A0x7304909c6d3d6f48!2sPondok%20Pesantren%20Khoiro%20Ummah!5e0!3m2!1sid!2sid!4v1783431371414!5m2!1sid!2sid"
     className="w-full h-full border-0 rounded-none"
     allowFullScreen={true}
     loading="lazy"

@@ -271,8 +271,10 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
   };
 
   const handleDonate = async () => {
-    const cleanAmount = amount.replace(/\./g, '');
-    if (!cleanAmount || Number(cleanAmount) < 1000) {
+    // 🚀 Pembersihan string nominal secara ketat menjadi angka bulat murni (integer)
+    const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
+
+    if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
       alert('Masukkan nominal minimal Rp 1.000!');
       return;
     }
@@ -284,10 +286,10 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          programId: program._id,
-          programTitle: program.title,
-          slug: program.slug,
-          amount: cleanAmount,
+          programId: program?._id,
+          programTitle: program?.title || 'Sedekah Umum',
+          slug: program?.slug,
+          amount: cleanAmount, // Mengirimkan tipe data number bersih
           donorName: donorName.trim() || 'Hamba Allah',
           phone: donorPhone.trim(),
           email: donorEmail.trim(),

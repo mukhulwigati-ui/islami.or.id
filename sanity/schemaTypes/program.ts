@@ -27,9 +27,6 @@ export default defineType({
       title: 'Kategori',
       type: 'string',
       options: {
-        // ===================================================================
-        // 🚀 FIXED VALUE: Menggunakan format reguler agar langsung sinkron dengan frontend Anda
-        // ===================================================================
         list: [
           { title: 'Kemanusiaan', value: 'Kemanusiaan' },
           { title: 'Pendidikan', value: 'Pendidikan' },
@@ -42,9 +39,6 @@ export default defineType({
       },
       initialValue: 'Kemanusiaan',
     }),
-    // ===================================================================
-    // 🚀 TAMBAHAN: Field Penempatan Section Sesuai Request Anda
-    // ===================================================================
     defineField({
       name: 'sectionType',
       title: 'Penempatan Bagian (Section)',
@@ -71,11 +65,11 @@ export default defineType({
     }),
     defineField({
       name: 'collectedRaw',
-      title: 'Nominal Terkumpul (Otomatis dari Pakasir)',
+      title: 'Nominal Terkumpul (Otomatis dari DOKU)',
       type: 'number',
       initialValue: 0,
       readOnly: true, 
-      description: 'Field ini terkunci otomatis. Angka akan bertambah sendiri secara realtime saat donasi QRIS sukses.',
+      description: 'Field ini terkunci otomatis. Angka akan bertambah sendiri secara realtime saat pembayaran donasi DOKU sukses.',
     }),
     defineField({
       name: 'targetAmount',
@@ -102,7 +96,7 @@ export default defineType({
       title: 'Daftar Donatur Terverifikasi',
       type: 'array',
       readOnly: true, 
-      description: 'List riwayat nama hamba allah dan donatur yang masuk dari sistem QRIS Pakasir.',
+      description: 'List riwayat nama hamba allah dan donatur yang masuk dari sistem pembayaran DOKU.',
       of: [
         {
           type: 'object',

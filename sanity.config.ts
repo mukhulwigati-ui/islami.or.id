@@ -16,8 +16,8 @@ const emeraldTheme = buildLegacyTheme({
 // 🚀 MENGGUNAKAN ID WORKSPACE YANG SESUAI DENGAN PERMINTAAN LENGKAP ANDA
 export default defineConfig([
   {
-    name: 'Yayasan-Islam-Ibadurrohman-Cilacap', // ➔ Ini menggantikan ID url/teks kecil bawaan 'lazisku'
-    title: 'yaibadurrohman', // ➔ Ini nama utama di dropdown menu
+    name: 'Yayasan-Wasilah-Hidayah-Nusantara', // ➔ Ini menggantikan ID url/teks kecil bawaan 'lazisku'
+    title: 'islami.or.id', // ➔ Ini nama utama di dropdown menu
     projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'ID_PROJECT_ANDA',
     dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
     basePath: '/studio',
@@ -49,8 +49,8 @@ export default defineConfig([
                 }
               },
               React.createElement('img', {
-                src: '/images/logo-ibad.png',
-                alt: 'Logo lazisku',
+                src: '/images/logo-islami.png',
+                alt: 'Logo islami.or.id',
                 style: {
                   height: '52px', 
                   width: 'auto',

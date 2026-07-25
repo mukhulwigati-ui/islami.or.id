@@ -52,6 +52,10 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
       email: params.buyerEmail || 'support@islami.or.id',
       phone: params.buyerPhone || '081225147373',
     },
+    // 🚀 Menambahkan informasi tambahan untuk memperjelas branding merchant di halaman DOKU
+    additional_info: {
+      inf_mall: 'Islami.or.id',
+    },
   };
 
   const jsonBody = JSON.stringify(requestBody);

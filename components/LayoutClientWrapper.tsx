@@ -42,7 +42,7 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
     setIsIOS(isIOSDevice);
 
     const checkAndShow = () => {
-      // Pastikan modal lain (seperti Portal Fundraiser / Modal Donatur) TIDAK sedang terbuka di DOM
+      // Pastikan modal lain TIDAK sedang terbuka di DOM
       const activeModals = document.querySelectorAll('.fixed.inset-0.z-50');
       
       // Jika tidak ada modal lain yang aktif dan user belum close, tampilkan prompt PWA
@@ -54,10 +54,11 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
       }
     };
 
+    // 🚀 Diperbarui menjadi 10 detik sesuai instruksi
     if (isIOSDevice) {
       const timer = setTimeout(() => {
         checkAndShow();
-      }, 5000);
+      }, 10000);
       return () => clearTimeout(timer);
     }
 
@@ -67,7 +68,7 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
       
       const timer = setTimeout(() => {
         checkAndShow();
-      }, 5000);
+      }, 10000);
 
       return () => clearTimeout(timer);
     };
@@ -103,7 +104,6 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
     setShowPrompt(false);
     setShowIOSGuide(false);
     setHasClosedPrompt(true);
-    // Simpan ke sessionStorage agar tidak muncul lagi sebelum halaman direfresh / sesi baru
     sessionStorage.setItem('pwa_prompt_closed', 'true');
   };
 
@@ -119,43 +119,48 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
 
       {/* 🚀 BOTTOM NAVIGATION / MENU BAWAH: Di-hidden secara mutlak jika berada di halaman Sanity Studio */}
       {!isStudioPage && (
-        <nav aria-label="Bottom Navigation" className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-lg">
+        <nav aria-label="Bottom Navigation" className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-lg">
           {/* Tempatkan elemen atau komponen bottom navigation Anda di sini */}
         </nav>
       )}
 
-      {/* MODAL PWA PROMPT */}
+      {/* MODAL PWA PROMPT (DITENGAHKAN, TANPA SUDUT LENGKUNG) */}
       {isHomePage && !isStudioPage && showPrompt && !hasClosedPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-xs bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 text-center space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-sm bg-white border border-slate-200 shadow-2xl p-5 text-left space-y-4">
             
             <button
               onClick={handleClose}
-              className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition"
+              className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-1.5 transition"
               aria-label="Tutup"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <div className="w-12 h-12 bg-sky-50 text-[#0d5c91] rounded-full flex items-center justify-center mx-auto shadow-inner">
+            <div className="w-12 h-12 bg-sky-50 text-[#0d5c91] border border-sky-100 flex items-center justify-center shadow-inner">
               <Smartphone className="w-6 h-6" />
             </div>
 
-            <div className="space-y-1.5">
-              <h2 className="text-sm font-extrabold text-slate-900">Install Aplikasi</h2>
-              <p className="text-[11px] text-slate-600 leading-relaxed px-1">
+            <div className="space-y-1.5 pr-4">
+              <span className="text-[10px] font-bold text-sky-600 uppercase tracking-widest block">
+                APLIKASI RESMI
+              </span>
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
+                Install Aplikasi Islami.or.id
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 {showIOSGuide
                   ? "Ketuk ikon Share (Bagikan) di Safari, lalu pilih 'Add to Home Screen' (Tambah ke Layar Utama)."
-                  : "Pasang islami.or.id di perangkat Anda untuk akses layanan yang lebih cepat, praktis, dan seperti aplikasi native."}
+                  : "Pasang aplikasi islami.or.id di perangkat Anda untuk akses layanan donasi, infaq, dan zakat yang lebih cepat, praktis, serta optimal."}
               </p>
             </div>
 
             {!showIOSGuide && (
               <button
                 onClick={handleInstallClick}
-                className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white font-bold text-[11px] uppercase tracking-wider py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2"
+                className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white font-bold text-xs sm:text-sm uppercase tracking-wider py-3.5 transition shadow-sm flex items-center justify-center gap-2"
               >
-                <Download className="w-4 h-4" /> Pasang Sekarang
+                <Download className="w-4 h-4" /> Install Sekarang 🚀
               </button>
             )}
 

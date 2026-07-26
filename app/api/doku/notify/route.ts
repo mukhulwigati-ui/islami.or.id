@@ -6,7 +6,7 @@ const sanityClient = createClient({
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   apiVersion: '2024-05-01',
-  token: process.env.SANITY_API_WRITE_TOKEN,
+  token: process.env.SANITY_API_TOKEN,
   useCdn: false,
 });
 
@@ -15,7 +15,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log('🔔 DOKU WEBHOOK MASUK:', JSON.stringify(body, null, 2));
 
-    // Menangkap struktur order ID dan amount dari berbagai variasi payload DOKU
     const orderId = 
       body.order?.invoice_number || 
       body.order?.order_id || 
@@ -44,36 +43,50 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'NOT_FOUND' }, { status: 404 });
     }
 
-    // 2. Update status pembayaran menjadi 'success'
+    // 2. Update status pembayaran menjadi 'success' pada tabel transaksi
     if (donationDoc.status !== 'success') {
       await sanityClient.patch(donationDoc._id).set({ status: 'success' }).commit();
       console.log('✅ Status transaksi berhasil diubah menjadi success.');
     }
 
-    // 3. Ambil Campaign ID dari reference programName._ref
-    const campaignId = donationDoc.programName?._ref;
-    
-    if (!campaignId) {
-      console.error('❌ ERROR: Field reference programName._ref kosong pada dokumen donasi ini!');
-      return NextResponse.json({ status: 'NO_CAMPAIGN_REF' }, { status: 400 });
+    // 3. Ambil Program ID dari reference programName._ref (atau ambil program pertama sebagai fallback)
+    let programId = donationDoc.programName?._ref;
+
+    if (!programId) {
+      const defaultProgram = await sanityClient.fetch(`*[_type == "program"][0]`);
+      if (defaultProgram) {
+        programId = defaultProgram._id;
+      }
     }
 
-    // 4. Ambil data campaign saat ini dan tambahkan jumlah terkumpulnya
-    const campaignDoc = await sanityClient.fetch(`*[_id == $id][0]`, { id: campaignId });
+    if (!programId) {
+      console.error('❌ ERROR: Tidak ada dokumen program ditemukan di Sanity!');
+      return NextResponse.json({ status: 'NO_PROGRAM_FOUND' }, { status: 400 });
+    }
+
+    // 4. Ambil data program, update collectedAmount, dan masukkan data donatur ke array donors
+    const programDoc = await sanityClient.fetch(`*[_id == $id][0]`, { id: programId });
     
-    if (campaignDoc) {
-      const currentCollected = Number(campaignDoc.collectedAmount || 0);
+    if (programDoc) {
+      const currentCollected = Number(programDoc.collectedAmount || 0);
       const finalAmount = amount > 0 ? amount : Number(donationDoc.amount || 0);
       const newCollected = currentCollected + finalAmount;
 
+      // Data donatur baru yang akan dimasukkan ke list
+      const newDonorEntry = {
+        _key: Math.random().toString(36.substring(2)), // Unique key untuk item array Sanity
+        name: donationDoc.donorName || 'Hamba Allah',
+        amount: finalAmount,
+        date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+      };
+
       await sanityClient
-        .patch(campaignId)
+        .patch(programId)
         .set({ collectedAmount: newCollected })
+        .append('donors', [newDonorEntry]) // Otomatis menambahkan donatur ke list
         .commit();
 
-      console.log(`🎉 SUKSES! Campaign bertambah Rp ${finalAmount}. Total terkumpul: Rp ${newCollected}`);
-    } else {
-      console.warn(`⚠️ Warning: Campaign dengan ID "${campaignId}" tidak ditemukan di Sanity.`);
+      console.log(`🎉 SUKSES BESAR! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}. Total terkumpul: Rp ${newCollected}`);
     }
 
     return NextResponse.json({ status: 'SUCCESS' }, { status: 200 });

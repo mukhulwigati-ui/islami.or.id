@@ -64,7 +64,7 @@ export default defineType({
       validation: (Rule) => Rule.required().error('Foto wajib diunggah'),
     }),
     defineField({
-      name: 'collectedRaw',
+      name: 'collectedAmount', // 🚀 Disamakan agar sinkron dengan script webhook
       title: 'Nominal Terkumpul (Otomatis dari DOKU)',
       type: 'number',
       initialValue: 0,

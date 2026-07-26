@@ -31,8 +31,8 @@ export default defineType({
     defineField({
       name: 'programName',
       title: 'Nama Program / Kampanye',
-      type: 'reference', // 🚀 Diubah menjadi reference ke dokumen campaign
-      to: [{ type: 'campaign' }], // Sesuaikan dengan nama tipe dokumen campaign Anda di Sanity
+      type: 'reference',
+      to: [{ type: 'program' }], // 🚀 Diubah dari 'campaign' menjadi 'program' agar sesuai dengan schemaTypes/program.ts
     }),
     defineField({
       name: 'status',

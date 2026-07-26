@@ -35,6 +35,11 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
   const requestId = crypto.randomUUID();
   const timestamp = new Date().toISOString().slice(0, 19) + 'Z';
 
+  // Bersihkan nama buyer jika bernilai "Saya" atau kosong agar tidak tampil keliru di halaman DOKU
+  const validBuyerName = (!params.buyerName || params.buyerName.toLowerCase() === 'saya') 
+    ? 'Donatur Dermawan' 
+    : params.buyerName;
+
   const requestBody = {
     order: {
       amount: cleanAmount,
@@ -48,7 +53,7 @@ export async function createDokuCheckout(params: CreateDokuCheckoutParams) {
       payment_due_date: 60,
     },
     customer: {
-      name: params.buyerName,
+      name: validBuyerName,
       email: params.buyerEmail || 'support@islami.or.id',
       phone: params.buyerPhone || '081225147373',
     },

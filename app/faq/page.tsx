@@ -43,62 +43,66 @@ const faqList: FaqItem[] = [
 
 export default function FaqPage() {
   return (
-    <div className="min-h-screen bg-white pb-20">
-      
-      {/* 1. SECTION BANNER */}
-      <div className="bg-gradient-to-br from-emerald-900 to-emerald-950 text-white py-14 px-4 text-center relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
-        <div className="max-w-2xl mx-auto space-y-3 relative z-10">
-          <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-3 py-1 uppercase tracking-widest border border-emerald-500/30">
-            Pusat Bantuan
+    <div className="min-h-screen bg-slate-50 py-4 px-3 pb-28">
+      {/* 🚀 MODEL MOBILE FIRST: Disesuaikan dengan lebar card mobile yang ringkas, rapi, tanpa sudut lengkung */}
+      <div className="w-full max-w-md mx-auto bg-white border border-slate-200 shadow-sm p-4 sm:p-6 space-y-6">
+        
+        {/* HEADER FAQ */}
+        <div className="border-b border-sky-600 pb-3 space-y-1.5">
+          <span className="text-[10px] sm:text-xs font-bold text-sky-600 uppercase tracking-widest block">
+            PUSAT BANTUAN
           </span>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-[#333333] tracking-tight">
             Pertanyaan yang Sering Diajukan
           </h1>
-          <p className="text-xs md:text-sm text-emerald-100/70 max-w-xl mx-auto font-medium leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
             Temukan jawaban lengkap seputar prosedur donasi, transparansi penyaluran, dan layanan platform islami.or.id di sini.
           </p>
         </div>
-      </div>
 
-      {/* 2. DAFTAR FAQ ACCORDION / LIST */}
-      <div className="max-w-3xl mx-auto py-12 px-4 space-y-6">
-        {faqList.map((item, index) => (
-          <div 
-            key={index} 
-            className="border border-gray-100 bg-gray-50/50 p-6 rounded-xl shadow-xs space-y-2 hover:border-emerald-200 transition"
-          >
-            <h2 className="text-sm md:text-base font-black text-gray-900 flex items-start gap-3">
-              <span className="text-emerald-600 font-extrabold">Q{index + 1}.</span>
-              {item.question}
-            </h2>
-            <p className="text-xs md:text-sm text-gray-600 leading-relaxed pl-7">
-              {item.answer}
-            </p>
-          </div>
-        ))}
-      </div>
+        {/* DAFTAR FAQ ACCORDION / LIST */}
+        <div className="space-y-4">
+          {faqList.map((item, index) => (
+            <div 
+              key={index} 
+              className="border border-slate-200 bg-gray-50/50 p-4 space-y-2 hover:border-sky-500 transition-colors text-left"
+            >
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-start gap-2.5">
+                <span className="text-sky-600 font-extrabold shrink-0">Q{index + 1}.</span>
+                <span>{item.question}</span>
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pl-6">
+                {item.answer}
+              </p>
+            </div>
+          ))}
+        </div>
 
-      {/* 3. CALL TO ACTION BANTUAN LANJUTAN */}
-      <div className="max-w-3xl mx-auto px-4 text-center pt-4">
-        <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-2xl space-y-3">
-          <h3 className="text-sm font-black text-emerald-900 uppercase tracking-wide">
+        {/* CALL TO ACTION BANTUAN LANJUTAN */}
+        <div className="bg-slate-50 border border-slate-200 p-4 text-center space-y-3 mt-6">
+          <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wide">
             Masih memiliki pertanyaan lain?
           </h3>
-          <p className="text-xs text-emerald-800/80 max-w-md mx-auto">
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
             Tim layanan donatur kami siap membantu Anda memberikan informasi secara cepat dan ramah.
           </p>
-          <div className="pt-2">
+          <div className="pt-1 flex flex-col gap-2.5">
             <Link
               href="/kontak"
-              className="inline-block bg-[#0d5c91] hover:bg-sky-900 text-white font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-xl transition shadow-md"
+              className="w-full inline-flex items-center justify-center bg-[#0d5c91] hover:bg-sky-900 text-white font-bold text-xs sm:text-sm uppercase tracking-wider py-3 transition shadow-sm"
             >
               Hubungi Kami 💬
             </Link>
+            <Link
+              href="/"
+              className="w-full inline-flex items-center justify-center border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm uppercase tracking-wider py-3 transition"
+            >
+              Kembali ke Beranda 🚀
+            </Link>
           </div>
         </div>
-      </div>
 
+      </div>
     </div>
   );
 }

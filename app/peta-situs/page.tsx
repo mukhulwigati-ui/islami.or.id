@@ -86,32 +86,33 @@ export default async function PetaSitusPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-3 sm:py-12 text-left">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50 py-4 px-3 pb-28 text-left">
+      {/* 🚀 MODEL MOBILE FIRST: Lebar card mobile konsisten (max-w-md), tanpa sudut lengkung */}
+      <div className="w-full max-w-md mx-auto space-y-4">
         
         {/* HEADER SECTION */}
-        <div className="bg-white border border-gray-200/90 shadow-sm rounded-2xl p-5 space-y-2">
-          <h1 className="text-base sm:text-xl font-extrabold text-gray-900 tracking-tight">
+        <div className="bg-white border border-slate-200 shadow-sm p-4 sm:p-6 space-y-2">
+          <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
             🗺️ Peta Situs Resmi (HTML Sitemap)
           </h1>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            Halaman ini disediakan untuk mempermudah perayapan indeks robot mesin pencari sekaligus membantu donatur menavigasi seluruh struktur direktori URL <span className="font-semibold text-gray-700">yaibadurrohman.or.id</span> secara transparan.
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            Halaman ini disediakan untuk mempermudah perayapan indeks robot mesin pencari sekaligus membantu donatur menavigasi seluruh struktur direktori URL <span className="font-semibold text-slate-800">yaibadurrohman.or.id</span> secara transparan.
           </p>
         </div>
 
-        {/* STRUCTURE SITEMAP GRID (Mobile-First 1 Kolom ke 3 Kolom) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* STRUCTURE SITEMAP GRID (Mobile-First 1 Kolom ke Bawah) */}
+        <div className="space-y-4">
           
           {/* KOLOM 1: HALAMAN UTAMA & INTERNAL */}
-          <div className="bg-white border border-gray-200/90 p-4 sm:p-5 rounded-2xl shadow-sm space-y-3">
-            <h2 className="text-[11px] font-extrabold text-[#0d5c91] bg-sky-50 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block">
+          <div className="bg-white border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
+            <h2 className="text-xs sm:text-sm font-extrabold text-[#0d5c91] bg-sky-50 px-3 py-1.5 uppercase tracking-wider inline-block border border-sky-100">
               📂 Halaman Utama & Fitur
             </h2>
-            <ul className="space-y-2.5 text-xs font-medium text-gray-700">
+            <ul className="space-y-3 text-xs sm:text-sm font-medium text-slate-800">
               {halamanInti.map((item, idx) => (
-                <li key={idx} className="border-b border-gray-100 pb-2 last:border-none">
-                  <a href={item.url} className="hover:text-[#0d5c91] transition block font-bold">
-                    {item.title} <span className="text-[10px] text-gray-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id${item.url}`}</span>
+                <li key={idx} className="border-b border-slate-100 pb-2.5 last:border-none">
+                  <a href={item.url} className="hover:text-[#0d5c91] transition block font-bold leading-snug">
+                    {item.title} <span className="text-[11px] text-slate-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id${item.url}`}</span>
                   </a>
                 </li>
               ))}
@@ -119,49 +120,49 @@ export default async function PetaSitusPage() {
           </div>
 
           {/* KOLOM 2: PROGRAM KAMPANYE AKTIF (DYNAMIC SANITY) */}
-          <div className="bg-white border border-gray-200/90 p-4 sm:p-5 rounded-2xl shadow-sm space-y-3">
-            <h2 className="text-[11px] font-extrabold text-[#0d5c91] bg-sky-50 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block">
+          <div className="bg-white border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
+            <h2 className="text-xs sm:text-sm font-extrabold text-[#0d5c91] bg-sky-50 px-3 py-1.5 uppercase tracking-wider inline-block border border-sky-100">
               📦 Program Kebaikan ({programs.length})
             </h2>
             {programs.length > 0 ? (
-              <ul className="space-y-2.5 text-xs font-medium text-gray-700 max-h-[400px] overflow-y-auto pr-1">
+              <ul className="space-y-3 text-xs sm:text-sm font-medium text-slate-800 max-h-[400px] overflow-y-auto pr-1">
                 {programs.map((item, idx) => (
-                  <li key={idx} className="border-b border-gray-100 pb-2 last:border-none">
-                    <a href={`/campaign/${item.slug}`} className="hover:text-[#0d5c91] transition block font-bold">
-                      {item.title} <span className="text-[10px] text-gray-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id/campaign/${item.slug}`}</span>
+                  <li key={idx} className="border-b border-slate-100 pb-2.5 last:border-none">
+                    <a href={`/campaign/${item.slug}`} className="hover:text-[#0d5c91] transition block font-bold leading-snug">
+                      {item.title} <span className="text-[11px] text-slate-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id/campaign/${item.slug}`}</span>
                     </a>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-[11px] text-gray-400 italic">Belum ada program kampanye aktif.</p>
+              <p className="text-xs text-slate-400 italic">Belum ada program kampanye aktif.</p>
             )}
           </div>
 
           {/* KOLOM 3: BERITA KEMANUSIAAN (DYNAMIC SANITY) */}
-          <div className="bg-white border border-gray-200/90 p-4 sm:p-5 rounded-2xl shadow-sm space-y-3">
-            <h2 className="text-[11px] font-extrabold text-[#0d5c91] bg-sky-50 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block">
+          <div className="bg-white border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
+            <h2 className="text-xs sm:text-sm font-extrabold text-[#0d5c91] bg-sky-50 px-3 py-1.5 uppercase tracking-wider inline-block border border-sky-100">
               📰 Berita & Kabar ({news.length})
             </h2>
             {news.length > 0 ? (
-              <ul className="space-y-2.5 text-xs font-medium text-gray-700 max-h-[400px] overflow-y-auto pr-1">
+              <ul className="space-y-3 text-xs sm:text-sm font-medium text-slate-800 max-h-[400px] overflow-y-auto pr-1">
                 {news.map((item, idx) => (
-                  <li key={idx} className="border-b border-gray-100 pb-2 last:border-none">
-                    <a href={`/news/${item.slug}`} className="hover:text-[#0d5c91] transition block font-bold">
-                      {item.title} <span className="text-[10px] text-gray-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id/news/${item.slug}`}</span>
+                  <li key={idx} className="border-b border-slate-100 pb-2.5 last:border-none">
+                    <a href={`/news/${item.slug}`} className="hover:text-[#0d5c91] transition block font-bold leading-snug">
+                      {item.title} <span className="text-[11px] text-slate-400 font-normal block mt-0.5">{`https://www.yaibadurrohman.or.id/news/${item.slug}`}</span>
                     </a>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-[11px] text-gray-400 italic">Belum ada artikel berita diterbitkan.</p>
+              <p className="text-xs text-slate-400 italic">Belum ada artikel berita diterbitkan.</p>
             )}
           </div>
 
         </div>
 
         {/* FOOTER METRICS INFO */}
-        <div className="text-center text-[10px] text-gray-400 font-medium tracking-wide pt-2">
+        <div className="text-center text-xs text-slate-400 font-medium tracking-wide pt-2">
           © {new Date().getFullYear()} yaibadurrohman.or.id. Nilai tautan peta situs dipetakan otomatis terintegrasi skema indeks.
         </div>
 

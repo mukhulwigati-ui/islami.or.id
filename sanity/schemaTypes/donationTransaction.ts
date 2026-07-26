@@ -8,7 +8,7 @@ export default defineType({
   fields: [
     defineField({
       name: 'orderId',
-      title: 'Order ID',
+      title: 'Order ID / Invoice Number',
       type: 'string',
       readOnly: true,
     }),
@@ -31,8 +31,8 @@ export default defineType({
     defineField({
       name: 'programName',
       title: 'Nama Program / Kampanye',
-      type: 'string',
-      readOnly: true,
+      type: 'reference', // 🚀 Diubah menjadi reference ke dokumen campaign
+      to: [{ type: 'campaign' }], // Sesuaikan dengan nama tipe dokumen campaign Anda di Sanity
     }),
     defineField({
       name: 'status',
@@ -57,7 +57,7 @@ export default defineType({
     defineField({
       name: 'transactionId',
       title: 'Transaction UUID DOKU',
-      type: 'string', // 🚀 Pastikan tetap 'string' untuk menampung UUID DOKU dengan aman
+      type: 'string',
       readOnly: true,
     }),
     defineField({

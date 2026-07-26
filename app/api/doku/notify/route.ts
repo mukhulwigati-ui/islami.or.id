@@ -10,71 +10,65 @@ const sanityClient = createClient({
   useCdn: false,
 });
 
-async function handleNotification(req: Request) {
+export async function POST(req: Request) {
   try {
-    let body: any = {};
-    
-    if (req.method === 'POST') {
-      body = await req.json().catch(() => ({}));
-    } else {
-      // Jika DOKU mengetes via GET parameter URL
-      const { searchParams } = new URL(req.url);
-      body = {
-        order: {
-          invoice_number: searchParams.get('invoice_number') || searchParams.get('order_id'),
-          amount: Number(searchParams.get('amount') || 0),
-        },
-        transaction: {
-          status: searchParams.get('status') || 'SUCCESS'
-        }
-      };
+    const body = await req.json();
+    console.log('🔔 FULL DOKU PAYLOAD:', JSON.stringify(body, null, 2));
+
+    // Menangkap berbagai kemungkinan struktur invoice & amount dari DOKU Non-SNAP
+    const invoiceNumber = 
+      body.order?.invoice_number || 
+      body.invoice_number || 
+      body.virtual_account_info?.invoice_number;
+
+    const amount = Number(
+      body.order?.amount || 
+      body.amount || 
+      body.virtual_account_info?.amount || 
+      0
+    );
+
+    console.log(`📝 Extracted -> Invoice: ${invoiceNumber}, Amount: ${amount}`);
+
+    if (!invoiceNumber) {
+      return NextResponse.json({ status: 'FAILED', message: 'Invoice not found in payload' }, { status: 400 });
     }
 
-    console.log('🔔 DOKU NOTIFICATION RECEIVED:', JSON.stringify(body));
+    // 1. Cari dokumen donasi di Sanity berdasarkan invoiceNumber
+    const query = `*[_type == "donation" && invoiceNumber == $invoiceNumber][0]`;
+    const donationDoc = await sanityClient.fetch(query, { invoiceNumber });
 
-    const invoiceNumber = body.order?.invoice_number || body.invoice_number;
-    const amount = Number(body.order?.amount || body.amount || 0);
-    const transactionStatus = body.transaction?.status || body.result?.status || body.status || 'SUCCESS';
+    if (donationDoc) {
+      // Update status donasi menjadi PAID
+      if (donationDoc.status !== 'PAID') {
+        await sanityClient.patch(donationDoc._id).set({ status: 'PAID' }).commit();
+      }
 
-    if (invoiceNumber) {
-      const query = `*[_type == "donation" && invoiceNumber == $invoiceNumber][0]`;
-      const donationDoc = await sanityClient.fetch(query, { invoiceNumber });
+      // 2. Tambahkan ke Campaign terkait
+      if (donationDoc.campaign?._ref) {
+        const campaignId = donationDoc.campaign._ref;
+        const campaignDoc = await sanityClient.fetch(`*[_id == $id][0]`, { id: campaignId });
 
-      if (donationDoc) {
-        if (donationDoc.status !== 'PAID') {
-          await sanityClient.patch(donationDoc._id).set({ status: 'PAID' }).commit();
-        }
+        if (campaignDoc) {
+          const currentCollected = Number(campaignDoc.collectedAmount || 0);
+          const finalAmount = amount > 0 ? amount : Number(donationDoc.amount || 0);
+          const newCollected = currentCollected + finalAmount;
 
-        if (donationDoc.campaign?._ref) {
-          const campaignId = donationDoc.campaign._ref;
-          const campaignDoc = await sanityClient.fetch(`*[_id == $id][0]`, { id: campaignId });
+          await sanityClient
+            .patch(campaignId)
+            .set({ collectedAmount: newCollected })
+            .commit();
 
-          if (campaignDoc) {
-            const currentCollected = Number(campaignDoc.collectedAmount || 0);
-            const newCollected = currentCollected + (amount || donationDoc.amount || 0);
-
-            await sanityClient
-              .patch(campaignId)
-              .set({ collectedAmount: newCollected })
-              .commit();
-
-            console.log(`🎉 BERHASIL! Campaign bertambah. Total: Rp ${newCollected}`);
-          }
+          console.log(`🎉 BERHASIL UPDATE SANITY! Campaign bertambah: Rp ${finalAmount}. Total: Rp ${newCollected}`);
         }
       }
+    } else {
+      console.warn(`⚠️ Warning: Invoice ${invoiceNumber} tidak ditemukan di database Sanity.`);
     }
 
     return NextResponse.json({ status: 'SUCCESS' }, { status: 200 });
   } catch (error) {
-    console.error('🔥 WEBHOOK ERROR:', error);
+    console.error('🔥 WEBHOOK CRASH:', error);
     return NextResponse.json({ status: 'ERROR', message: String(error) }, { status: 500 });
   }
-}
-
-export async function POST(req: Request) {
-  return handleNotification(req);
-}
-
-export async function GET(req: Request) {
-  return handleNotification(req);
 }

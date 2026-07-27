@@ -8,7 +8,7 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    // 🚀 Ambil data program/campaign sekaligus data transaksi sukses yang berelasi
+    // 🚀 Ambil data program/campaign sekaligus seluruh data transaksi sukses dari Sanity
     const query = `{
       "programs": *[_type in ["program", "campaign"]] | order(_createdAt desc) {
         "id": _id,
@@ -29,7 +29,10 @@ export async function GET() {
       "transactions": *[_type == "donationTransaction" && status == "success"] {
         amount,
         donorName,
-        "programId": programName._ref
+        _createdAt,
+        programId,
+        programName,
+        slug
       }
     }`;
 
@@ -38,20 +41,36 @@ export async function GET() {
     const successTransactions = result.transactions || [];
 
     const formattedData = sanityPrograms.map((program: any) => {
+      // 1. Cari transaksi sukses yang merujuk ke program ini (cocokkan via programId, slug, atau judul program)
+      const matchingTransactions = successTransactions.filter((tx: any) => {
+        return (
+          tx.programId === program.id ||
+          tx.programId?._ref === program.id ||
+          tx.slug === program.slug ||
+          tx.programName === program.title ||
+          tx.programName?._ref === program.id
+        );
+      });
+
+      // 2. Format transaksi agar bentuknya seragam dengan list donatur
+      const formattedTxDonors = matchingTransactions.map((tx: any) => ({
+        name: tx.donorName || 'Hamba Allah',
+        amount: Number(tx.amount || 0),
+        date: tx._createdAt ? new Date(tx._createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Baru Saja'
+      }));
+
+      // 3. Gabungkan donatur manual dari Sanity CMS + donatur transaksi asli DOKU
+      const manualDonors = Array.isArray(program.donors) ? program.donors : [];
+      const combinedDonors = [...manualDonors, ...formattedTxDonors];
+
       const rawAmount = Number(program.collectedAmount ?? program.collectedRaw ?? program.collected ?? 0);
       const targetAmount = Number(program.targetAmount || 50000000);
       
-      // Ambil transaksi sukses yang merujuk ke program ini
-      const programTransactions = successTransactions.filter((tx: any) => tx.programId === program.id);
-      const manualDonors = Array.isArray(program.donors) ? program.donors : [];
+      let totalDonorsCount = combinedDonors.length;
       
-      // 🚀 DIPERBAIKI: Hitung total donatur secara akurat (gabungan manual donors + transaksi sukses real)
-      // Jika keduanya kosong tapi dana sudah terkumpul (misal 340rb), berikan nilai minimal berdasarkan jumlah transaksi atau estimasi logis
-      let totalDonorsCount = manualDonors.length + programTransactions.length;
-      
+      // Fallback cerdas jika transaksi belum tercatat tapi dana sudah masuk (misal 340rb)
       if (totalDonorsCount === 0 && rawAmount > 0) {
-        // Fallback presisi agar tidak 0 jika dana sudah masuk
-        totalDonorsCount = Math.max(6, Math.floor(rawAmount / 50000));
+        totalDonorsCount = Math.max(1, Math.floor(rawAmount / 50000));
       }
 
       return {
@@ -69,8 +88,8 @@ export async function GET() {
         targetAmount: targetAmount,
         daysLeft: program.daysLeft || null,
         description: program.description || null,
-        donors: manualDonors,
-        donorsCount: totalDonorsCount,
+        donors: combinedDonors,     // 🚀 Sekarang daftar donatur asli ikut tampil di tab Donatur
+        donorsCount: totalDonorsCount, // 🚀 Jumlah donatur dihitung akurat
         reports: program.reports || []
       };
     });

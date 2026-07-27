@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortableText } from '@portabletext/react';
-import { ArrowLeft, Share2, Copy, Check, MessageCircle, UserCheck } from 'lucide-react';
+import { ArrowLeft, Share2, Copy, Check, MessageCircle, ShieldCheck } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -156,31 +156,14 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
 }
 
 // ===================================================================
-// 3. FORM DONASI GAYA KITABISA
+// 3. FORM DONASI PROFESIONAL (GAYA KITABISA)
 // ===================================================================
-interface FormProps {
-  donorName: string;
-  setDonorName: (v: string) => void;
-  donorPhone: string;
-  setDonorPhone: (v: string) => void;
-  donorEmail: string;
-  setDonorEmail: (v: string) => void;
-  amount: string;
-  setAmount: (v: string) => void;
-  handleDonate: () => Promise<void>;
-  submitting: boolean;
-  isLoggedIn: boolean;
-}
-
-const KITABISA_PRESETS = [10000, 15000, 25000, 50000, 100000, 250000];
-
 const DonationFormFields = ({
   donorName,
-  setDonorName, // 🚀 Pastikan ini ada di parameter
+  setDonorName,
   donorPhone,
-  setDonorPhone, // 🚀 Pastikan ini ada di parameter
+  setDonorPhone,
   donorEmail,
-  setDonorEmail, // 🚀 Pastikan ini ada di parameter
   amount,
   setAmount,
   handleDonate,
@@ -188,7 +171,7 @@ const DonationFormFields = ({
   isLoggedIn,
 }: any) => {
   const PRESET_AMOUNTS = [10000, 15000, 25000, 50000, 100000, 250000];
-  const cleanAmountNum = Number(amount.replace(/[^0-9]/g, '')) || 0;
+  const cleanAmountNum = Number(String(amount || '').replace(/[^0-9]/g, '')) || 0;
 
   return (
     <div className="space-y-4 text-left">
@@ -233,9 +216,8 @@ const DonationFormFields = ({
 
       <hr className="border-slate-100 my-2" />
 
-      {/* 3. KONDISI TAMPILAN IDENTITAS */}
+      {/* 3. KEISTIMEWAAN LOGIN: JIKA SUDAH LOGIN, FORM TEKS DIHILANGKAN TOTAL */}
       {isLoggedIn ? (
-        /* 🚀 JIKA SUDAH LOGIN: BEBAS FORM! Cuma teks informasi akun saja */
         <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-xl flex items-center justify-between">
           <div className="space-y-0.5">
             <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide block">Terhubung Akun Google</span>
@@ -244,7 +226,7 @@ const DonationFormFields = ({
           <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full">Aktif ✓</span>
         </div>
       ) : (
-        /* JIKA BELUM LOGIN: Baru tampilkan input manual untuk Guest */
+        /* JIKA BELUM LOGIN: Tampilkan input manual untuk Guest */
         <div className="space-y-3">
           <div>
             <label className="text-xs font-semibold text-slate-700 block mb-1">Nama Donatur</label>
@@ -268,6 +250,11 @@ const DonationFormFields = ({
           </div>
         </div>
       )}
+
+      <div className="flex items-center gap-2 text-[10px] text-slate-500 bg-sky-50 p-2.5 rounded-xl border border-sky-100">
+        <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
+        <span>Transaksi aman & terverifikasi otomatis via DOKU.</span>
+      </div>
 
       {/* 4. Tombol Eksekusi Pembayaran */}
       <button
@@ -307,8 +294,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // Deteksi user login & otomatis ambil Nama, Email, dan WhatsApp dari akun
-  // 🚀 Deteksi user aktif secara instan dan akurat
+  // Deteksi sesi login Supabase secara instan dan akurat
   useEffect(() => {
     async function checkUserSession() {
       try {
@@ -323,7 +309,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           setDonorEmail(emailVal);
           setDonorName(nameVal);
           setDonorPhone(phoneVal);
-          setIsLoggedIn(true); // 🚀 Berhasil mendeteksi bahwa user sudah login!
+          setIsLoggedIn(true); 
         } else {
           setIsLoggedIn(false);
         }
@@ -360,7 +346,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
       return;
     }
 
-    // Validasi WhatsApp (ambil dari state donorPhone yang otomatis terisi jika login)
+    // Jika belum login, validasi nomor WhatsApp manual
     const cleanPhone = String(donorPhone || '').replace(/[^0-9]/g, '');
     if (!cleanPhone || cleanPhone.length < 9) {
       alert('Nomor WhatsApp wajib ada! Silakan lengkapi nomor WhatsApp Anda terlebih dahulu di menu Profil Akun.');
@@ -579,7 +565,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
             <DonationFormFields 
               donorName={donorName} setDonorName={setDonorName}
               donorPhone={donorPhone} setDonorPhone={setDonorPhone}
-              donorEmail={donorEmail} setDonorEmail={setDonorEmail}
+              donorEmail={donorEmail}
               amount={amount} setAmount={setAmount}
               handleDonate={handleDonate} submitting={submitting}
               isLoggedIn={isLoggedIn}

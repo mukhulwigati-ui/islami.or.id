@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortableText } from '@portabletext/react';
-import { ArrowLeft, Share2, Copy, Check, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Share2, Copy, Check, MessageCircle, Lock } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // Inisialisasi Supabase Client untuk Client-Side
@@ -157,7 +157,7 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
 }
 
 // ===================================================================
-// 3. FORM DONASI COMPONENT (Disesuaikan untuk DOKU)
+// 3. FORM DONASI COMPONENT (Disesuaikan untuk Google Login & DOKU)
 // ===================================================================
 interface FormProps {
   donorName: string;
@@ -170,6 +170,7 @@ interface FormProps {
   handleAmountChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDonate: () => Promise<void>;
   submitting: boolean;
+  isLoggedIn: boolean;
 }
 
 const DonationFormFields = ({
@@ -183,38 +184,66 @@ const DonationFormFields = ({
   handleAmountChange,
   handleDonate,
   submitting,
+  isLoggedIn,
 }: FormProps) => (
   <div className="space-y-4 text-left">
     <div>
-      <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nama Donatur</label>
+      <div className="flex justify-between items-center mb-1.5">
+        <label className="text-xs sm:text-sm font-semibold text-slate-700 block">Nama Donatur</label>
+        {isLoggedIn && (
+          <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+            <Lock className="w-3 h-3" /> Akun Google
+          </span>
+        )}
+      </div>
       <input
         type="text"
         placeholder="Hamba Allah (Boleh Kosong)"
-        className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium"
+        className={`w-full border px-3.5 py-2.5 text-sm sm:text-base font-medium transition ${
+          isLoggedIn 
+            ? 'bg-slate-100 border-gray-300 text-slate-700 cursor-not-allowed select-none' 
+            : 'bg-white border-gray-300 text-slate-800 focus:outline-[#0d5c91]'
+        }`}
         value={donorName}
-        onChange={(e) => setDonorName(e.target.value)}
+        onChange={(e) => !isLoggedIn && setDonorName(e.target.value)}
+        readOnly={isLoggedIn}
       />
     </div>
+
     <div>
       <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nomor WhatsApp</label>
       <input
         type="tel"
         placeholder="Contoh: 081234567890"
-        className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium"
+        className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white"
         value={donorPhone}
         onChange={(e) => setDonorPhone(e.target.value)}
       />
     </div>
+
     <div>
-      <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Email (Opsional)</label>
+      <div className="flex justify-between items-center mb-1.5">
+        <label className="text-xs sm:text-sm font-semibold text-slate-700 block">Email (Opsional)</label>
+        {isLoggedIn && (
+          <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+            <Lock className="w-3 h-3" /> Akun Google
+          </span>
+        )}
+      </div>
       <input
         type="email"
         placeholder="email@domain.com"
-        className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium"
+        className={`w-full border px-3.5 py-2.5 text-sm sm:text-base font-medium transition ${
+          isLoggedIn 
+            ? 'bg-slate-100 border-gray-300 text-slate-700 cursor-not-allowed select-none' 
+            : 'bg-white border-gray-300 text-slate-800 focus:outline-[#0d5c91]'
+        }`}
         value={donorEmail}
-        onChange={(e) => setDonorEmail(e.target.value)}
+        onChange={(e) => !isLoggedIn && setDonorEmail(e.target.value)}
+        readOnly={isLoggedIn}
       />
     </div>
+
     <div>
       <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nominal Infak / Zakat (Rp)</label>
       <div className="relative flex items-center">
@@ -229,6 +258,7 @@ const DonationFormFields = ({
       </div>
       <p className="text-xs text-slate-400 mt-1">Metode pembayaran akan dipilih di halaman resmi DOKU.</p>
     </div>
+
     <button
       onClick={handleDonate}
       disabled={submitting}
@@ -256,6 +286,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [donorName, setDonorName] = useState('');
   const [donorPhone, setDonorPhone] = useState('');  
   const [donorEmail, setDonorEmail] = useState('');  
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
@@ -263,15 +294,13 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // 🚀 Deteksi user login mutlak: Membaca langsung dari LocalStorage & Session Storage browser secara agresif
+  // 🚀 Deteksi user login mutlak: Membaca langsung dari akun aktif yang login tanpa hardcode statis
   useEffect(() => {
     async function resolveUserData() {
       try {
-        // 1. Coba ambil dari supabase standard getSession
         const { data: { session } } = await supabase.auth.getSession();
         let activeUser = session?.user;
 
-        // 2. Jika belum dapet, bedah seluruh key di localStorage browser untuk mencari token/data user login
         if (!activeUser && typeof window !== 'undefined') {
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
@@ -295,7 +324,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           }
         }
 
-        // 3. Jika user berhasil ditemukan, set otomatis state form
         if (activeUser) {
           const meta = activeUser.user_metadata || {};
           const emailVal = activeUser.email || '';
@@ -305,14 +333,17 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           setDonorEmail(emailVal);
           setDonorName(nameVal);
           setDonorPhone(phoneVal);
+          setIsLoggedIn(true); // 🚀 Menandakan user sudah terautentikasi Google
         } else {
-          // 4. FALLBACK AMAN: Jika akun mukhliswigati@gmail.com terdeteksi aktif di browser via cookie/storage lain, 
-          // kita sediakan fallback otomatis agar form tidak pernah kosong saat user sudah login
-          setDonorEmail('mukhulwigati@gmail.com');
-          setDonorName('Mukhul Wigati');
+          // Bersihkan total jika belum login (tidak ada data hardcode nyangkut)
+          setDonorEmail('');
+          setDonorName('');
+          setDonorPhone('');
+          setIsLoggedIn(false);
         }
       } catch (err) {
         console.error('Error resolving user data:', err);
+        setIsLoggedIn(false);
       }
     }
 
@@ -572,6 +603,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               donorEmail={donorEmail} setDonorEmail={setDonorEmail}
               amount={amount} handleAmountChange={handleAmountChange}
               handleDonate={handleDonate} submitting={submitting}
+              isLoggedIn={isLoggedIn}
             />
           </div>
         </div>

@@ -28,15 +28,21 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // 🚀 Autofill otomatis dari sesi login Supabase
+  // 🚀 Deteksi Sesi Login Aktif & Autofill Otomatis
   useEffect(() => {
     if (isOpen) {
-      async function getUserSession() {
+      async function checkUserSession() {
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (session && session.user) {
+            const user = session.user;
             const meta = user.user_metadata || {};
-            setDonorName(meta.full_name || meta.name || '');
+            
+            // Ambil nama dari metadata atau gunakan fallback dari email
+            const fallbackName = user.email ? user.email.split('@')[0] : '';
+            const finalName = meta.full_name || meta.name || meta.user_name || fallbackName;
+
+            setDonorName(finalName);
             setEmail(user.email || '');
             setPhone(meta.phone || meta.phone_number || '');
           }
@@ -44,7 +50,7 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
           console.error('Gagal memuat sesi user:', err);
         }
       }
-      getUserSession();
+      checkUserSession();
     }
   }, [isOpen]);
 

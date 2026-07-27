@@ -16,22 +16,24 @@ export async function GET() {
       sectionType,
       "image": image.asset->url,
       collectedAmount,
+      collectedRaw,
       targetAmount,
       daysLeft,
       description,
-      donors
+      donors,
+      reports
     }`;
 
     const sanityPrograms = await client.fetch(query);
 
     const formattedData = sanityPrograms.map((program: any) => {
-      // 🚀 Membaca collectedAmount yang di-update oleh webhook DOKU
-      const rawAmount = Number(program.collectedAmount || 0);
+      const rawAmount = Number(program.collectedAmount ?? program.collectedRaw ?? 0);
       const targetAmount = Number(program.targetAmount || 50000000);
       const donorsList = program.donors || [];
 
       return {
         id: program.id,
+        _id: program.id,
         slug: program.slug,
         title: program.title,
         category: program.category || 'Kemanusiaan',
@@ -45,7 +47,9 @@ export async function GET() {
         daysLeft: program.daysLeft || null,
         description: program.description || null,
         donors: donorsList,
-        donorsCount: donorsList.length, // 🚀 Total jumlah donatur untuk ditampilkan di card homepage
+        // 🚀 Memastikan donorsCount menghitung jumlah data yang masuk ke array donors secara akurat
+        donorsCount: donorsList.length,
+        reports: program.reports || []
       };
     });
 

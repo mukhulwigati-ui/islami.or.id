@@ -4,7 +4,7 @@ import { createDokuCheckout } from '@/lib/doku';
 import { createClient } from '@sanity/client';
 
 const serverClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'xqggeww8',
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   useCdn: false,
   apiVersion: '2024-01-01',
@@ -14,7 +14,7 @@ const serverClient = createClient({
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { donorName, amount, programId, phone, email } = body;
+    const { donorName, amount, programId, phone, email, fundraiserPhone } = body;
 
     // Bersihkan string nominal dari titik/koma/karakter lain agar menjadi angka murni
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
@@ -43,9 +43,11 @@ export async function POST(request: Request) {
       orderId,
       donorName: donorName || 'Hamba Allah',
       donorPhone: phone || '',
+      donorEmail: email || '',
       amount: cleanAmount,
+      fundraiserPhone: fundraiserPhone || '',
       
-      // 🚀 DIUBAH: Menyimpan programId sebagai format _reference yang valid ke Sanity
+      // Menyimpan programId sebagai format _reference yang valid ke Sanity
       programName: programId ? {
         _type: 'reference',
         _ref: programId,

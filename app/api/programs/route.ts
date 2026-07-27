@@ -8,15 +8,17 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    const query = `*[_type == "program"] | order(_createdAt desc) {
+    // 🚀 Diperbarui agar mendeteksi _type "program" maupun "campaign", serta menangkap variasi field gambar
+    const query = `*[_type in ["program", "campaign"]] | order(_createdAt desc) {
       "id": _id,
       "slug": slug.current,
       title,
       category,
       sectionType,
-      "image": image.asset->url,
+      "image": coalesce(image.asset->url, mainImage.asset->url, thumbnail.asset->url, banner.asset->url),
       collectedAmount,
       collectedRaw,
+      collected,
       targetAmount,
       daysLeft,
       description,
@@ -27,9 +29,9 @@ export async function GET() {
     const sanityPrograms = await client.fetch(query);
 
     const formattedData = sanityPrograms.map((program: any) => {
-      const rawAmount = Number(program.collectedAmount ?? program.collectedRaw ?? 0);
+      const rawAmount = Number(program.collectedAmount ?? program.collectedRaw ?? program.collected ?? 0);
       const targetAmount = Number(program.targetAmount || 50000000);
-      const donorsList = program.donors || [];
+      const donorsList = Array.isArray(program.donors) ? program.donors : [];
 
       return {
         id: program.id,
@@ -47,7 +49,7 @@ export async function GET() {
         daysLeft: program.daysLeft || null,
         description: program.description || null,
         donors: donorsList,
-        // 🚀 Memastikan donorsCount menghitung jumlah data yang masuk ke array donors secara akurat
+        // 🚀 Memastikan donorsCount menghitung panjang array donors dengan akurat
         donorsCount: donorsList.length,
         reports: program.reports || []
       };

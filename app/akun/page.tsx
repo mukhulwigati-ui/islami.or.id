@@ -25,7 +25,6 @@ export default function AkunPage() {
         router.push('/login');
       } else {
         setUser(user);
-        // Ambil data phone/whatsapp yang tersimpan di metadata jika ada
         const meta = user.user_metadata || {};
         setWhatsapp(meta.phone || meta.whatsapp || '');
       }
@@ -46,7 +45,6 @@ export default function AkunPage() {
         return;
       }
 
-      // Update user_metadata di Supabase Auth
       const { data, error } = await supabase.auth.updateUser({
         data: { phone: cleanPhone }
       });
@@ -83,18 +81,28 @@ export default function AkunPage() {
 
   const userMeta = user.user_metadata || {};
   const fullName = userMeta.full_name || userMeta.name || user.email?.split('@')[0] || 'Dermawan';
+  // 🚀 Ambil URL avatar dari Google Metadata (avatar_url atau picture)
+  const avatarUrl = userMeta.avatar_url || userMeta.picture;
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-md mx-auto space-y-5">
         <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Profil Saya</h1>
         
-        {/* Card Info Akun Google */}
+        {/* Card Info Akun Google dengan Avatar Asli */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-            <div className="w-10 h-10 bg-sky-50 text-[#0d5c91] rounded-full flex items-center justify-center font-bold text-base border border-sky-100">
-              {fullName.charAt(0).toUpperCase()}
-            </div>
+            {avatarUrl ? (
+              <img 
+                src={avatarUrl} 
+                alt={fullName} 
+                className="w-12 h-12 rounded-full object-cover border border-slate-200 shadow-inner shrink-0" 
+              />
+            ) : (
+              <div className="w-12 h-12 bg-sky-50 text-[#0d5c91] rounded-full flex items-center justify-center font-bold text-base border border-sky-100 shrink-0">
+                {fullName.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="overflow-hidden">
               <p className="text-sm font-bold text-slate-900 truncate">{fullName}</p>
               <p className="text-xs text-slate-400 truncate">{user.email}</p>

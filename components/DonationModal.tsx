@@ -28,53 +28,36 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // 🚀 Deteksi Sesi Login Aktif (Mendukung LocalStorage & Session API)
+  // 🚀 Eksekusi langsung pengecekan user saat modal terbuka
   useEffect(() => {
-    if (isOpen) {
-      async function loadUserData() {
-        try {
-          // 1. Coba ambil dari Supabase Auth Session API
-          const { data: { session } } = await supabase.auth.getSession();
+    if (!isOpen) return;
+
+    let isMounted = true;
+
+    async function fetchAuthUser() {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data?.user;
+
+        if (user && isMounted) {
+          const meta = user.user_metadata || {};
+          const userEmail = user.email || '';
+          const fullName = meta.full_name || meta.name || meta.user_name || userEmail.split('@')[0];
           
-          if (session?.user) {
-            const user = session.user;
-            const meta = user.user_metadata || {};
-            const emailVal = user.email || '';
-            const nameVal = meta.full_name || meta.name || meta.user_name || (emailVal ? emailVal.split('@')[0] : '');
-
-            setEmail(emailVal);
-            setDonorName(nameVal);
-            setPhone(meta.phone || meta.phone_number || '');
-            return;
-          }
-
-          // 2. Fallback: Cek localStorage jika session standar kosong
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-              const val = localStorage.getItem(key);
-              if (val) {
-                const parsed = JSON.parse(val);
-                const user = parsed?.user;
-                if (user) {
-                  const meta = user.user_metadata || {};
-                  const emailVal = user.email || '';
-                  const nameVal = meta.full_name || meta.name || meta.user_name || (emailVal ? emailVal.split('@')[0] : '');
-
-                  setEmail(emailVal);
-                  setDonorName(nameVal);
-                  setPhone(meta.phone || meta.phone_number || '');
-                  break;
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Gagal mengambil data user:', err);
+          setEmail(userEmail);
+          setDonorName(fullName);
+          setPhone(meta.phone || meta.phone_number || '');
         }
+      } catch (err) {
+        console.error('Error fetching auth user:', err);
       }
-      loadUserData();
     }
+
+    fetchAuthUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;

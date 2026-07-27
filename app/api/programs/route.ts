@@ -8,30 +8,45 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    // 🚀 Diperbarui agar mendeteksi _type "program" maupun "campaign", serta menangkap variasi field gambar
-    const query = `*[_type in ["program", "campaign"]] | order(_createdAt desc) {
-      "id": _id,
-      "slug": slug.current,
-      title,
-      category,
-      sectionType,
-      "image": coalesce(image.asset->url, mainImage.asset->url, thumbnail.asset->url, banner.asset->url),
-      collectedAmount,
-      collectedRaw,
-      collected,
-      targetAmount,
-      daysLeft,
-      description,
-      donors,
-      reports
+    // 🚀 Ambil data program/campaign sekaligus data transaksi sukses yang berelasi
+    const query = `{
+      "programs": *[_type in ["program", "campaign"]] | order(_createdAt desc) {
+        "id": _id,
+        "slug": slug.current,
+        title,
+        category,
+        sectionType,
+        "image": coalesce(image.asset->url, mainImage.asset->url, thumbnail.asset->url, banner.asset->url),
+        collectedAmount,
+        collectedRaw,
+        collected,
+        targetAmount,
+        daysLeft,
+        description,
+        donors,
+        reports
+      },
+      "transactions": *[_type == "donationTransaction" && status == "success"] {
+        amount,
+        donorName,
+        "programId": programName._ref
+      }
     }`;
 
-    const sanityPrograms = await client.fetch(query);
+    const result = await client.fetch(query);
+    const sanityPrograms = result.programs || [];
+    const successTransactions = result.transactions || [];
 
     const formattedData = sanityPrograms.map((program: any) => {
       const rawAmount = Number(program.collectedAmount ?? program.collectedRaw ?? program.collected ?? 0);
       const targetAmount = Number(program.targetAmount || 50000000);
-      const donorsList = Array.isArray(program.donors) ? program.donors : [];
+      
+      // 🚀 Hitung jumlah donatur berdasarkan transaksi sukses yang merujuk ke program ini
+      const programTransactions = successTransactions.filter((tx: any) => tx.programId === program.id);
+      const manualDonors = Array.isArray(program.donors) ? program.donors : [];
+      
+      // Total donatur adalah gabungan dari array donors di program + transaksi sukses real
+      const totalDonorsCount = Math.max(manualDonors.length, programTransactions.length);
 
       return {
         id: program.id,
@@ -48,9 +63,8 @@ export async function GET() {
         targetAmount: targetAmount,
         daysLeft: program.daysLeft || null,
         description: program.description || null,
-        donors: donorsList,
-        // 🚀 Memastikan donorsCount menghitung panjang array donors dengan akurat
-        donorsCount: donorsList.length,
+        donors: manualDonors,
+        donorsCount: totalDonorsCount,
         reports: program.reports || []
       };
     });

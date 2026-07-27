@@ -263,13 +263,44 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // 🚀 Otomatis deteksi user login langsung via client-side Supabase saat komponen dirender
+  // 🚀 Deteksi user login mutlak: Cek Supabase Auth Session + LocalStorage Fallback
   useEffect(() => {
     async function fetchLoggedUser() {
       try {
+        // 1. Coba ambil via Supabase getSession standar
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const user = session.user;
+        let user = session?.user;
+
+        // 2. Jika kosong, scan localStorage browser untuk mendeteksi token login aktif
+        if (!user && typeof window !== 'undefined') {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('sb-') || key.includes('auth-token'))) {
+              const val = localStorage.getItem(key);
+              if (val) {
+                try {
+                  const parsed = JSON.parse(val);
+                  if (parsed?.user) {
+                    user = parsed.user;
+                    break;
+                  } else if (parsed?.access_token) {
+                    // Jika token ditemukan tapi objek user terpisah, fetch user profile
+                    const { data } = await supabase.auth.getUser(parsed.access_token);
+                    if (data?.user) {
+                      user = data.user;
+                      break;
+                    }
+                  }
+                } catch (e) {
+                  // Skip jika parsing gagal
+                }
+              }
+            }
+          }
+        }
+
+        // 3. Jika user berhasil ditemukan dari salah satu metode di atas
+        if (user) {
           const meta = user.user_metadata || {};
           const emailVal = user.email || '';
           const nameVal = meta.full_name || meta.name || meta.user_name || (emailVal ? emailVal.split('@')[0] : '');
@@ -280,7 +311,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           setDonorPhone(phoneVal);
         }
       } catch (err) {
-        console.error('Gagal mengambil sesi user aktif:', err);
+        console.error('Gagal mendeteksi sesi aktif user:', err);
       }
     }
     fetchLoggedUser();

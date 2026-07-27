@@ -47,9 +47,10 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
                 <div className="flex-1 space-y-1.5 py-0.5">
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0d5c91] transition-colors">{item.title}</h3>
                   <div className="space-y-1">
-                    <p className="text-xs sm:text-sm font-extrabold text-[#0d5c91]">
-                      Rp {collected.toLocaleString('id-ID')}
-                    </p>
+                    <div className="flex justify-between text-xs">
+                      <span className="font-extrabold text-[#0d5c91]">Rp {collected.toLocaleString('id-ID')}</span>
+                      <span className="text-slate-500 font-medium">Donatur: <strong className="text-slate-800">{item.donorsCount || 0}</strong></span>
+                    </div>
                     <div className="w-full bg-gray-100 h-1.5 overflow-hidden">
                       <div className="bg-[#ff2e3b] h-full" style={{ width: `${percentage}%` }} />
                     </div>
@@ -95,9 +96,10 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
                   </div>
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0d5c91] transition-colors">{item.title}</h3>
                   <div className="space-y-1">
-                    <p className="text-xs sm:text-sm font-extrabold text-[#0d5c91]">
-                      Rp {collected.toLocaleString('id-ID')}
-                    </p>
+                    <div className="flex justify-between text-xs">
+                      <span className="font-extrabold text-[#0d5c91]">Rp {collected.toLocaleString('id-ID')}</span>
+                      <span className="text-slate-500 font-medium">Donatur: <strong className="text-slate-800">{item.donorsCount || 0}</strong></span>
+                    </div>
                     <div className="w-full bg-gray-200 h-1.5 overflow-hidden">
                       <div className="bg-[#ff2e3b] h-full" style={{ width: `${percentage}%` }} />
                     </div>
@@ -132,9 +134,10 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
                   </div>
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0d5c91] transition-colors">{item.title}</h3>
                   <div className="space-y-1">
-                    <p className="text-xs sm:text-sm font-extrabold text-[#0d5c91]">
-                      Terkumpul : Rp {collected.toLocaleString('id-ID')}
-                    </p>
+                    <div className="flex justify-between text-xs">
+                      <span className="font-extrabold text-[#0d5c91]">Rp {collected.toLocaleString('id-ID')}</span>
+                      <span className="text-slate-500 font-medium">Donatur: <strong className="text-slate-800">{item.donorsCount || 0}</strong></span>
+                    </div>
                     <div className="w-full bg-gray-200 h-1.5 overflow-hidden">
                       <div className="bg-[#ff2e3b] h-full" style={{ width: `${percentage}%` }} />
                     </div>

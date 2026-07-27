@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
-import { Phone, LogOut, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
+import { Phone, LogOut, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 export default function AkunPage() {
   const [user, setUser] = useState<any>(null);
@@ -12,6 +12,7 @@ export default function AkunPage() {
   const [whatsapp, setWhatsapp] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   const supabase = createBrowserClient(
@@ -20,27 +21,49 @@ export default function AkunPage() {
   );
 
   useEffect(() => {
-    const loadUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      setUser(user);
+    const loadData = async () => {
+      try {
+        const { data: { user }, error: userErr } = await supabase.auth.getUser();
+        if (userErr || !user) {
+          router.push('/login');
+          return;
+        }
+        setUser(user);
 
-      // Ambil data dari tabel profiles
-      const { data: profData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+        const meta = user.user_metadata || {};
+        const defaultName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Dermawan';
+        const defaultAvatar = meta.avatar_url || meta.picture || '';
 
-      if (profData) {
-        setProfile(profData);
-        setWhatsapp(profData.phone || '');
+        // Coba ambil dari tabel profiles
+        let { data: prof, error: profErr } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (!prof) {
+          // Jika belum ada barisnya, buat secara otomatis
+          const newProf = {
+            id: user.id,
+            email: user.email,
+            name: defaultName,
+            avatar: defaultAvatar,
+            phone: ''
+          };
+          await supabase.from('profiles').upsert(newProf);
+          prof = newProf;
+        }
+
+        setProfile(prof);
+        setWhatsapp(prof.phone || '');
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      } finally {
+        setLoading(false);
       }
     };
-    loadUserData();
+
+    loadData();
   }, [router, supabase]);
 
   const handleSaveWhatsapp = async (e: React.FormEvent) => {
@@ -56,7 +79,6 @@ export default function AkunPage() {
         return;
       }
 
-      // Update langsung ke tabel profiles
       const { error } = await supabase
         .from('profiles')
         .update({ phone: cleanPhone, updated_at: new Date().toISOString() })
@@ -80,15 +102,19 @@ export default function AkunPage() {
     router.refresh();
   };
 
-  if (!user || !profile) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
-          <Loader2 className="w-5 h-5 animate-spin text-[#0d5c91]" /> Memuat profil...
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest animate-pulse">
+          Memuat profil...
         </div>
       </div>
     );
   }
+
+  const displayName = profile?.name || user?.email?.split('@')[0] || 'Dermawan';
+  const displayEmail = profile?.email || user?.email || '';
+  const displayAvatar = profile?.avatar || '';
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
@@ -98,23 +124,23 @@ export default function AkunPage() {
         {/* Card Info Akun */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-            {profile.avatar ? (
-              <img src={profile.avatar} alt={profile.name} className="w-12 h-12 rounded-full object-cover border border-slate-200 shrink-0" />
+            {displayAvatar ? (
+              <img src={displayAvatar} alt={displayName} className="w-12 h-12 rounded-full object-cover border border-slate-200 shrink-0" />
             ) : (
               <div className="w-12 h-12 bg-sky-50 text-[#0d5c91] rounded-full flex items-center justify-center font-bold text-base border border-sky-100 shrink-0">
-                {(profile.name || 'D').charAt(0).toUpperCase()}
+                {displayName.charAt(0).toUpperCase()}
               </div>
             )}
             <div className="overflow-hidden">
-              <p className="text-sm font-bold text-slate-900 truncate">{profile.name}</p>
-              <p className="text-xs text-slate-400 truncate">{profile.email}</p>
+              <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
+              <p className="text-xs text-slate-400 truncate">{displayEmail}</p>
             </div>
           </div>
 
           <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Status Keanggotaan</label>
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" /> Terhubung dengan Google Auth & Database Profiles
+              <ShieldCheck className="w-4 h-4 text-emerald-600" /> Terhubung dengan Google Auth
             </div>
           </div>
         </div>

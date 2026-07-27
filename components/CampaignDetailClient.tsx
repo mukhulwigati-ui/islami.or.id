@@ -235,13 +235,27 @@ const DonationFormFields = ({
 // ===================================================================
 // 4. MAIN DETAIL CLIENT COMPONENT (MOBILE-FIRST)
 // ===================================================================
-export default function CampaignDetailClient({ slug, referral }: { slug: string; referral: string | null }) {
+interface InitialUser {
+  email: string;
+  name: string;
+  phone: string;
+}
+
+interface CampaignDetailClientProps {
+  slug: string;
+  referral: string | null;
+  initialUser?: InitialUser;
+}
+
+export default function CampaignDetailClient({ slug, referral, initialUser }: CampaignDetailClientProps) {
   const [program, setProgram] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
-  const [donorName, setDonorName] = useState('');
-  const [donorPhone, setDonorPhone] = useState(''); 
-  const [donorEmail, setDonorEmail] = useState(''); 
+  
+  // 🚀 Inisialisasi state dengan data login server jika tersedia
+  const [donorName, setDonorName] = useState(initialUser?.name || (initialUser?.email ? initialUser.email.split('@')[0] : ''));
+  const [donorPhone, setDonorPhone] = useState(initialUser?.phone || '');  
+  const [donorEmail, setDonorEmail] = useState(initialUser?.email || '');  
   const [submitting, setSubmitting] = useState(false);
   
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
@@ -250,7 +264,6 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
   useEffect(() => {
-    // 🚀 Menggunakan timestamp (?t=...) dan cache: 'no-store' agar tidak ada data cache yang tertinggal
     fetch(`/api/programs?t=${Date.now()}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((json) => {

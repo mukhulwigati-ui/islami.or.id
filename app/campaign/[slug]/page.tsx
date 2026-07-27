@@ -2,7 +2,6 @@
 import { Metadata } from 'next';
 import CampaignDetailClient from '@/components/CampaignDetailClient';
 import { createClient } from '@sanity/client';
-import { cookies } from 'next/headers';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -110,45 +109,10 @@ export default async function CampaignPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const { ref } = await searchParams;
 
-  // 🚀 Deteksi session user secara manual dari cookie tanpa helper eksternal
-  let userEmail = '';
-  let userName = '';
-  let userPhone = '';
-
-  try {
-    const cookieStore = await cookies();
-    // Cari cookie auth supabase yang tersimpan di browser
-    const allCookies = cookieStore.getAll();
-    for (const cookie of allCookies) {
-      if (cookie.name.includes('auth-token') || cookie.name.startsWith('sb-')) {
-        try {
-          const parsed = JSON.parse(cookie.value);
-          const user = parsed?.user || parsed;
-          if (user?.email) {
-            userEmail = user.email;
-            const meta = user.user_metadata || {};
-            userName = meta.full_name || meta.name || meta.user_name || userEmail.split('@')[0];
-            userPhone = meta.phone || meta.phone_number || '';
-            break;
-          }
-        } catch (e) {
-          // Abaikan jika format cookie bukan JSON murni
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Gagal membaca cookie session:', err);
-  }
-
   return (
     <CampaignDetailClient 
       slug={slug} 
       referral={ref || null} 
-      initialUser={{
-        email: userEmail,
-        name: userName,
-        phone: userPhone,
-      }}
     />
   );
 }

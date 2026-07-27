@@ -297,11 +297,12 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
 
   // Deteksi sesi login Supabase secara instan dan akurat
   useEffect(() => {
-    async function checkUserSession() {
+    async function resolveUserFast() {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (user && !error) {
+        if (session?.user) {
+          const user = session.user;
           const emailVal = user.email || '';
           const meta = user.user_metadata || {};
           const nameVal = meta.full_name || meta.name || emailVal.split('@')[0];
@@ -310,18 +311,18 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           setDonorEmail(emailVal);
           setDonorName(nameVal);
           setDonorPhone(phoneVal);
-          setIsLoggedIn(true); 
+          setIsLoggedIn(true);
         } else {
           setIsLoggedIn(false);
         }
       } catch (err) {
-        console.error('Gagal mendeteksi sesi user:', err);
+        console.error('Session error:', err);
         setIsLoggedIn(false);
       }
     }
 
-    checkUserSession();
-  }, []);
+    resolveUserFast();
+  }, [isMobileFormOpen]); // 🚀 Dijalankan setiap kali modal popup donasi dibuka!
 
   useEffect(() => {
     fetch(`/api/programs?t=${Date.now()}`, { cache: 'no-store' })

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { donorName, amount, programId, phone, email } = body;
 
-    // 🚀 Bersihkan string nominal dari titik/koma/karakter lain agar menjadi angka murni
+    // Bersihkan string nominal dari titik/koma/karakter lain agar menjadi angka murni
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
 
     if (!cleanAmount || cleanAmount <= 0) {
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       notifyUrl: `${baseUrl}/api/doku/webhook`,
     });
 
-    // 2. Simpan record transaksi awal berstatus pending ke Sanity CMS
+    // 2. Simpan record transaksi awal berstatus pending ke Sanity CMS dengan Reference Program
     await serverClient.create({
       _type: 'donationTransaction',
       orderId,
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       donorPhone: phone || '',
       amount: cleanAmount,
       
-      // 🚀 DIPERBAIKI: Mengirim programName sebagai object Reference agar cocok dengan skema Sanity
+      // 🚀 DIUBAH: Menyimpan programId sebagai format _reference yang valid ke Sanity
       programName: programId ? {
         _type: 'reference',
         _ref: programId,
@@ -53,7 +53,6 @@ export async function POST(request: Request) {
 
       status: 'pending',
       paymentUrl: dokuResponse.paymentUrl,
-      // 🚀 Dipastikan dikonversi menjadi string murni untuk mencegah error range
       transactionId: String(dokuResponse.transactionId || ''),
     });
 

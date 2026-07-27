@@ -278,13 +278,21 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
       return;
     }
 
+    // 🚀 Ambil ID program secara aman dengan mengecek _id atau id
+    const resolvedProgramId = program?._id || program?.id;
+
+    if (!resolvedProgramId) {
+      alert('ID Program tidak ditemukan. Silakan refresh halaman.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch('/api/donate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          programId: program?._id,
+          programId: resolvedProgramId, // 🚀 Dikirim secara akurat ke backend
           programTitle: program?.title || 'Sedekah Umum',
           slug: program?.slug,
           amount: cleanAmount,
@@ -331,7 +339,6 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
   );
 
   const rawTarget = program.targetAmount || 50000000;
-  // 🚀 Diperbarui menggunakan field collectedAmount agar sinkron dengan skema Sanity terbaru
   const currentCollected = Number(program.collectedAmount || 0);
   const percentage = Math.min(Math.round((currentCollected / rawTarget) * 100), 100);
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';

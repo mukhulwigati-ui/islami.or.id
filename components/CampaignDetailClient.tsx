@@ -288,50 +288,61 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // 🚀 Deteksi user login mutlak: Membaca langsung dari akun aktif Supabase / localStorage
+  // 🚀 Deteksi user login yang disesuaikan dengan penyimpanan login Anda
   useEffect(() => {
-    async function resolveUserData() {
+    function resolveUserData() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        let activeUser = session?.user;
+        let activeUser = null;
 
-        if (!activeUser && typeof window !== 'undefined') {
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (key.includes('supabase.auth.token') || key.startsWith('sb-') || key.includes('auth'))) {
-              try {
-                const item = localStorage.getItem(key);
-                if (item) {
-                  const parsed = JSON.parse(item);
-                  if (parsed?.user) {
-                    activeUser = parsed.user;
-                    break;
-                  } else if (parsed?.currentSession?.user) {
-                    activeUser = parsed.currentSession.user;
-                    break;
+        // 1. Cek apakah ada data user yang disimpan di localStorage oleh halaman /login
+        if (typeof window !== 'undefined') {
+          // Cari kunci umum yang biasa dipakai untuk menyimpan data user login
+          const savedUser = localStorage.getItem('user') || localStorage.getItem('supabase.auth.token') || localStorage.getItem('sb-auth-token');
+          
+          if (savedUser) {
+            try {
+              const parsed = JSON.parse(savedUser);
+              activeUser = parsed?.user || parsed?.currentSession?.user || parsed;
+            } catch (e) {
+              // Jika data di localStorage ternyata berupa string biasa atau token mentah
+              activeUser = { email: savedUser };
+            }
+          }
+
+          // 2. Cek juga key localStorage satu per satu jika belum ketemu
+          if (!activeUser) {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && (key.includes('auth') || key.includes('sb-') || key.includes('user'))) {
+                const val = localStorage.getItem(key);
+                if (val && val.includes('@')) {
+                  try {
+                    const parsed = JSON.parse(val);
+                    if (parsed?.email || parsed?.user?.email) {
+                      activeUser = parsed.user || parsed;
+                      break;
+                    }
+                  } catch (err) {
+                    // Kalau string email mentah
                   }
                 }
-              } catch (e) {
-                // Ignore parse error
               }
             }
           }
         }
 
-        if (activeUser) {
-          const meta = activeUser.user_metadata || {};
-          const emailVal = activeUser.email || '';
-          const nameVal = meta.full_name || meta.name || meta.user_name || (emailVal ? emailVal.split('@')[0] : '');
+        // Jika user terdeteksi memiliki sesi/email login
+        if (activeUser && (activeUser.email || typeof activeUser === 'string')) {
+          const emailVal = activeUser.email || activeUser;
+          const meta = activeUser.user_metadata || activeUser;
+          const nameVal = meta.full_name || meta.name || emailVal.split('@')[0];
           const phoneVal = meta.phone || meta.phone_number || '';
 
           setDonorEmail(emailVal);
           setDonorName(nameVal);
           setDonorPhone(phoneVal);
-          setIsLoggedIn(true); // 🚀 Menandakan user sudah terautentikasi Google
+          setIsLoggedIn(true); // 🚀 Berhasil memaksa status menjadi TERHUBUNG/LOGIN
         } else {
-          setDonorEmail('');
-          setDonorName('');
-          setDonorPhone('');
           setIsLoggedIn(false);
         }
       } catch (err) {

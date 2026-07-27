@@ -28,29 +28,52 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // 🚀 Deteksi Sesi Login Aktif & Autofill Otomatis
+  // 🚀 Deteksi Sesi Login Aktif (Mendukung LocalStorage & Session API)
   useEffect(() => {
     if (isOpen) {
-      async function checkUserSession() {
+      async function loadUserData() {
         try {
-          const { data: { session }, error } = await supabase.auth.getSession();
-          if (session && session.user) {
+          // 1. Coba ambil dari Supabase Auth Session API
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session?.user) {
             const user = session.user;
             const meta = user.user_metadata || {};
-            
-            // Ambil nama dari metadata atau gunakan fallback dari email
-            const fallbackName = user.email ? user.email.split('@')[0] : '';
-            const finalName = meta.full_name || meta.name || meta.user_name || fallbackName;
+            const emailVal = user.email || '';
+            const nameVal = meta.full_name || meta.name || meta.user_name || (emailVal ? emailVal.split('@')[0] : '');
 
-            setDonorName(finalName);
-            setEmail(user.email || '');
+            setEmail(emailVal);
+            setDonorName(nameVal);
             setPhone(meta.phone || meta.phone_number || '');
+            return;
+          }
+
+          // 2. Fallback: Cek localStorage jika session standar kosong
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+              const val = localStorage.getItem(key);
+              if (val) {
+                const parsed = JSON.parse(val);
+                const user = parsed?.user;
+                if (user) {
+                  const meta = user.user_metadata || {};
+                  const emailVal = user.email || '';
+                  const nameVal = meta.full_name || meta.name || meta.user_name || (emailVal ? emailVal.split('@')[0] : '');
+
+                  setEmail(emailVal);
+                  setDonorName(nameVal);
+                  setPhone(meta.phone || meta.phone_number || '');
+                  break;
+                }
+              }
+            }
           }
         } catch (err) {
-          console.error('Gagal memuat sesi user:', err);
+          console.error('Gagal mengambil data user:', err);
         }
       }
-      checkUserSession();
+      loadUserData();
     }
   }, [isOpen]);
 

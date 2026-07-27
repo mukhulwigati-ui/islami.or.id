@@ -2,24 +2,24 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Heart, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
+import { X, Heart, ShieldCheck, ArrowRight, Loader2, Lock } from 'lucide-react';
 
 interface DonationModalProps {
   isOpen: boolean;
   onClose: () => void;
   programId?: string;
   programTitle?: string;
-  defaultName?: string; // 🚀 Ditambahkan props data langsung
+  defaultName?: string;
   defaultEmail?: string;
   defaultPhone?: string;
 }
 
 const PRESET_AMOUNTS = [10000, 25000, 50000, 100000, 250000, 500000];
 
-export default function DonationModal({ 
-  isOpen, 
-  onClose, 
-  programId, 
+export default function DonationModal({  
+  isOpen,  
+  onClose,  
+  programId,  
   programTitle,
   defaultName = '',
   defaultEmail = '',
@@ -33,14 +33,27 @@ export default function DonationModal({
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // 🚀 Otomatis isi state saat modal dibuka berdasarkan props yang dikirim induknya
+  // 🚀 Cek apakah user sedang login via Google berdasarkan ketersediaan defaultEmail/defaultName
+  const isGoogleLoggedIn = Boolean(defaultEmail.trim());
+
+  // 🚀 Sinkronisasi state saat modal dibuka
   useEffect(() => {
     if (isOpen) {
-      setDonorName(defaultName || (defaultEmail ? defaultEmail.split('@')[0] : ''));
-      setEmail(defaultEmail);
-      setPhone(defaultPhone);
+      if (isGoogleLoggedIn) {
+        setDonorName(defaultName || defaultEmail.split('@')[0]);
+        setEmail(defaultEmail);
+        setPhone(defaultPhone || '');
+      } else {
+        // Jika tidak login, kosongkan form agar bersih total
+        setDonorName('');
+        setEmail('');
+        setPhone('');
+      }
+      setAmount(50000);
+      setCustomAmount('');
+      setErrorMsg('');
     }
-  }, [isOpen, defaultName, defaultEmail, defaultPhone]);
+  }, [isOpen, defaultName, defaultEmail, defaultPhone, isGoogleLoggedIn]);
 
   if (!isOpen) return null;
 
@@ -168,16 +181,28 @@ export default function DonationModal({
             </div>
           </div>
 
-          {/* Form Data Donatur */}
+          {/* Form Data Donatur (Otomatis dari Google jika Login) */}
           <div className="space-y-3 pt-1 border-t border-slate-100">
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-700 block">Nama Lengkap / Inisial</label>
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-bold text-slate-700 block">Nama Lengkap / Inisial</label>
+                {isGoogleLoggedIn && (
+                  <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> Akun Google
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 placeholder="Kosongkan jika ingin sebagai Hamba Allah"
                 value={donorName}
-                onChange={(e) => setDonorName(e.target.value)}
-                className="w-full px-3 py-2 text-xs text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-600 focus:bg-white transition"
+                onChange={(e) => !isGoogleLoggedIn && setDonorName(e.target.value)}
+                readOnly={isGoogleLoggedIn} // 🚀 Dikunci otomatis jika login Google
+                className={`w-full px-3 py-2 text-xs text-slate-900 border border-slate-200 rounded-xl transition ${
+                  isGoogleLoggedIn 
+                    ? 'bg-slate-100 text-slate-700 cursor-not-allowed select-none' 
+                    : 'bg-slate-50 focus:outline-none focus:border-emerald-600 focus:bg-white'
+                }`}
               />
             </div>
 
@@ -194,13 +219,25 @@ export default function DonationModal({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-700 block">Email (Opsional)</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-bold text-slate-700 block">Email</label>
+                  {isGoogleLoggedIn && (
+                    <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Akun Google
+                    </span>
+                  )}
+                </div>
                 <input
                   type="email"
                   placeholder="email@domain.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 text-xs text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-600 focus:bg-white transition"
+                  onChange={(e) => !isGoogleLoggedIn && setEmail(e.target.value)}
+                  readOnly={isGoogleLoggedIn} // 🚀 Dikunci otomatis jika login Google
+                  className={`w-full px-3 py-2 text-xs text-slate-900 border border-slate-200 rounded-xl transition ${
+                    isGoogleLoggedIn 
+                      ? 'bg-slate-100 text-slate-700 cursor-not-allowed select-none' 
+                      : 'bg-slate-50 focus:outline-none focus:border-emerald-600 focus:bg-white'
+                  }`}
                 />
               </div>
             </div>

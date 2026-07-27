@@ -328,36 +328,32 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
   // Deteksi user login & otomatis ambil Nama, Email, dan WhatsApp dari akun
+  // 🚀 Deteksi user aktif secara instan dan akurat
   useEffect(() => {
-    async function resolveUserData() {
+    async function checkUserSession() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        let activeUser = session?.user;
-
-        if (activeUser) {
-          const meta = activeUser.user_metadata || {};
-          const emailVal = activeUser.email || '';
-          const nameVal = meta.full_name || meta.name || meta.user_name || (emailVal ? emailVal.split('@')[0] : '');
-          // Mengambil No. WhatsApp yang sudah disimpan user di halaman Profil Akun
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (user && !error) {
+          const emailVal = user.email || '';
+          const meta = user.user_metadata || {};
+          const nameVal = meta.full_name || meta.name || emailVal.split('@')[0];
           const phoneVal = meta.phone || meta.whatsapp || meta.phone_number || '';
 
           setDonorEmail(emailVal);
           setDonorName(nameVal);
           setDonorPhone(phoneVal);
-          setIsLoggedIn(true); 
+          setIsLoggedIn(true); // 🚀 Berhasil mendeteksi bahwa user sudah login!
         } else {
-          setDonorEmail('');
-          setDonorName('');
-          setDonorPhone('');
           setIsLoggedIn(false);
         }
       } catch (err) {
-        console.error('Error resolving user data:', err);
+        console.error('Gagal mendeteksi sesi user:', err);
         setIsLoggedIn(false);
       }
     }
 
-    resolveUserData();
+    checkUserSession();
   }, []);
 
   useEffect(() => {

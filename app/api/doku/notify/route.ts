@@ -27,15 +27,6 @@ export async function POST(req: Request) {
       0
     );
 
-    // Ambil status dari berbagai variasi payload DOKU
-    const rawStatus = String(
-      body.transaction_status || 
-      body.status || 
-      body.result?.status || 
-      body.order?.status || 
-      'success'
-    ).toLowerCase();
-
     if (!orderId) {
       console.error('❌ ERROR: Order ID / Invoice kosong dari payload DOKU!');
       return NextResponse.json({ status: 'FAILED', message: 'Order ID not found' }, { status: 400 });
@@ -52,13 +43,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'NOT_FOUND' }, { status: 404 });
     }
 
-    // 2. Update status pembayaran menjadi 'success' pada tabel transaksi jika belum
+    // 2. Update status pembayaran menjadi 'success' pada tabel transaksi
     if (donationDoc.status !== 'success') {
       await sanityClient.patch(donationDoc._id).set({ status: 'success' }).commit();
-      console.log('✅ Status transaksi berhasil diubah menjadi success.');
+      console.log('✅ Status transaksi berhasil diubah menjadi success di Sanity.');
     }
 
-    // 3. Ambil Program ID dari reference programName._ref (atau fallback ke program pertama)
+    // 3. Ambil Program ID dari reference programName._ref (fallback ke program pertama)
     let programId = donationDoc.programName?._ref;
 
     if (!programId) {
@@ -68,46 +59,43 @@ export async function POST(req: Request) {
       }
     }
 
-    if (!programId) {
-      console.error('❌ ERROR: Tidak ada dokumen program ditemukan di Sanity!');
-      return NextResponse.json({ status: 'NO_PROGRAM_FOUND' }, { status: 400 });
-    }
-
-    // 4. Ambil data program, update collectedAmount, dan masukkan ke array donors
-    const programDoc = await sanityClient.fetch(`*[_id == $id][0]`, { id: programId });
-    
+    let programDoc = null;
     let finalAmount = amount > 0 ? amount : Number(donationDoc.amount || 0);
 
-    if (programDoc) {
-      const currentCollected = Number(programDoc.collectedAmount || 0);
-      const newCollected = currentCollected + finalAmount;
+    if (programId) {
+      programDoc = await sanityClient.fetch(`*[_id == $id][0]`, { id: programId });
+      
+      if (programDoc) {
+        const currentCollected = Number(programDoc.collectedAmount || 0);
+        const newCollected = currentCollected + finalAmount;
 
-      const newDonorEntry = {
-        _key: Math.random().toString(36).substring(2),
-        name: donationDoc.donorName || 'Hamba Allah',
-        amount: finalAmount,
-        date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
-      };
+        const newDonorEntry = {
+          _key: Math.random().toString(36).substring(2),
+          name: donationDoc.donorName || 'Hamba Allah',
+          amount: finalAmount,
+          date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+        };
 
-      await sanityClient
-        .patch(programId)
-        .set({ collectedAmount: newCollected })
-        .append('donors', [newDonorEntry])
-        .commit();
+        await sanityClient
+          .patch(programId)
+          .set({ collectedAmount: newCollected })
+          .append('donors', [newDonorEntry])
+          .commit();
 
-      console.log(`🎉 SUKSES BESAR! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}. Total terkumpul: Rp ${newCollected}`);
+        console.log(`🎉 SUKSES! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}. Total terkumpul: Rp ${newCollected}`);
+      }
     }
 
-    // 5. 🚀 KIRIM NOTIFIKASI WHATSAPP OTOMATIS MENGGUNAKAN FONNTE
-    const donorPhone = donationDoc.donorPhone; // Mengambil langsung dari field schema 'donorPhone'
-    const donorName = donationDoc.donorName || 'Hamba Allah';
-    const programTitle = programDoc?.title || 'Program Kebaikan';
-    const formattedAmount = finalAmount.toLocaleString('id-ID');
+    // 4. 🚀 EKSEKUSI KIRIM WHATSAPP OTOMATIS KE DONATUR (Terisolasi agar aman dari error lain)
+    try {
+      const donorPhone = donationDoc.donorPhone;
+      const donorName = donationDoc.donorName || 'Hamba Allah';
+      const programTitle = programDoc?.title || 'Program Kebaikan';
+      const formattedAmount = finalAmount.toLocaleString('id-ID');
 
-    console.log('📱 Memproses pengiriman WA Fonnte ke nomor:', donorPhone);
+      console.log('📱 MEMULAI PENGIRIMAN WA. Nomor Target:', donorPhone);
 
-    if (donorPhone) {
-      try {
+      if (donorPhone) {
         let formattedPhone = String(donorPhone).replace(/[^0-9]/g, '');
         if (formattedPhone.startsWith('0')) {
           formattedPhone = '62' + formattedPhone.slice(1);
@@ -115,10 +103,14 @@ export async function POST(req: Request) {
 
         const waMessage = `Jazakumullah khairan, *${donorName}*.\n\nAlhamdulillah, donasi Anda sebesar *Rp ${formattedAmount}* untuk program *${programTitle}* telah berhasil diverifikasi.\n\nSemoga menjadi amal jariyah yang mengalir pahalanya dan mendatangkan keberkahan. Aamiin. 🚀`;
 
+        // 🚀 Membaca FONNTE_TOKEN dari Vercel dengan fallback ke WHATSAPP_API_TOKEN
+        const fonnteToken = process.env.FONNTE_TOKEN || process.env.WHATSAPP_API_TOKEN;
+        console.log('🔑 Token Fonnte terdeteksi (panjang karakter):', fonnteToken ? fonnteToken.length : 'KOSONG!');
+
         const fonnteRes = await fetch('https://api.fonnte.com/send', {
           method: 'POST',
           headers: {
-            'Authorization': process.env.WHATSAPP_API_TOKEN || '',
+            'Authorization': fonnteToken || '',
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -129,12 +121,12 @@ export async function POST(req: Request) {
         });
 
         const fonnteJson = await fonnteRes.json();
-        console.log('🚀 RESPON FONNTE API:', JSON.stringify(fonnteJson));
-      } catch (waError) {
-        console.error('🔥 GAGAL KIRIM WA VIA FONNTE:', waError);
+        console.log('🚀 RESPON DARI SERVER FONNTE:', JSON.stringify(fonnteJson));
+      } else {
+        console.log('⚠️ Nomor WhatsApp donatur kosong, pengiriman WA dilewati.');
       }
-    } else {
-      console.log('⚠️ Nomor WhatsApp donatur kosong pada dokumen transaksi ini.');
+    } catch (waInnerErr) {
+      console.error('🔥 TERJADI ERROR SAAT KIRIM WA:', waInnerErr);
     }
 
     return NextResponse.json({ status: 'SUCCESS' }, { status: 200 });

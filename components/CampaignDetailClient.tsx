@@ -317,31 +317,37 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // Deteksi Sesi Login Supabase Otomatis
+  // Deteksi user login & otomatis ambil Nama, Email, dan WhatsApp dari akun
   useEffect(() => {
-    async function checkUserSession() {
+    async function resolveUserData() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session && session.user) {
-          const user = session.user;
-          const emailVal = user.email || '';
-          const meta = user.user_metadata || {};
-          const nameVal = meta.full_name || meta.name || emailVal.split('@')[0];
-          const phoneVal = meta.phone || meta.phone_number || '';
+        let activeUser = session?.user;
+
+        if (activeUser) {
+          const meta = activeUser.user_metadata || {};
+          const emailVal = activeUser.email || '';
+          const nameVal = meta.full_name || meta.name || meta.user_name || (emailVal ? emailVal.split('@')[0] : '');
+          // Mengambil No. WhatsApp yang sudah disimpan user di halaman Profil Akun
+          const phoneVal = meta.phone || meta.whatsapp || meta.phone_number || '';
 
           setDonorEmail(emailVal);
           setDonorName(nameVal);
           setDonorPhone(phoneVal);
-          setIsLoggedIn(true);
+          setIsLoggedIn(true); 
         } else {
+          setDonorEmail('');
+          setDonorName('');
+          setDonorPhone('');
           setIsLoggedIn(false);
         }
       } catch (err) {
-        console.error('Error session:', err);
+        console.error('Error resolving user data:', err);
         setIsLoggedIn(false);
       }
     }
-    checkUserSession();
+
+    resolveUserData();
   }, []);
 
   useEffect(() => {
@@ -363,21 +369,19 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const handleDonate = async () => {
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
 
-    // 🚀 VALIDASI NOMINAL
     if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
       alert('Masukkan nominal minimal Rp 1.000!');
       return;
     }
 
-    // 🚀 VALIDASI NOMOR WHATSAPP (Wajib diisi dan minimal 9 digit angka)
+    // Validasi WhatsApp (ambil dari state donorPhone yang otomatis terisi jika login)
     const cleanPhone = String(donorPhone || '').replace(/[^0-9]/g, '');
     if (!cleanPhone || cleanPhone.length < 9) {
-      alert('Silakan masukkan Nomor WhatsApp yang valid untuk menerima laporan donasi!');
+      alert('Nomor WhatsApp wajib ada! Silakan lengkapi nomor WhatsApp Anda terlebih dahulu di menu Profil Akun.');
       return;
     }
 
     const resolvedProgramId = program?._id || program?.id;
-
     if (!resolvedProgramId) {
       alert('ID Program tidak ditemukan. Silakan refresh halaman.');
       return;

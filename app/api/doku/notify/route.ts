@@ -72,9 +72,9 @@ export async function POST(req: Request) {
       const finalAmount = amount > 0 ? amount : Number(donationDoc.amount || 0);
       const newCollected = currentCollected + finalAmount;
 
-      // Data donatur baru yang akan dimasukkan ke list
+      // Data donatur baru yang akan dimasukkan ke list (Diperbaiki di sini)
       const newDonorEntry = {
-        _key: Math.random().toString(36.substring(2)), // Unique key untuk item array Sanity
+        _key: Math.random().toString(36).substring(2), // 🚀 Diperbaiki kurungnya
         name: donationDoc.donorName || 'Hamba Allah',
         amount: finalAmount,
         date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
       await sanityClient
         .patch(programId)
         .set({ collectedAmount: newCollected })
-        .append('donors', [newDonorEntry]) // Otomatis menambahkan donatur ke list
+        .append('donors', [newDonorEntry])
         .commit();
 
       console.log(`🎉 SUKSES BESAR! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}. Total terkumpul: Rp ${newCollected}`);

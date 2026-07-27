@@ -1,8 +1,9 @@
 // components/DonationModal.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Heart, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
 interface DonationModalProps {
   isOpen: boolean;
@@ -13,6 +14,12 @@ interface DonationModalProps {
 
 const PRESET_AMOUNTS = [10000, 25000, 50000, 100000, 250000, 500000];
 
+// Inisialisasi Supabase Client (Aman digunakan di Client Side)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
+
 export default function DonationModal({ isOpen, onClose, programId, programTitle }: DonationModalProps) {
   const [amount, setAmount] = useState<number>(50000);
   const [customAmount, setCustomAmount] = useState<string>('');
@@ -21,6 +28,26 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
   const [email, setEmail] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
+
+  // 🚀 Autofill data jika user sudah login via Supabase Auth
+  useEffect(() => {
+    if (isOpen) {
+      async function fetchUserSession() {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const meta = user.user_metadata || {};
+            setDonorName(meta.full_name || meta.name || '');
+            setEmail(user.email || '');
+            setPhone(meta.phone || meta.phone_number || '');
+          }
+        } catch (err) {
+          console.error('Gagal mengambil sesi user:', err);
+        }
+      }
+      fetchUserSession();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -67,7 +94,7 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
         throw new Error(data.message || 'Gagal memproses transaksi.');
       }
 
-      // Redirect langsung ke URL pembayaran iPaymu
+      // Redirect langsung ke URL pembayaran DOKU / Gateway
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
       } else {
@@ -88,7 +115,7 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
         {/* Tombol Tutup */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition"
+          className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition cursor-pointer"
           aria-label="Tutup"
         >
           <X className="w-4 h-4" />
@@ -122,7 +149,7 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
                   key={val}
                   type="button"
                   onClick={() => handlePresetClick(val)}
-                  className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                  className={`py-2 px-3 text-xs font-bold rounded-xl border transition cursor-pointer ${
                     amount === val && !customAmount
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
@@ -190,7 +217,7 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
           {/* Info Keamanan */}
           <div className="flex items-center gap-2 text-[10px] text-slate-500 bg-sky-50/50 p-2.5 rounded-xl border border-sky-100">
             <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
-            <span>Transaksi aman, terverifikasi otomatis, dan didukung gateway pembayaran resmi iPaymu.</span>
+            <span>Transaksi aman, terverifikasi otomatis, dan didukung gateway pembayaran resmi DOKU.</span>
           </div>
 
           {/* Tombol Submit */}

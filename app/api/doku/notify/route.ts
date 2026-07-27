@@ -1,6 +1,7 @@
 // app/api/doku/notify/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from 'next-sanity';
+import { google } from 'googleapis';
 
 const sanityClient = createClient({
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
       0
     );
 
-    // Ambil informasi channel pembayaran (Metode) jika ada dari DOKU
+    // Ambil informasi channel pembayaran (Metode) dari DOKU
     const paymentMethod = 
       body.payment?.method || 
       body.channel?.id || 
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'FAILED', message: 'Order ID not found' }, { status: 400 });
     }
 
-    // 1. Cari data transaksi donasi berdasarkan orderId
+    // 1. Cari data transaksi donasi berdasarkan orderId di Sanity
     const donationDoc = await sanityClient.fetch(
       `*[_type == "donationTransaction" && orderId == $orderId][0]`,
       { orderId }
@@ -99,21 +100,62 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. 🚀 EKSEKUSI KIRIM WHATSAPP OTOMATIS KE DONATUR DENGAN FORMAT LENGKAP
+    // Format Tanggal & Waktu (untuk WA & Google Sheet)
+    const now = new Date();
+    const optionsDate: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+    const dateString = now.toLocaleDateString('id-ID', optionsDate);
+    const timeString = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
+    const fullDateTime = `${dateString} - ${timeString} WIB`;
+
+    const donorPhone = donationDoc.donorPhone;
+    const donorName = donationDoc.donorName || 'Hamba Allah';
+    const programTitle = programDoc?.title || 'Program Kebaikan';
+    const formattedAmount = finalAmount.toLocaleString('id-ID');
+    const invoiceNo = donationDoc.orderId || orderId;
+    const fundraiserRef = donationDoc.fundraiserPhone || '-';
+
+    // 4. 🚀 OTOMATIS CATAT KE GOOGLE SHEETS
     try {
-      const donorPhone = donationDoc.donorPhone;
-      const donorName = donationDoc.donorName || 'Hamba Allah';
-      const programTitle = programDoc?.title || 'Program Kebaikan';
-      const formattedAmount = finalAmount.toLocaleString('id-ID');
-      const invoiceNo = donationDoc.orderId || orderId;
+      const auth = new google.auth.GoogleAuth({
+        credentials: {
+          client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+          private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        },
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
 
-      // Format Tanggal & Waktu saat ini (contoh: 25 Juli 2026 - 23.24 WIB)
-      const now = new Date();
-      const optionsDate: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
-      const dateString = now.toLocaleDateString('id-ID', optionsDate);
-      const timeString = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
-      const fullDateTime = `${dateString} - ${timeString} WIB`;
+      const sheets = google.sheets({ version: 'v4', auth });
+      const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
+      // Urutan Kolom: [Tanggal, Invoice, Nama Donatur, No WhatsApp, Program, Nominal, Metode, Status, Fundraiser]
+      const rowData = [
+        fullDateTime,
+        invoiceNo,
+        donorName,
+        donorPhone || '-',
+        programTitle,
+        finalAmount,
+        paymentMethod.toUpperCase(),
+        'SUCCESS',
+        fundraiserRef,
+      ];
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: 'Sheet1!A:I',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [rowData],
+        },
+      });
+
+      console.log('📊 Berhasil mencatat data donasi ke Google Sheets!');
+    } catch (sheetErr) {
+      console.error('🔥 GAGAL CATAT KE GOOGLE SHEETS:', sheetErr);
+    }
+
+    // 5. 🚀 EKSEKUSI KIRIM WHATSAPP OTOMATIS KE DONATUR (FORMAT LENGKAP)
+    try {
       console.log('📱 MEMULAI PENGIRIMAN WA. Nomor Target:', donorPhone);
 
       if (donorPhone) {
@@ -122,7 +164,6 @@ export async function POST(req: Request) {
           formattedPhone = '62' + formattedPhone.slice(1);
         }
 
-        // Template Pesan Lengkap Sesuai Permintaan
         const waMessage = `*DONASI BERHASIL DITERIMA* 🎉\n\nJazakumullah khairan, *${donorName}*.\nDonasi Anda telah berhasil kami verifikasi dengan detail berikut:\n\n📝 *No. Invoice:* ${invoiceNo}\n📌 *Program:* ${programTitle}\n💰 *Nominal:* Rp ${formattedAmount}\n💳 *Metode:* ${paymentMethod.toUpperCase()}\n⏰ *Tanggal:* ${fullDateTime}\n\nSemoga sedekah yang ditunaikan menjadi penggugur dosa, pembuka pintu rezeki, dan membawa keberkahan yang berlipat ganda untuk Anda beserta keluarga. Aamiin Yaa Rabbal 'Aalamiin.\n\n----------------------------\n*islami.or.id*\n_Salurkan kepedulian Anda secara amanah & transparan_`;
 
         const fonnteToken = process.env.FONNTE_TOKEN || process.env.WHATSAPP_API_TOKEN;

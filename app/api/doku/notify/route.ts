@@ -73,7 +73,6 @@ export async function POST(req: Request) {
       const currentCollected = Number(programDoc.collectedAmount || 0);
       const newCollected = currentCollected + finalAmount;
 
-      // Data donatur baru yang akan dimasukkan ke list
       const newDonorEntry = {
         _key: Math.random().toString(36).substring(2),
         name: donationDoc.donorName || 'Hamba Allah',
@@ -90,15 +89,17 @@ export async function POST(req: Request) {
       console.log(`🎉 SUKSES BESAR! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}. Total terkumpul: Rp ${newCollected}`);
     }
 
-    // 5. 🚀 FITUR KIRIM WHATSAPP OTOMATIS KE DONATUR
+    // 5. 🚀 KIRIM NOTIFIKASI WHATSAPP OTOMATIS MENGGUNAKAN FONNTE
     const donorPhone = donationDoc.donorPhone;
     const donorName = donationDoc.donorName || 'Hamba Allah';
     const programTitle = programDoc?.title || 'Program Kebaikan';
     const formattedAmount = finalAmount.toLocaleString('id-ID');
 
+    console.log('📱 Memproses pengiriman WA Fonnte ke nomor:', donorPhone);
+
     if (donorPhone) {
       try {
-        // Format nomor telepon (pastikan berformat internasional misal 628...)
+        // Normalisasi nomor telepon agar sesuai dengan format Fonnte (62...)
         let formattedPhone = donorPhone.replace(/[^0-9]/g, '');
         if (formattedPhone.startsWith('0')) {
           formattedPhone = '62' + formattedPhone.slice(1);
@@ -106,26 +107,26 @@ export async function POST(req: Request) {
 
         const waMessage = `Jazakumullah khairan, *${donorName}*.\n\nAlhamdulillah, donasi Anda sebesar *Rp ${formattedAmount}* untuk program *${programTitle}* telah berhasil diverifikasi.\n\nSemoga menjadi amal jariyah yang mengalir pahalanya dan mendatangkan keberkahan. Aamiin. 🚀`;
 
-        // Contoh integrasi menggunakan Fonnte (Sesuaikan dengan API gateway WA Anda jika pakai Wablas/Twilio)
-        const waRes = await fetch('https://api.fonnte.com/send', {
+        const fonnteRes = await fetch('https://api.fonnte.com/send', {
           method: 'POST',
           headers: {
-            'Authorization': process.env.WHATSAPP_API_TOKEN || '', // Masukkan token API WA di file .env Anda
+            'Authorization': process.env.WHATSAPP_API_TOKEN || '', // Token Device Fonnte di .env
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             target: formattedPhone,
             message: waMessage,
+            countryCode: '62', // Opsional, memastikan kode negara valid
           }),
         });
 
-        const waJson = await waRes.json();
-        console.log('📱 Status Kirim WhatsApp:', waJson);
+        const fonnteJson = await fonnteRes.json();
+        console.log('🚀 RESPON FONNTE API:', JSON.stringify(fonnteJson));
       } catch (waError) {
-        console.error('⚠️ Gagal mengirim pesan WhatsApp otomatis:', waError);
+        console.error('🔥 GAGAL KIRIM WA VIA FONNTE:', waError);
       }
     } else {
-      console.log('ℹ️ Nomor WhatsApp donatur tidak tersedia, melewati pengiriman WA.');
+      console.log('⚠️ Nomor WhatsApp donatur kosong pada transaksi ini.');
     }
 
     return NextResponse.json({ status: 'SUCCESS' }, { status: 200 });

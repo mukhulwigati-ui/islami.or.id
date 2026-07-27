@@ -10,7 +10,8 @@ interface CampaignItem {
   slug: string;
   image: string;
   category?: string;
-  collectedRaw: number;
+  collectedAmount?: number;
+  collectedRaw?: number;
   targetAmount?: number;
   targetRaw?: number;
   daysLeft?: number;
@@ -25,6 +26,9 @@ interface CampaignProps {
 }
 
 export default function Campaign({ initialData = [], mendesak = [], unggulan = [], pilihan = [] }: CampaignProps) {
+  // Helper aman untuk mengambil nilai uang terkumpul
+  const getCollected = (item: CampaignItem) => Number(item.collectedAmount ?? item.collectedRaw ?? 0);
+
   // Jika menggunakan props `initialData` langsung
   if (initialData.length > 0 && mendesak.length === 0 && unggulan.length === 0 && pilihan.length === 0) {
     return (
@@ -32,8 +36,9 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
         <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">Daftar Program</h2>
         <div className="space-y-3">
           {initialData.map((item) => {
+            const collected = getCollected(item);
             const target = item.targetAmount || item.targetRaw || 50000000;
-            const percentage = Math.min(Math.round((item.collectedRaw / target) * 100), 100);
+            const percentage = Math.min(Math.round((collected / target) * 100), 100);
             return (
               <Link key={item.id} href={`/campaign/${item.slug}`} className="group flex gap-3.5 items-center bg-white p-3.5 border border-gray-200/90 shadow-sm hover:shadow-md transition block">
                 <div className="w-28 sm:w-32 aspect-[16/10] bg-gray-100 overflow-hidden shrink-0 shadow-inner">
@@ -43,7 +48,7 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0d5c91] transition-colors">{item.title}</h3>
                   <div className="space-y-1">
                     <p className="text-xs sm:text-sm font-extrabold text-[#0d5c91]">
-                      Rp {Number(item.collectedRaw).toLocaleString('id-ID')}
+                      Rp {collected.toLocaleString('id-ID')}
                     </p>
                     <div className="w-full bg-gray-100 h-1.5 overflow-hidden">
                       <div className="bg-[#ff2e3b] h-full" style={{ width: `${percentage}%` }} />
@@ -75,8 +80,9 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
             {mendesak.map((item) => {
+              const collected = getCollected(item);
               const target = item.targetAmount || item.targetRaw || 50000000;
-              const percentage = Math.min(Math.round((item.collectedRaw / target) * 100), 100);
+              const percentage = Math.min(Math.round((collected / target) * 100), 100);
               return (
                 <Link key={item.id} href={`/campaign/${item.slug}`} className="group border border-gray-200/90 overflow-hidden p-3 bg-gray-50/60 space-y-2.5 block hover:shadow-md transition">
                   <div className="aspect-[16/10] bg-gray-200 overflow-hidden relative">
@@ -90,7 +96,7 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0d5c91] transition-colors">{item.title}</h3>
                   <div className="space-y-1">
                     <p className="text-xs sm:text-sm font-extrabold text-[#0d5c91]">
-                      Rp {Number(item.collectedRaw).toLocaleString('id-ID')}
+                      Rp {collected.toLocaleString('id-ID')}
                     </p>
                     <div className="w-full bg-gray-200 h-1.5 overflow-hidden">
                       <div className="bg-[#ff2e3b] h-full" style={{ width: `${percentage}%` }} />
@@ -116,8 +122,9 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
             {unggulan.map((item) => {
+              const collected = getCollected(item);
               const target = item.targetAmount || item.targetRaw || 50000000;
-              const percentage = Math.min(Math.round((item.collectedRaw / target) * 100), 100);
+              const percentage = Math.min(Math.round((collected / target) * 100), 100);
               return (
                 <Link key={item.id} href={`/campaign/${item.slug}`} className="group border border-gray-200/90 overflow-hidden p-3 bg-gray-50/60 space-y-2.5 block hover:shadow-md transition">
                   <div className="aspect-[16/10] bg-gray-200 overflow-hidden">
@@ -126,7 +133,7 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
                   <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0d5c91] transition-colors">{item.title}</h3>
                   <div className="space-y-1">
                     <p className="text-xs sm:text-sm font-extrabold text-[#0d5c91]">
-                      Terkumpul : Rp {Number(item.collectedRaw).toLocaleString('id-ID')}
+                      Terkumpul : Rp {collected.toLocaleString('id-ID')}
                     </p>
                     <div className="w-full bg-gray-200 h-1.5 overflow-hidden">
                       <div className="bg-[#ff2e3b] h-full" style={{ width: `${percentage}%` }} />
@@ -145,26 +152,29 @@ export default function Campaign({ initialData = [], mendesak = [], unggulan = [
           <div className="flex justify-between items-center">
             <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">Program Pilihan</h2>
             <Link href="/campaign/pilihan" className="text-xs font-bold text-[#0d5c91] hover:underline">
-              Lihat Separator &gt;
+              Lihat Semua &gt;
             </Link>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 font-normal">Pilih program yang berarti bagi Anda dan Mereka</p>
 
           <div className="space-y-3.5 pt-1">
-            {pilihan.map((item) => (
-              <Link key={item.id} href={`/campaign/${item.slug}`} className="group flex gap-3.5 items-center border-b border-gray-100 pb-3.5 last:border-none block hover:opacity-90 transition">
-                <div className="w-28 sm:w-32 aspect-[16/10] bg-gray-200 overflow-hidden shrink-0 shadow-inner">
-                  <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                </div>
-                <div className="flex-1 space-y-1.5 py-0.5">
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0d5c91] transition-colors">{item.title}</h3>
-                  <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-0.5">
-                    <span>Terkumpul<br/><strong className="text-[#0d5c91] font-bold">Rp {Number(item.collectedRaw).toLocaleString('id-ID')}</strong></span>
-                    <span className="text-right">Donatur<br/><strong className="text-slate-800 font-bold">{item.donorsCount || 0}</strong></span>
+            {pilihan.map((item) => {
+              const collected = getCollected(item);
+              return (
+                <Link key={item.id} href={`/campaign/${item.slug}`} className="group flex gap-3.5 items-center border-b border-gray-100 pb-3.5 last:border-none block hover:opacity-90 transition">
+                  <div className="w-28 sm:w-32 aspect-[16/10] bg-gray-200 overflow-hidden shrink-0 shadow-inner">
+                    <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                   </div>
-                </div>
-              </Link>
-            ))}
+                  <div className="flex-1 space-y-1.5 py-0.5">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug group-hover:text-[#0d5c91] transition-colors">{item.title}</h3>
+                    <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-0.5">
+                      <span>Terkumpul<br/><strong className="text-[#0d5c91] font-bold">Rp {collected.toLocaleString('id-ID')}</strong></span>
+                      <span className="text-right">Donatur<br/><strong className="text-slate-800 font-bold">{item.donorsCount || 0}</strong></span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}

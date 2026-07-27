@@ -156,26 +156,29 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
 }
 
 // ===================================================================
-// 3. FORM DONASI PROFESIONAL (GAYA KITABISA)
+// 3. FORM DONASI PROFESIONAL (SISTEM PROFILES TABEL)
 // ===================================================================
 const DonationFormFields = ({
-  donorName,
-  setDonorName,
-  donorPhone,
-  setDonorPhone,
-  donorEmail,
+  profile,
+  setProfile,
   amount,
   setAmount,
   handleDonate,
+  handleInlineSavePhone,
   submitting,
   isLoggedIn,
+  inlinePhone,
+  setInlinePhone,
+  savingPhone,
 }: any) => {
   const PRESET_AMOUNTS = [10000, 15000, 25000, 50000, 100000, 250000];
   const cleanAmountNum = Number(String(amount || '').replace(/[^0-9]/g, '')) || 0;
 
+  const hasPhone = Boolean(profile?.phone && profile.phone.trim().length >= 9);
+
   return (
     <div className="space-y-4 text-left">
-      {/* 1. Pilihan Nominal Kotak-Kotak */}
+      {/* Pilihan Nominal Kotak-Kotak */}
       <div>
         <label className="text-xs sm:text-sm font-extrabold text-slate-900 block mb-2">Pilih Nominal Donasi</label>
         <div className="grid grid-cols-3 gap-2">
@@ -196,7 +199,7 @@ const DonationFormFields = ({
         </div>
       </div>
 
-      {/* 2. Input Nominal Lainnya */}
+      {/* Input Nominal Lainnya */}
       <div>
         <label className="text-xs font-semibold text-slate-600 block mb-1">Masukkan Donasi Lainnya</label>
         <div className="relative flex items-center">
@@ -216,18 +219,45 @@ const DonationFormFields = ({
 
       <hr className="border-slate-100 my-2" />
 
-      {/* 3. KONDISI MUTLAK: JIKA SUDAH LOGIN, FORM TEKS HILANG TOTAL */}
+      {/* 🚀 LOGIKA ALUR PROFIL & WHATSAPP */}
       {isLoggedIn ? (
-        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-2xs">
-          <div className="space-y-0.5 overflow-hidden">
-            <span className="text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block">Berdonasi Sebagai Akun</span>
-            <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{donorName || 'Dermawan'}</p>
-            <p className="text-[11px] text-slate-500 truncate">{donorEmail}</p>
+        hasPhone ? (
+          /* KONDISI 1: SUDAH LOGIN & NOMOR WA ADA -> BERSIH TANPA FORM APA PUN */
+          <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-xl flex items-center justify-between">
+            <div className="space-y-0.5 overflow-hidden">
+              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide block">Login ✓ • {profile.name}</span>
+              <p className="text-xs font-extrabold text-slate-900 truncate">WhatsApp: {profile.phone}</p>
+            </div>
+            <span className="text-[11px] bg-emerald-600 text-white font-bold px-2.5 py-1 rounded-full shrink-0">Siap Donasi</span>
           </div>
-          <span className="text-[11px] bg-emerald-600 text-white font-bold px-2.5 py-1 rounded-full shrink-0">Aktif ✓</span>
-        </div>
+        ) : (
+          /* KONDISI 2: SUDAH LOGIN TAPI NOMOR WA BELUM ADA -> MINTA ISI SEKALI SAJA */
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
+            <div>
+              <span className="text-xs font-bold text-amber-900 block mb-0.5">Halo, {profile?.name || 'Dermawan'}!</span>
+              <p className="text-[11px] text-amber-700">Lengkapi nomor WhatsApp Anda sekali ini saja untuk pengiriman kuitansi dan laporan donasi.</p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                placeholder="Contoh: 081234567890"
+                className="flex-1 border border-amber-300 px-3 py-2 text-xs font-semibold text-slate-900 rounded-lg bg-white focus:outline-[#0d5c91]"
+                value={inlinePhone}
+                onChange={(e) => setInlinePhone(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={handleInlineSavePhone}
+                disabled={savingPhone}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 text-xs rounded-lg transition shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                {savingPhone ? 'Menyimpan...' : 'Simpan'}
+              </button>
+            </div>
+          </div>
+        )
       ) : (
-        /* JIKA BELUM LOGIN: Baru tampilkan form input teks manual */
+        /* KONDISI 3: BELUM LOGIN (GUEST) -> TAMPILKAN INPUT MANUAL */
         <div className="space-y-3">
           <div>
             <label className="text-xs font-semibold text-slate-700 block mb-1">Nama Donatur</label>
@@ -235,8 +265,8 @@ const DonationFormFields = ({
               type="text"
               placeholder="Hamba Allah (Boleh Kosong)"
               className="w-full border border-gray-300 px-3.5 py-2.5 text-sm text-slate-800 rounded-xl bg-white"
-              value={donorName}
-              onChange={(e) => setDonorName(e.target.value)}
+              value={profile?.name || ''}
+              onChange={(e) => setProfile((prev: any) => ({ ...prev, name: e.target.value }))}
             />
           </div>
           <div>
@@ -245,23 +275,18 @@ const DonationFormFields = ({
               type="tel"
               placeholder="Contoh: 081234567890"
               className="w-full border border-gray-300 px-3.5 py-2.5 text-sm text-slate-800 rounded-xl bg-white"
-              value={donorPhone}
-              onChange={(e) => setDonorPhone(e.target.value)}
+              value={profile?.phone || ''}
+              onChange={(e) => setProfile((prev: any) => ({ ...prev, phone: e.target.value }))}
             />
           </div>
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-[10px] text-slate-500 bg-sky-50 p-2.5 rounded-xl border border-sky-100">
-        <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
-        <span>Transaksi aman & terverifikasi otomatis via DOKU.</span>
-      </div>
-
-      {/* 4. Tombol Eksekusi Pembayaran */}
+      {/* Tombol Pembayaran */}
       <button
         type="button"
         onClick={handleDonate}
-        disabled={submitting}
+        disabled={submitting || (isLoggedIn && !hasPhone)}
         className="w-full bg-[#e91e63] hover:bg-pink-700 active:scale-[0.99] text-white font-extrabold py-4 transition text-sm sm:text-base uppercase tracking-wider disabled:bg-gray-300 shadow-md flex items-center justify-center gap-2 cursor-pointer rounded-xl mt-3"
       >
         {submitting ? 'Memproses...' : 'Lanjut pembayaran'}
@@ -281,13 +306,13 @@ interface CampaignDetailClientProps {
 export default function CampaignDetailClient({ slug, referral }: CampaignDetailClientProps) {
   const [program, setProgram] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [amount, setAmount] = useState('10.000'); // Default awal 10rb ala Kitabisa
+  const [amount, setAmount] = useState('10.000'); 
   
-  // State form donatur
-  const [donorName, setDonorName] = useState('');
-  const [donorPhone, setDonorPhone] = useState('');  
-  const [donorEmail, setDonorEmail] = useState('');  
+  // State Profile Database
+  const [profile, setProfile] = useState<any>({ name: '', email: '', phone: '', avatar: '' });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [inlinePhone, setInlinePhone] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
@@ -295,34 +320,124 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // Deteksi sesi login Supabase secara instan dan akurat
+  // Ambil data profil dari tabel profiles saat modal dibuka / halaman dimuat
   useEffect(() => {
-    async function resolveUserFast() {
+    async function loadProfileFromDatabase() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          const user = session.user;
-          const emailVal = user.email || '';
-          const meta = user.user_metadata || {};
-          const nameVal = meta.full_name || meta.name || emailVal.split('@')[0];
-          const phoneVal = meta.phone || meta.whatsapp || meta.phone_number || '';
-
-          setDonorEmail(emailVal);
-          setDonorName(nameVal);
-          setDonorPhone(phoneVal);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
           setIsLoggedIn(true);
+          let { data: prof } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (!prof) {
+            const meta = user.user_metadata || {};
+            const newProf = {
+              id: user.id,
+              email: user.email,
+              name: meta.full_name || meta.name || user.email?.split('@')[0],
+              avatar: meta.avatar_url || meta.picture,
+              phone: ''
+            };
+            await supabase.from('profiles').upsert(newProf);
+            prof = newProf;
+          }
+
+          setProfile(prof);
         } else {
           setIsLoggedIn(false);
         }
       } catch (err) {
-        console.error('Session error:', err);
+        console.error('Error fetching profile:', err);
         setIsLoggedIn(false);
       }
     }
 
-    resolveUserFast();
-  }, [isMobileFormOpen]); // 🚀 Dijalankan setiap kali modal popup donasi dibuka!
+    loadProfileFromDatabase();
+  }, [isMobileFormOpen]);
+
+  // Fungsi simpan nomor WA kilat dari dalam popup donasi
+  const handleInlineSavePhone = async () => {
+    const clean = inlinePhone.replace(/[^0-9]/g, '');
+    if (clean.length < 9) {
+      alert('Masukkan nomor WhatsApp yang valid!');
+      return;
+    }
+
+    setSavingPhone(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Sesi habis, silakan login ulang.');
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ phone: clean, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setProfile((prev: any) => ({ ...prev, phone: clean }));
+      setInlinePhone('');
+      alert('Nomor WhatsApp berhasil disimpan! Silakan lanjutkan donasi.');
+    } catch (err: any) {
+      alert('Gagal menyimpan: ' + err.message);
+    } finally {
+      setSavingPhone(false);
+    }
+  };
+
+  const handleDonate = async () => {
+    const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
+    if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
+      alert('Masukkan nominal minimal Rp 1.000!');
+      return;
+    }
+
+    const activePhone = profile?.phone || inlinePhone;
+    const cleanPhone = String(activePhone || '').replace(/[^0-9]/g, '');
+    if (!cleanPhone || cleanPhone.length < 9) {
+      alert('Nomor WhatsApp wajib diisi!');
+      return;
+    }
+
+    const resolvedProgramId = program?._id || program?.id;
+    if (!resolvedProgramId) {
+      alert('ID Program tidak ditemukan.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/donate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          programId: resolvedProgramId,
+          programTitle: program?.title || 'Sedekah Umum',
+          slug: program?.slug,
+          amount: cleanAmount,
+          donorName: profile?.name?.trim() || 'Hamba Allah',
+          phone: cleanPhone,
+          email: profile?.email?.trim() || '',
+          fundraiserPhone: referral,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.paymentUrl) {
+        window.location.href = json.paymentUrl;
+      } else {
+        alert(json.message || 'Gagal memproses tautan pembayaran.');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan koneksi.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     fetch(`/api/programs?t=${Date.now()}`, { cache: 'no-store' })
@@ -339,57 +454,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
         setLoading(false);
       });
   }, [slug]);
-
-  const handleDonate = async () => {
-    const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
-
-    if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
-      alert('Masukkan nominal minimal Rp 1.000!');
-      return;
-    }
-
-    // Jika belum login, validasi nomor WhatsApp manual
-    const cleanPhone = String(donorPhone || '').replace(/[^0-9]/g, '');
-    if (!cleanPhone || cleanPhone.length < 9) {
-      alert('Nomor WhatsApp wajib ada! Silakan lengkapi nomor WhatsApp Anda terlebih dahulu di menu Profil Akun.');
-      return;
-    }
-
-    const resolvedProgramId = program?._id || program?.id;
-    if (!resolvedProgramId) {
-      alert('ID Program tidak ditemukan. Silakan refresh halaman.');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/donate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          programId: resolvedProgramId,
-          programTitle: program?.title || 'Sedekah Umum',
-          slug: program?.slug,
-          amount: cleanAmount,
-          donorName: donorName.trim() || 'Hamba Allah',
-          phone: cleanPhone,
-          email: donorEmail.trim(),
-          fundraiserPhone: referral,
-        }),
-      });
-
-      const json = await res.json();
-      if (json.success && json.paymentUrl) {
-        window.location.href = json.paymentUrl;
-      } else {
-        alert(json.message || 'Gagal memproses tautan pembayaran.');
-      }
-    } catch (err) {
-      alert('Terjadi kesalahan koneksi saat menghubungi server pembayaran.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleCopyLink = () => {
     if (typeof window !== 'undefined') {
@@ -565,12 +629,14 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               </button>
             </div>
             <DonationFormFields 
-              donorName={donorName} setDonorName={setDonorName}
-              donorPhone={donorPhone} setDonorPhone={setDonorPhone}
-              donorEmail={donorEmail}
+              profile={profile} setProfile={setProfile}
               amount={amount} setAmount={setAmount}
-              handleDonate={handleDonate} submitting={submitting}
+              handleDonate={handleDonate}
+              handleInlineSavePhone={handleInlineSavePhone}
+              submitting={submitting}
               isLoggedIn={isLoggedIn}
+              inlinePhone={inlinePhone} setInlinePhone={setInlinePhone}
+              savingPhone={savingPhone}
             />
           </div>
         </div>

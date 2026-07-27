@@ -176,8 +176,11 @@ const KITABISA_PRESETS = [10000, 15000, 25000, 50000, 100000, 250000];
 
 const DonationFormFields = ({
   donorName,
-  donorEmail,
+  setDonorName, // 🚀 Pastikan ini ada di parameter
   donorPhone,
+  setDonorPhone, // 🚀 Pastikan ini ada di parameter
+  donorEmail,
+  setDonorEmail, // 🚀 Pastikan ini ada di parameter
   amount,
   setAmount,
   handleDonate,

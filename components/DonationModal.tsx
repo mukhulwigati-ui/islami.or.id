@@ -14,7 +14,6 @@ interface DonationModalProps {
 
 const PRESET_AMOUNTS = [10000, 25000, 50000, 100000, 250000, 500000];
 
-// Inisialisasi Supabase Client (Aman digunakan di Client Side)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -29,10 +28,10 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // 🚀 Autofill data jika user sudah login via Supabase Auth
+  // 🚀 Autofill otomatis dari sesi login Supabase
   useEffect(() => {
     if (isOpen) {
-      async function fetchUserSession() {
+      async function getUserSession() {
         try {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
@@ -42,10 +41,10 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
             setPhone(meta.phone || meta.phone_number || '');
           }
         } catch (err) {
-          console.error('Gagal mengambil sesi user:', err);
+          console.error('Gagal memuat sesi user:', err);
         }
       }
-      fetchUserSession();
+      getUserSession();
     }
   }, [isOpen]);
 
@@ -94,7 +93,6 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
         throw new Error(data.message || 'Gagal memproses transaksi.');
       }
 
-      // Redirect langsung ke URL pembayaran DOKU / Gateway
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
       } else {
@@ -176,7 +174,7 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
             </div>
           </div>
 
-          {/* Form Data Donatur */}
+          {/* Form Data Donatur (Otomatis Terisi Jika Login) */}
           <div className="space-y-3 pt-1 border-t border-slate-100">
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-700 block">Nama Lengkap / Inisial</label>

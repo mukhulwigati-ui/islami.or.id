@@ -186,7 +186,8 @@ const DonationFormFields = ({
   handleDonate,
   submitting,
   isLoggedIn,
-}: FormProps) => {
+}: any) => {
+  const PRESET_AMOUNTS = [10000, 15000, 25000, 50000, 100000, 250000];
   const cleanAmountNum = Number(amount.replace(/[^0-9]/g, '')) || 0;
 
   return (
@@ -195,7 +196,7 @@ const DonationFormFields = ({
       <div>
         <label className="text-xs sm:text-sm font-extrabold text-slate-900 block mb-2">Pilih Nominal Donasi</label>
         <div className="grid grid-cols-3 gap-2">
-          {KITABISA_PRESETS.map((val) => (
+          {PRESET_AMOUNTS.map((val) => (
             <button
               key={val}
               type="button"
@@ -232,23 +233,36 @@ const DonationFormFields = ({
 
       <hr className="border-slate-100 my-2" />
 
-      {/* Status Login / Identitas */}
+      {/* 🚀 JIKA SUDAH LOGIN: Tampilkan kartu identitas Google yang ringkas tanpa form input panjang */}
       {isLoggedIn ? (
-        <div className="bg-emerald-50 border border-emerald-200/80 p-3 rounded-xl space-y-0.5">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-            <UserCheck className="w-4 h-4 text-emerald-600" /> Terhubung sebagai: {donorName}
+        <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-xl space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+              ✓ Masuk sebagai: <strong className="text-slate-900">{donorName || donorEmail}</strong>
+            </span>
           </div>
-          <p className="text-[11px] text-slate-500 pl-5">{donorEmail}</p>
+          <p className="text-[11px] text-slate-600">
+            Email: <span className="font-semibold">{donorEmail}</span>
+          </p>
+          {/* Jika nomor WA kosong, sediakan input khusus WA saja, jika sudah ada langsung tampilkan */}
+          <div className="pt-2 border-t border-emerald-200/60">
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Nomor WhatsApp untuk Laporan <span className="text-rose-500">*</span></label>
+            <input
+              type="tel"
+              placeholder="Contoh: 081234567890"
+              className="w-full border border-emerald-300 px-3 py-2 text-xs font-semibold text-slate-900 rounded-lg bg-white focus:outline-[#0d5c91]"
+              value={donorPhone}
+              onChange={(e) => setDonorPhone(e.target.value)}
+            />
+          </div>
         </div>
       ) : (
+        /* JIKA BELUM LOGIN: Tampilkan input manual lengkap */
         <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-800">Atau lengkapi data di bawah ini</span>
-          </div>
           <div>
             <input
               type="text"
-              placeholder="Nama Lengkap (Opsional / Hamba Allah)"
+              placeholder="Nama Lengkap / Hamba Allah"
               className="w-full border border-gray-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-[#0d5c91] rounded-xl bg-white font-medium"
               value={donorName}
               onChange={(e) => setDonorName(e.target.value)}
@@ -263,23 +277,19 @@ const DonationFormFields = ({
               onChange={(e) => setDonorEmail(e.target.value)}
             />
           </div>
+          <div>
+            <input
+              type="tel"
+              placeholder="Nomor WhatsApp * (Contoh: 081234567890)"
+              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-[#0d5c91] rounded-xl bg-white font-medium"
+              value={donorPhone}
+              onChange={(e) => setDonorPhone(e.target.value)}
+            />
+          </div>
         </div>
       )}
 
-      {/* Nomor WhatsApp */}
-      <div>
-        <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1">Nomor WhatsApp <span className="text-rose-500">*</span></label>
-        <input
-          type="tel"
-          placeholder="Contoh: 081234567890"
-          className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white rounded-xl"
-          value={donorPhone}
-          onChange={(e) => setDonorPhone(e.target.value)}
-        />
-        <p className="text-[11px] text-slate-400 mt-1">Pastikan nomor WhatsApp aktif untuk menerima laporan donasi.</p>
-      </div>
-
-      {/* Tombol Lanjut Pembayaran Ala Kitabisa (Warna Pink/Red) */}
+      {/* Tombol Lanjut Pembayaran */}
       <button
         type="button"
         onClick={handleDonate}

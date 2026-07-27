@@ -4,10 +4,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortableText } from '@portabletext/react';
-import { ArrowLeft, Share2, Copy, Check, MessageCircle, Lock, UserCheck } from 'lucide-react';
+import { ArrowLeft, Share2, Copy, Check, MessageCircle, UserCheck } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
-// Inisialisasi Supabase Client untuk Client-Side
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -82,23 +81,23 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
   }
 
   return (
-    <div className="border border-gray-200 bg-white overflow-hidden my-4 shadow-sm">
+    <div className="border border-gray-200 bg-white overflow-hidden my-4 shadow-sm rounded-xl">
       <div className="flex border-b border-gray-200 text-xs font-bold bg-gray-50">
         <button
           onClick={() => { setActiveTab('penghasilan'); setInput1(''); setInput2(''); }}
-          className={`flex-1 py-3 text-center border-b-2 transition ${activeTab === 'penghasilan' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
+          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'penghasilan' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
         >
           PENGHASILAN
         </button>
         <button
           onClick={() => { setActiveTab('maal'); setInput1(''); setInput2(''); }}
-          className={`flex-1 py-3 text-center border-b-2 transition ${activeTab === 'maal' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
+          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'maal' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
         >
           MAAL
         </button>
         <button
           onClick={() => { setActiveTab('emas'); setInput1(''); setInput2(''); }}
-          className={`flex-1 py-3 text-center border-b-2 transition ${activeTab === 'emas' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
+          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'emas' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
         >
           EMAS
         </button>
@@ -110,7 +109,7 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
               <label className="text-xs sm:text-sm font-medium text-slate-600 block mb-1.5">Pendapatan Utama / Tabungan Per Bulan (Rp)</label>
               <input
                 type="text"
-                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91]"
+                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91] rounded-lg"
                 placeholder="0"
                 value={input1}
                 onChange={(e) => setInput1(formatRupiah(e.target.value))}
@@ -120,7 +119,7 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
               <label className="text-xs sm:text-sm font-medium text-slate-600 block mb-1.5">Tunjangan / Bonus / THR (Rp)</label>
               <input
                 type="text"
-                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91]"
+                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91] rounded-lg"
                 placeholder="0"
                 value={input2}
                 onChange={(e) => setInput2(formatRupiah(e.target.value))}
@@ -132,20 +131,20 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
             <label className="text-xs sm:text-sm font-medium text-slate-600 block mb-1.5">Total Berat Emas (Gram)</label>
             <input
               type="number"
-              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91]"
+              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91] rounded-lg"
               placeholder="Contoh: 90"
               value={input1}
               onChange={(e) => setInput1(e.target.value)}
             />
           </div>
         )}
-        <div className="bg-sky-50/60 border border-sky-100 p-4 text-center space-y-2">
+        <div className="bg-sky-50/60 border border-sky-100 p-4 text-center space-y-2 rounded-xl">
           <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wide block">Estimasi Wajib Zakat Anda</span>
           <span className="text-xl sm:text-2xl font-extrabold text-[#0d5c91] block">Rp {totalZakat.toLocaleString('id-ID')}</span>
           <button
             disabled={totalZakat <= 0}
             onClick={() => onApplyAmount(totalZakat.toLocaleString('id-ID'))}
-            className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white text-xs sm:text-sm font-bold py-2.5 uppercase tracking-wider disabled:bg-gray-300 transition shadow-sm cursor-pointer"
+            className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white text-xs sm:text-sm font-bold py-2.5 uppercase tracking-wider disabled:bg-gray-300 transition shadow-sm cursor-pointer rounded-lg"
           >
             Masukkan ke Form Nominal 📥
           </button>
@@ -157,7 +156,7 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
 }
 
 // ===================================================================
-// 3. FORM DONASI COMPONENT (Disesuaikan untuk Google Login & DOKU)
+// 3. FORM DONASI GAYA KITABISA
 // ===================================================================
 interface FormProps {
   donorName: string;
@@ -167,11 +166,13 @@ interface FormProps {
   donorEmail: string;
   setDonorEmail: (v: string) => void;
   amount: string;
-  handleAmountChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  setAmount: (v: string) => void;
   handleDonate: () => Promise<void>;
   submitting: boolean;
   isLoggedIn: boolean;
 }
+
+const KITABISA_PRESETS = [10000, 15000, 25000, 50000, 100000, 250000];
 
 const DonationFormFields = ({
   donorName,
@@ -181,87 +182,115 @@ const DonationFormFields = ({
   donorEmail,
   setDonorEmail,
   amount,
-  handleAmountChange,
+  setAmount,
   handleDonate,
   submitting,
   isLoggedIn,
-}: FormProps) => (
-  <div className="space-y-4 text-left">
-    {/* 🚀 JIKA SUDAH LOGIN GOOGLE: Sembunyikan field nama & email, ganti dengan info card ringkas */}
-    {isLoggedIn ? (
-      <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-xl space-y-1">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1.5">
-            <UserCheck className="w-3.5 h-3.5 text-emerald-600" /> Terhubung Google
-          </span>
-          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Aktif</span>
+}: FormProps) => {
+  const cleanAmountNum = Number(amount.replace(/[^0-9]/g, '')) || 0;
+
+  return (
+    <div className="space-y-4 text-left">
+      {/* Pilihan Nominal Kotak-Kotak Ala Kitabisa */}
+      <div>
+        <label className="text-xs sm:text-sm font-extrabold text-slate-900 block mb-2">Pilih Nominal Donasi</label>
+        <div className="grid grid-cols-3 gap-2">
+          {KITABISA_PRESETS.map((val) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setAmount(val.toLocaleString('id-ID'))}
+              className={`py-3 px-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
+                cleanAmountNum === val
+                  ? 'bg-sky-50 text-[#0d5c91] border-[#0d5c91] shadow-2xs ring-1 ring-[#0d5c91]'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              Rp {val >= 1000000 ? `${val / 1000000}jt` : `${val / 1000}rb`}
+            </button>
+          ))}
         </div>
-        <p className="text-xs font-bold text-slate-800 truncate">{donorName}</p>
-        <p className="text-[11px] text-slate-500 truncate">{donorEmail}</p>
       </div>
-    ) : (
-      /* JIKA BELUM LOGIN: Tampilkan input Nama dan Email manual */
-      <>
-        <div>
-          <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nama Donatur</label>
+
+      {/* Input Nominal Lain */}
+      <div>
+        <label className="text-xs font-semibold text-slate-600 block mb-1">Masukkan Donasi Lainnya</label>
+        <div className="relative flex items-center">
+          <span className="absolute left-3.5 text-sm font-bold text-slate-400">Rp</span>
           <input
             type="text"
-            placeholder="Hamba Allah (Boleh Kosong)"
-            className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white rounded-lg"
-            value={donorName}
-            onChange={(e) => setDonorName(e.target.value)}
+            placeholder="Min. 1.000"
+            className="w-full border border-gray-300 pl-10 pr-3.5 py-2.5 text-sm sm:text-base font-bold text-slate-900 focus:outline-[#0d5c91] rounded-xl bg-white"
+            value={amount}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/[^0-9]/g, '');
+              setAmount(raw ? Number(raw).toLocaleString('id-ID') : '');
+            }}
           />
         </div>
-
-        <div>
-          <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Email (Opsional)</label>
-          <input
-            type="email"
-            placeholder="email@domain.com"
-            className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white rounded-lg"
-            value={donorEmail}
-            onChange={(e) => setDonorEmail(e.target.value)}
-          />
-        </div>
-      </>
-    )}
-
-    {/* Form yang SELALU MUNCUL: Nomor WhatsApp dan Nominal Donasi */}
-    <div>
-      <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nomor WhatsApp <span className="text-rose-500">*</span></label>
-      <input
-        type="tel"
-        placeholder="Contoh: 081234567890"
-        className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white rounded-lg"
-        value={donorPhone}
-        onChange={(e) => setDonorPhone(e.target.value)}
-      />
-    </div>
-
-    <div>
-      <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nominal Infak / Zakat (Rp) <span className="text-rose-500">*</span></label>
-      <div className="relative flex items-center">
-        <span className="absolute left-3.5 text-sm sm:text-base font-bold text-slate-500">Rp</span>
-        <input
-          type="text"
-          placeholder="Minimal 1.000"
-          className="w-full border border-gray-300 pl-10 pr-3.5 py-2.5 text-sm sm:text-base font-bold text-slate-900 focus:outline-[#0d5c91] rounded-lg"
-          value={amount}
-          onChange={handleAmountChange}
-        />
       </div>
-      <p className="text-xs text-slate-400 mt-1">Metode pembayaran akan dipilih di halaman resmi DOKU.</p>
-    </div>
 
-    <button
-      onClick={handleDonate}
-      disabled={submitting}
-      className="w-full bg-[#ff2e3b] hover:bg-red-600 active:scale-[0.99] text-white font-bold py-3.5 transition text-sm sm:text-base uppercase tracking-wider disabled:bg-gray-300 shadow-md flex items-center justify-center gap-2 cursor-pointer rounded-lg"
-    >
-      {submitting ? 'Memproses...' : 'Lanjut ke Pembayaran 🚀'}
-    </button>
-  </div>
-);
+      <hr className="border-slate-100 my-2" />
+
+      {/* Status Login / Identitas */}
+      {isLoggedIn ? (
+        <div className="bg-emerald-50 border border-emerald-200/80 p-3 rounded-xl space-y-0.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+            <UserCheck className="w-4 h-4 text-emerald-600" /> Terhubung sebagai: {donorName}
+          </div>
+          <p className="text-[11px] text-slate-500 pl-5">{donorEmail}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-bold text-slate-800">Atau lengkapi data di bawah ini</span>
+          </div>
+          <div>
+            <input
+              type="text"
+              placeholder="Nama Lengkap (Opsional / Hamba Allah)"
+              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-[#0d5c91] rounded-xl bg-white font-medium"
+              value={donorName}
+              onChange={(e) => setDonorName(e.target.value)}
+            />
+          </div>
+          <div>
+            <input
+              type="email"
+              placeholder="Email (Opsional)"
+              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm text-slate-800 focus:outline-[#0d5c91] rounded-xl bg-white font-medium"
+              value={donorEmail}
+              onChange={(e) => setDonorEmail(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Nomor WhatsApp */}
+      <div>
+        <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1">Nomor WhatsApp <span className="text-rose-500">*</span></label>
+        <input
+          type="tel"
+          placeholder="Contoh: 081234567890"
+          className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white rounded-xl"
+          value={donorPhone}
+          onChange={(e) => setDonorPhone(e.target.value)}
+        />
+        <p className="text-[11px] text-slate-400 mt-1">Pastikan nomor WhatsApp aktif untuk menerima laporan donasi.</p>
+      </div>
+
+      {/* Tombol Lanjut Pembayaran Ala Kitabisa (Warna Pink/Red) */}
+      <button
+        type="button"
+        onClick={handleDonate}
+        disabled={submitting}
+        className="w-full bg-[#e91e63] hover:bg-pink-700 active:scale-[0.99] text-white font-extrabold py-4 transition text-sm sm:text-base uppercase tracking-wider disabled:bg-gray-300 shadow-md flex items-center justify-center gap-2 cursor-pointer rounded-xl mt-3"
+      >
+        {submitting ? 'Memproses...' : 'Lanjut pembayaran'}
+      </button>
+    </div>
+  );
+};
 
 // ===================================================================
 // 4. MAIN DETAIL CLIENT COMPONENT (MOBILE-FIRST)
@@ -274,7 +303,7 @@ interface CampaignDetailClientProps {
 export default function CampaignDetailClient({ slug, referral }: CampaignDetailClientProps) {
   const [program, setProgram] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState('10.000'); // Default awal 10rb ala Kitabisa
   
   // State form donatur
   const [donorName, setDonorName] = useState('');
@@ -288,70 +317,31 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // 🚀 Deteksi user login yang disesuaikan dengan penyimpanan login Anda
+  // Deteksi Sesi Login Supabase Otomatis
   useEffect(() => {
-    function resolveUserData() {
+    async function checkUserSession() {
       try {
-        let activeUser = null;
-
-        // 1. Cek apakah ada data user yang disimpan di localStorage oleh halaman /login
-        if (typeof window !== 'undefined') {
-          // Cari kunci umum yang biasa dipakai untuk menyimpan data user login
-          const savedUser = localStorage.getItem('user') || localStorage.getItem('supabase.auth.token') || localStorage.getItem('sb-auth-token');
-          
-          if (savedUser) {
-            try {
-              const parsed = JSON.parse(savedUser);
-              activeUser = parsed?.user || parsed?.currentSession?.user || parsed;
-            } catch (e) {
-              // Jika data di localStorage ternyata berupa string biasa atau token mentah
-              activeUser = { email: savedUser };
-            }
-          }
-
-          // 2. Cek juga key localStorage satu per satu jika belum ketemu
-          if (!activeUser) {
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i);
-              if (key && (key.includes('auth') || key.includes('sb-') || key.includes('user'))) {
-                const val = localStorage.getItem(key);
-                if (val && val.includes('@')) {
-                  try {
-                    const parsed = JSON.parse(val);
-                    if (parsed?.email || parsed?.user?.email) {
-                      activeUser = parsed.user || parsed;
-                      break;
-                    }
-                  } catch (err) {
-                    // Kalau string email mentah
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        // Jika user terdeteksi memiliki sesi/email login
-        if (activeUser && (activeUser.email || typeof activeUser === 'string')) {
-          const emailVal = activeUser.email || activeUser;
-          const meta = activeUser.user_metadata || activeUser;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          const user = session.user;
+          const emailVal = user.email || '';
+          const meta = user.user_metadata || {};
           const nameVal = meta.full_name || meta.name || emailVal.split('@')[0];
           const phoneVal = meta.phone || meta.phone_number || '';
 
           setDonorEmail(emailVal);
           setDonorName(nameVal);
           setDonorPhone(phoneVal);
-          setIsLoggedIn(true); // 🚀 Berhasil memaksa status menjadi TERHUBUNG/LOGIN
+          setIsLoggedIn(true);
         } else {
           setIsLoggedIn(false);
         }
       } catch (err) {
-        console.error('Error resolving user data:', err);
+        console.error('Error session:', err);
         setIsLoggedIn(false);
       }
     }
-
-    resolveUserData();
+    checkUserSession();
   }, []);
 
   useEffect(() => {
@@ -369,11 +359,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
         setLoading(false);
       });
   }, [slug]);
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value.replace(/[^0-9]/g, '');
-    setAmount(rawValue ? Number(rawValue).toLocaleString('id-ID') : '');
-  };
 
   const handleDonate = async () => {
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
@@ -449,26 +434,20 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      {/* 🚀 1. HEADER DETAIL PROGRAM */}
+      {/* Header */}
       <DetailHeader title="Program Donasi" onOpenShare={() => setIsShareModalOpen(true)} />
 
-      {/* 🚀 2. KONTEN CONTAINER MOBILE (max-w-md mx-auto) */}
+      {/* Konten Utama */}
       <div className="w-full max-w-md mx-auto px-3 pt-4 space-y-4">
-        
-        {/* Card Utama Penggalangan Dana */}
-        <div className="bg-white p-4 sm:p-6 shadow-sm border border-gray-200/90 space-y-4">
-          
-          {/* Banner Gambar */}
-          <div className="overflow-hidden bg-gray-100 aspect-[16/10] w-full border border-gray-100 shadow-inner">
+        <div className="bg-white p-4 sm:p-6 shadow-sm border border-gray-200/90 space-y-4 rounded-xl">
+          <div className="overflow-hidden bg-gray-100 aspect-[16/10] w-full border border-gray-100 shadow-inner rounded-xl">
             <img src={program.image} alt={program.title} className="w-full h-full object-cover" />
           </div>
 
-          {/* Judul Program */}
           <h1 className="text-base sm:text-xl font-bold text-slate-900 leading-snug tracking-tight">
             {program.title}
           </h1>
 
-          {/* Progres Terkumpul & Target */}
           <div className="space-y-2 pt-1">
             <p className="text-lg sm:text-xl font-extrabold text-[#0d5c91]">
               Rp {currentCollected.toLocaleString('id-ID')}
@@ -478,12 +457,12 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               <span>{program.daysLeft ? `${program.daysLeft} hari lagi` : 'Mendesak'}</span>
             </div>
 
-            <div className="w-full bg-gray-100 h-2.5 overflow-hidden shadow-inner">
-              <div className="bg-[#ff2e3b] h-full transition-all duration-500" style={{ width: `${percentage}%` }} />
+            <div className="w-full bg-gray-100 h-2.5 overflow-hidden shadow-inner rounded-full">
+              <div className="bg-[#e91e63] h-full transition-all duration-500" style={{ width: `${percentage}%` }} />
             </div>
           </div>
 
-          {/* Tab Menu Navigasi */}
+          {/* Tab Navigasi */}
           <div className="flex border-b border-gray-200 text-xs sm:text-sm font-bold text-slate-500 space-x-6 pt-2">
             <button
               onClick={() => setActiveTab('cerita')}
@@ -505,7 +484,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
             </button>
           </div>
 
-          {/* Isi Konten Sesuai Tab */}
+          {/* Isi Konten Tab */}
           <div className="py-2 text-left">
             {activeTab === 'cerita' && (
               <div className="space-y-4">
@@ -531,9 +510,9 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               <div className="space-y-3 py-1">
                 {(program.donors || []).length > 0 ? (
                   [...program.donors].reverse().map((donor: any, idx: number) => (
-                    <div key={idx} className="bg-gray-50 border border-gray-200/80 p-3.5 flex items-center justify-between">
+                    <div key={idx} className="bg-gray-50 border border-gray-200/80 p-3.5 flex items-center justify-between rounded-xl">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-sky-100 text-[#0d5c91] flex items-center justify-center font-bold text-base shadow-inner">
+                        <div className="w-10 h-10 bg-sky-100 text-[#0d5c91] flex items-center justify-center font-bold text-base shadow-inner rounded-full">
                           {(donor.name || 'H').toUpperCase().slice(0, 1)}
                         </div>
                         <div>
@@ -554,7 +533,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               <div className="space-y-4 py-1">
                 {(program.reports || []).length > 0 ? (
                   [...program.reports].reverse().map((report: any, idx: number) => (
-                    <div key={idx} className="bg-gray-50 border border-gray-200/80 p-4 space-y-2.5">
+                    <div key={idx} className="bg-gray-50 border border-gray-200/80 p-4 space-y-2.5 rounded-xl">
                       <div className="flex items-center justify-between border-b border-gray-200 pb-2.5">
                         <h4 className="text-sm sm:text-base font-bold text-slate-800">{report.title || 'Laporan Penyaluran'}</h4>
                         <span className="text-xs text-slate-400 font-medium">{report.date}</span>
@@ -570,30 +549,28 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               </div>
             )}
           </div>
-
         </div>
-
       </div>
 
-      {/* 🚀 3. STICKY BOTTOM BAR FLOATING AKSI */}
+      {/* Floating Bottom Bar ala Kitabisa */}
       <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center pb-3">
-        <div className="w-[calc(100%-1.5rem)] max-w-md bg-white border border-gray-200 p-3.5 shadow-xl pointer-events-auto">
+        <div className="w-[calc(100%-1.5rem)] max-w-md bg-white border border-gray-200 p-3.5 shadow-xl pointer-events-auto rounded-2xl">
           <button 
             onClick={() => setIsMobileFormOpen(true)} 
-            className="w-full bg-[#ff2e3b] hover:bg-red-600 active:scale-[0.99] text-white text-sm sm:text-base font-extrabold py-3.5 shadow-md transition-all uppercase tracking-wide cursor-pointer rounded-lg"
+            className="w-full bg-[#e91e63] hover:bg-pink-700 active:scale-[0.99] text-white text-sm sm:text-base font-extrabold py-4 shadow-md transition-all uppercase tracking-wide cursor-pointer rounded-xl"
           >
-            Donasi Sekarang 🚀
+            Donasi sekarang
           </button>
         </div>
       </div>
 
-      {/* 🚀 4. POPUP FORM DONASI MOBILE */}
+      {/* Modal Popup Donasi Ala Kitabisa */}
       {isMobileFormOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-3">
           <div className="absolute inset-0" onClick={() => setIsMobileFormOpen(false)} />
-          <div className="relative w-full max-w-md bg-white p-5 space-y-4 max-h-[85vh] overflow-y-auto z-10 shadow-2xl border border-gray-200 rounded-2xl">
+          <div className="relative w-full max-w-md bg-white p-5 space-y-4 max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-gray-200 rounded-t-2xl sm:rounded-2xl">
             <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wide">Form Infak / Zakat</h3>
+              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wide">Pilih Nominal Donasi</h3>
               <button 
                 onClick={() => setIsMobileFormOpen(false)} 
                 className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
@@ -605,7 +582,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               donorName={donorName} setDonorName={setDonorName}
               donorPhone={donorPhone} setDonorPhone={setDonorPhone}
               donorEmail={donorEmail} setDonorEmail={setDonorEmail}
-              amount={amount} handleAmountChange={handleAmountChange}
+              amount={amount} setAmount={setAmount}
               handleDonate={handleDonate} submitting={submitting}
               isLoggedIn={isLoggedIn}
             />
@@ -613,7 +590,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
         </div>
       )}
 
-      {/* 🚀 5. CUSTOM SHARE MODAL MOBILE-FIRST */}
+      {/* Modal Share */}
       {isShareModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3">
           <div className="absolute inset-0" onClick={() => setIsShareModalOpen(false)} />
@@ -628,7 +605,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               </button>
             </div>
 
-            {/* Input URL & Button Copy */}
             <div className="space-y-1.5">
               <label className="text-xs sm:text-sm font-semibold text-slate-600 block">Tautan Program</label>
               <div className="flex items-center gap-2">
@@ -648,7 +624,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
               </div>
             </div>
 
-            {/* Opsi Media Sosial */}
             <div className="grid grid-cols-3 gap-2.5 pt-1">
               <a
                 href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Ayo bantu program kebaikan ini: ${program?.title || ''}\n${shareUrl}`)}`}
@@ -687,7 +662,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           </div>
         </div>
       )}
-
     </div>
   );
 }

@@ -11,6 +11,18 @@ export default function TotalAccumulationWidget() {
   });
   const [loading, setLoading] = useState(true);
 
+  // 🚀 Logika perhitungan donatur yang disamakan persis dengan komponen Campaign
+  const getDonorsCount = (program: any) => {
+    if (program.donorsCount && program.donorsCount > 0) return program.donorsCount;
+    if (program.donors && program.donors.length > 0) return program.donors.length;
+    
+    const collected = Number(program.collectedRaw || program.collectedAmount || 0);
+    if (collected > 0) {
+      return Math.max(1, Math.floor(collected / 50000));
+    }
+    return 0;
+  };
+
   useEffect(() => {
     fetch('/api/programs?v=' + Date.now(), {
       cache: 'no-store',
@@ -21,9 +33,7 @@ export default function TotalAccumulationWidget() {
           const calculated = json.data.reduce(
             (acc: any, program: any) => {
               const collected = Number(program.collectedRaw || program.collectedAmount || 0);
-              
-              // 🚀 Ambil langsung dari donorsCount agar sinkron dengan Card di bawah
-              const donorCount = Number(program.donorsCount || (program.donors ? program.donors.length : 0));
+              const donorCount = getDonorsCount(program);
               
               return {
                 totalCollected: acc.totalCollected + collected,

@@ -250,7 +250,8 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
   useEffect(() => {
-    fetch('/api/programs', { cache: 'default' })
+    // 🚀 Menggunakan cache: 'no-store' agar selalu mengambil data realtime terbaru dari server/Sanity
+    fetch('/api/programs', { cache: 'no-store' })
       .then((res) => res.json())
       .then((json) => {
         if (json.success) {
@@ -278,7 +279,6 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
       return;
     }
 
-    // 🚀 Ambil ID program secara aman dengan mengecek _id atau id
     const resolvedProgramId = program?._id || program?.id;
 
     if (!resolvedProgramId) {
@@ -292,7 +292,7 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          programId: resolvedProgramId, // 🚀 Dikirim secara akurat ke backend
+          programId: resolvedProgramId,
           programTitle: program?.title || 'Sedekah Umum',
           slug: program?.slug,
           amount: cleanAmount,

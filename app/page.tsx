@@ -7,7 +7,7 @@ import Campaign from '@/components/Campaign';
 import News from '@/components/News';
 import Footer from '@/components/Footer';
 
-// 🚀 INITIALIZE SANITY CLIENT (Murni dari Environment Variables tanpa fallback ID lama)
+// 🚀 INITIALIZE SANITY CLIENT
 const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
 const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production';
 
@@ -24,6 +24,7 @@ const serverClient = createClient({
 });
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0; // 🚀 Pastikan tidak ada cache agar data selalu real-time
 
 export default async function HomePage() {
   let heroBanners: HeroBanner[] = [];
@@ -32,7 +33,7 @@ export default async function HomePage() {
   let pilihanPrograms: any[] = [];
 
   try {
-    // 🚀 Jalankan pengambilan data secara paralel untuk Hero Banners dan Campaign
+    // 🚀 Perbaikan Query GROQ: Mengutamakan collectedAmount agar langsung terbaca akurat
     const query = `{
       "heroBanners": *[_type in ["heroBanner", "banner"] && active != false] | order(order asc, _createdAt desc)[0...10] {
         "id": _id,
@@ -45,7 +46,8 @@ export default async function HomePage() {
         "title": title,
         "slug": slug.current,
         "image": image.asset->url,
-        "collectedRaw": coalesce(collectedRaw, collectedAmount, 0),
+        "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
+        "collectedRaw": coalesce(collectedAmount, collectedRaw, 0),
         "targetAmount": coalesce(targetAmount, 50000000),
         "daysLeft": daysLeft,
         "donors": donors
@@ -55,7 +57,8 @@ export default async function HomePage() {
         "title": title,
         "slug": slug.current,
         "image": image.asset->url,
-        "collectedRaw": coalesce(collectedRaw, collectedAmount, 0),
+        "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
+        "collectedRaw": coalesce(collectedAmount, collectedRaw, 0),
         "targetAmount": coalesce(targetAmount, 50000000),
         "donors": donors
       },
@@ -64,7 +67,8 @@ export default async function HomePage() {
         "title": title,
         "slug": slug.current,
         "image": image.asset->url,
-        "collectedRaw": coalesce(collectedRaw, collectedAmount, 0),
+        "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
+        "collectedRaw": coalesce(collectedAmount, collectedRaw, 0),
         "targetAmount": coalesce(targetAmount, 50000000),
         "donorsCount": count(donors),
         "donors": donors

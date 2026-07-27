@@ -5,6 +5,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortableText } from '@portabletext/react';
 import { ArrowLeft, Share2, Copy, Check, MessageCircle } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+
+// Inisialisasi Supabase Client untuk Client-Side
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 // ===================================================================
 // 1. HEADER KHUSUS DETAIL PROGRAM
@@ -235,33 +242,49 @@ const DonationFormFields = ({
 // ===================================================================
 // 4. MAIN DETAIL CLIENT COMPONENT (MOBILE-FIRST)
 // ===================================================================
-interface InitialUser {
-  email: string;
-  name: string;
-  phone: string;
-}
-
 interface CampaignDetailClientProps {
   slug: string;
   referral: string | null;
-  initialUser?: InitialUser;
 }
 
-export default function CampaignDetailClient({ slug, referral, initialUser }: CampaignDetailClientProps) {
+export default function CampaignDetailClient({ slug, referral }: CampaignDetailClientProps) {
   const [program, setProgram] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
   
-  // 🚀 Inisialisasi state dengan data login server jika tersedia
-  const [donorName, setDonorName] = useState(initialUser?.name || (initialUser?.email ? initialUser.email.split('@')[0] : ''));
-  const [donorPhone, setDonorPhone] = useState(initialUser?.phone || '');  
-  const [donorEmail, setDonorEmail] = useState(initialUser?.email || '');  
+  // State form donatur
+  const [donorName, setDonorName] = useState('');
+  const [donorPhone, setDonorPhone] = useState('');  
+  const [donorEmail, setDonorEmail] = useState('');  
   const [submitting, setSubmitting] = useState(false);
   
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
+
+  // 🚀 Otomatis deteksi user login langsung via client-side Supabase saat komponen dirender
+  useEffect(() => {
+    async function fetchLoggedUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const user = session.user;
+          const meta = user.user_metadata || {};
+          const emailVal = user.email || '';
+          const nameVal = meta.full_name || meta.name || meta.user_name || (emailVal ? emailVal.split('@')[0] : '');
+          const phoneVal = meta.phone || meta.phone_number || '';
+
+          setDonorEmail(emailVal);
+          setDonorName(nameVal);
+          setDonorPhone(phoneVal);
+        }
+      } catch (err) {
+        console.error('Gagal mengambil sesi user aktif:', err);
+      }
+    }
+    fetchLoggedUser();
+  }, []);
 
   useEffect(() => {
     fetch(`/api/programs?t=${Date.now()}`, { cache: 'no-store' })

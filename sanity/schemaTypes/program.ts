@@ -64,12 +64,21 @@ export default defineType({
       validation: (Rule) => Rule.required().error('Foto wajib diunggah'),
     }),
     defineField({
-      name: 'collectedAmount', // 🚀 Disamakan agar sinkron dengan script webhook
+      name: 'collectedAmount',
       title: 'Nominal Terkumpul (Otomatis dari DOKU)',
       type: 'number',
       initialValue: 0,
       readOnly: true, 
       description: 'Field ini terkunci otomatis. Angka akan bertambah sendiri secara realtime saat pembayaran donasi DOKU sukses.',
+    }),
+    // 🚀 DITAMBAHKAN: Mengatasi error Unknown field found pada collectedRaw
+    defineField({
+      name: 'collectedRaw',
+      title: 'Collected Raw Amount',
+      type: 'number',
+      initialValue: 0,
+      readOnly: true,
+      description: 'Cadangan perhitungan nominal mentah dari sistem webhook.',
     }),
     defineField({
       name: 'targetAmount',

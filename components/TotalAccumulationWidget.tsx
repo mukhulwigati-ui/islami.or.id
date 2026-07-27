@@ -18,19 +18,12 @@ export default function TotalAccumulationWidget() {
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {
-          // 🚀 KALKULASI KUMULATIF AKUMULASI DANA & DONATUR REAL-TIME
           const calculated = json.data.reduce(
             (acc: any, program: any) => {
               const collected = Number(program.collectedRaw || program.collectedAmount || 0);
               
-              // 🚀 Ambil dari donorsCount yang dikirim API, atau fallback ke panjang array donors, atau estimasi jika dana > 0
-              let donorCount = Number(program.donorsCount || 0);
-              if (donorCount === 0 && Array.isArray(program.donors) && program.donors.length > 0) {
-                donorCount = program.donors.length;
-              }
-              if (donorCount === 0 && collected > 0) {
-                donorCount = Math.max(1, Math.floor(collected / 50000));
-              }
+              // 🚀 Ambil langsung dari donorsCount agar sinkron dengan Card di bawah
+              const donorCount = Number(program.donorsCount || (program.donors ? program.donors.length : 0));
               
               return {
                 totalCollected: acc.totalCollected + collected,
@@ -65,11 +58,8 @@ export default function TotalAccumulationWidget() {
   }
 
   return (
-    // 🚀 CONTAINER UTAMA: Murni w-full
     <div className="w-full">
-      
-      {/* 🚀 BORDER CARD LANCIP (ROUNDED-NONE) & TEKS DIPERBESAR */}
-      <div className="grid grid-cols-3 bg-white border border-gray-200/90 rounded-none shadow-sm divide-x divide-gray-100 overflow-hidden">
+      <div className="grid grid-cols-3 bg-white border border-gray-200/95 rounded-none shadow-sm divide-x divide-gray-100 overflow-hidden">
         
         {/* KOTAK 1: TOTAL DANA DISALURKAN */}
         <div className="p-3 sm:p-4 flex flex-col items-center justify-center text-center space-y-1.5 transition-colors hover:bg-gray-50/60">

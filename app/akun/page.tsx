@@ -229,35 +229,35 @@ export default function AkunPage() {
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </Link>
 
-          <Link href="/donasi-saya" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
+          <Link href="/kuitansi" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
             <div className="flex items-center gap-3 text-slate-800 font-bold text-xs sm:text-sm">
               <FileText className="w-4 h-4 text-[#0d5c91]" /> Kuitansi & Sertifikat
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </Link>
 
-          <Link href="/" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
+          <Link href="/favorit" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
             <div className="flex items-center gap-3 text-slate-800 font-bold text-xs sm:text-sm">
               <Bookmark className="w-4 h-4 text-[#0d5c91]" /> Program Favorit
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </Link>
 
-          <Link href="/" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
+          <Link href="/referral" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
             <div className="flex items-center gap-3 text-slate-800 font-bold text-xs sm:text-sm">
               <Sparkles className="w-4 h-4 text-[#0d5c91]" /> Ajak Teman (Referral)
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </Link>
 
-          <Link href="/" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
+          <Link href="/pengaturan" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
             <div className="flex items-center gap-3 text-slate-800 font-bold text-xs sm:text-sm">
               <Settings className="w-4 h-4 text-[#0d5c91]" /> Pengaturan Akun
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </Link>
 
-          <Link href="/" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
+          <Link href="/bantuan" className="flex items-center justify-between p-4 hover:bg-slate-50 transition cursor-pointer">
             <div className="flex items-center gap-3 text-slate-800 font-bold text-xs sm:text-sm">
               <HelpCircle className="w-4 h-4 text-[#0d5c91]" /> Bantuan & FAQ
             </div>

@@ -27,6 +27,15 @@ export async function POST(req: Request) {
       0
     );
 
+    // Ambil status dari berbagai variasi payload DOKU
+    const rawStatus = String(
+      body.transaction_status || 
+      body.status || 
+      body.result?.status || 
+      body.order?.status || 
+      'success'
+    ).toLowerCase();
+
     if (!orderId) {
       console.error('❌ ERROR: Order ID / Invoice kosong dari payload DOKU!');
       return NextResponse.json({ status: 'FAILED', message: 'Order ID not found' }, { status: 400 });
@@ -43,13 +52,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'NOT_FOUND' }, { status: 404 });
     }
 
-    // 2. Update status pembayaran menjadi 'success' pada tabel transaksi
+    // 2. Update status pembayaran menjadi 'success' pada tabel transaksi jika belum
     if (donationDoc.status !== 'success') {
       await sanityClient.patch(donationDoc._id).set({ status: 'success' }).commit();
       console.log('✅ Status transaksi berhasil diubah menjadi success.');
     }
 
-    // 3. Ambil Program ID dari reference programName._ref (atau ambil program pertama sebagai fallback)
+    // 3. Ambil Program ID dari reference programName._ref (atau fallback ke program pertama)
     let programId = donationDoc.programName?._ref;
 
     if (!programId) {
@@ -64,7 +73,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'NO_PROGRAM_FOUND' }, { status: 400 });
     }
 
-    // 4. Ambil data program, update collectedAmount, dan masukkan data donatur ke array donors
+    // 4. Ambil data program, update collectedAmount, dan masukkan ke array donors
     const programDoc = await sanityClient.fetch(`*[_id == $id][0]`, { id: programId });
     
     let finalAmount = amount > 0 ? amount : Number(donationDoc.amount || 0);
@@ -90,7 +99,7 @@ export async function POST(req: Request) {
     }
 
     // 5. 🚀 KIRIM NOTIFIKASI WHATSAPP OTOMATIS MENGGUNAKAN FONNTE
-    const donorPhone = donationDoc.donorPhone;
+    const donorPhone = donationDoc.donorPhone; // Mengambil langsung dari field schema 'donorPhone'
     const donorName = donationDoc.donorName || 'Hamba Allah';
     const programTitle = programDoc?.title || 'Program Kebaikan';
     const formattedAmount = finalAmount.toLocaleString('id-ID');
@@ -99,8 +108,7 @@ export async function POST(req: Request) {
 
     if (donorPhone) {
       try {
-        // Normalisasi nomor telepon agar sesuai dengan format Fonnte (62...)
-        let formattedPhone = donorPhone.replace(/[^0-9]/g, '');
+        let formattedPhone = String(donorPhone).replace(/[^0-9]/g, '');
         if (formattedPhone.startsWith('0')) {
           formattedPhone = '62' + formattedPhone.slice(1);
         }
@@ -110,13 +118,13 @@ export async function POST(req: Request) {
         const fonnteRes = await fetch('https://api.fonnte.com/send', {
           method: 'POST',
           headers: {
-            'Authorization': process.env.WHATSAPP_API_TOKEN || '', // Token Device Fonnte di .env
+            'Authorization': process.env.WHATSAPP_API_TOKEN || '',
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             target: formattedPhone,
             message: waMessage,
-            countryCode: '62', // Opsional, memastikan kode negara valid
+            countryCode: '62',
           }),
         });
 
@@ -126,7 +134,7 @@ export async function POST(req: Request) {
         console.error('🔥 GAGAL KIRIM WA VIA FONNTE:', waError);
       }
     } else {
-      console.log('⚠️ Nomor WhatsApp donatur kosong pada transaksi ini.');
+      console.log('⚠️ Nomor WhatsApp donatur kosong pada dokumen transaksi ini.');
     }
 
     return NextResponse.json({ status: 'SUCCESS' }, { status: 200 });

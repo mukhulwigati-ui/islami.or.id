@@ -1,4 +1,4 @@
-// app/campaign/[slug]/CampaignDetailClient.tsx
+// components/CampaignDetailClient.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -250,8 +250,8 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
   useEffect(() => {
-    // 🚀 Menggunakan cache: 'no-store' agar selalu mengambil data realtime terbaru dari server/Sanity
-    fetch('/api/programs', { cache: 'no-store' })
+    // 🚀 Menggunakan timestamp (?t=...) dan cache: 'no-store' agar tidak ada data cache yang tertinggal
+    fetch(`/api/programs?t=${Date.now()}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((json) => {
         if (json.success) {

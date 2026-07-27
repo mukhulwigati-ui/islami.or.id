@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortableText } from '@portabletext/react';
-import { ArrowLeft, Share2, Copy, Check, MessageCircle, Lock } from 'lucide-react';
+import { ArrowLeft, Share2, Copy, Check, MessageCircle, Lock, UserCheck } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // Inisialisasi Supabase Client untuk Client-Side
@@ -24,7 +24,7 @@ function DetailHeader({ title = 'Program Donasi', onOpenShare }: { title?: strin
       <div className="w-full max-w-md mx-auto px-4 h-14 flex items-center justify-between">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors"
+          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors cursor-pointer"
           aria-label="Kembali"
         >
           <ArrowLeft className="w-5 h-5 text-white" />
@@ -36,7 +36,7 @@ function DetailHeader({ title = 'Program Donasi', onOpenShare }: { title?: strin
 
         <button
           onClick={onOpenShare}
-          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors"
+          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors cursor-pointer"
           aria-label="Bagikan"
         >
           <Share2 className="w-5 h-5 text-white" />
@@ -145,7 +145,7 @@ function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: strin
           <button
             disabled={totalZakat <= 0}
             onClick={() => onApplyAmount(totalZakat.toLocaleString('id-ID'))}
-            className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white text-xs sm:text-sm font-bold py-2.5 uppercase tracking-wider disabled:bg-gray-300 transition shadow-sm"
+            className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white text-xs sm:text-sm font-bold py-2.5 uppercase tracking-wider disabled:bg-gray-300 transition shadow-sm cursor-pointer"
           >
             Masukkan ke Form Nominal 📥
           </button>
@@ -187,71 +187,65 @@ const DonationFormFields = ({
   isLoggedIn,
 }: FormProps) => (
   <div className="space-y-4 text-left">
-    <div>
-      <div className="flex justify-between items-center mb-1.5">
-        <label className="text-xs sm:text-sm font-semibold text-slate-700 block">Nama Donatur</label>
-        {isLoggedIn && (
-          <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
-            <Lock className="w-3 h-3" /> Akun Google
+    {/* 🚀 JIKA SUDAH LOGIN GOOGLE: Sembunyikan field nama & email, ganti dengan info card ringkas */}
+    {isLoggedIn ? (
+      <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-xl space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1.5">
+            <UserCheck className="w-3.5 h-3.5 text-emerald-600" /> Terhubung Google
           </span>
-        )}
+          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Aktif</span>
+        </div>
+        <p className="text-xs font-bold text-slate-800 truncate">{donorName}</p>
+        <p className="text-[11px] text-slate-500 truncate">{donorEmail}</p>
       </div>
-      <input
-        type="text"
-        placeholder="Hamba Allah (Boleh Kosong)"
-        className={`w-full border px-3.5 py-2.5 text-sm sm:text-base font-medium transition ${
-          isLoggedIn 
-            ? 'bg-slate-100 border-gray-300 text-slate-700 cursor-not-allowed select-none' 
-            : 'bg-white border-gray-300 text-slate-800 focus:outline-[#0d5c91]'
-        }`}
-        value={donorName}
-        onChange={(e) => !isLoggedIn && setDonorName(e.target.value)}
-        readOnly={isLoggedIn}
-      />
-    </div>
+    ) : (
+      /* JIKA BELUM LOGIN: Tampilkan input Nama dan Email manual */
+      <>
+        <div>
+          <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nama Donatur</label>
+          <input
+            type="text"
+            placeholder="Hamba Allah (Boleh Kosong)"
+            className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white rounded-lg"
+            value={donorName}
+            onChange={(e) => setDonorName(e.target.value)}
+          />
+        </div>
 
+        <div>
+          <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Email (Opsional)</label>
+          <input
+            type="email"
+            placeholder="email@domain.com"
+            className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white rounded-lg"
+            value={donorEmail}
+            onChange={(e) => setDonorEmail(e.target.value)}
+          />
+        </div>
+      </>
+    )}
+
+    {/* Form yang SELALU MUNCUL: Nomor WhatsApp dan Nominal Donasi */}
     <div>
-      <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nomor WhatsApp</label>
+      <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nomor WhatsApp <span className="text-rose-500">*</span></label>
       <input
         type="tel"
         placeholder="Contoh: 081234567890"
-        className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white"
+        className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base text-slate-800 focus:outline-[#0d5c91] font-medium bg-white rounded-lg"
         value={donorPhone}
         onChange={(e) => setDonorPhone(e.target.value)}
       />
     </div>
 
     <div>
-      <div className="flex justify-between items-center mb-1.5">
-        <label className="text-xs sm:text-sm font-semibold text-slate-700 block">Email (Opsional)</label>
-        {isLoggedIn && (
-          <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
-            <Lock className="w-3 h-3" /> Akun Google
-          </span>
-        )}
-      </div>
-      <input
-        type="email"
-        placeholder="email@domain.com"
-        className={`w-full border px-3.5 py-2.5 text-sm sm:text-base font-medium transition ${
-          isLoggedIn 
-            ? 'bg-slate-100 border-gray-300 text-slate-700 cursor-not-allowed select-none' 
-            : 'bg-white border-gray-300 text-slate-800 focus:outline-[#0d5c91]'
-        }`}
-        value={donorEmail}
-        onChange={(e) => !isLoggedIn && setDonorEmail(e.target.value)}
-        readOnly={isLoggedIn}
-      />
-    </div>
-
-    <div>
-      <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nominal Infak / Zakat (Rp)</label>
+      <label className="text-xs sm:text-sm font-semibold text-slate-700 block mb-1.5">Nominal Infak / Zakat (Rp) <span className="text-rose-500">*</span></label>
       <div className="relative flex items-center">
         <span className="absolute left-3.5 text-sm sm:text-base font-bold text-slate-500">Rp</span>
         <input
           type="text"
           placeholder="Minimal 1.000"
-          className="w-full border border-gray-300 pl-10 pr-3.5 py-2.5 text-sm sm:text-base font-bold text-slate-900 focus:outline-[#0d5c91]"
+          className="w-full border border-gray-300 pl-10 pr-3.5 py-2.5 text-sm sm:text-base font-bold text-slate-900 focus:outline-[#0d5c91] rounded-lg"
           value={amount}
           onChange={handleAmountChange}
         />
@@ -262,7 +256,7 @@ const DonationFormFields = ({
     <button
       onClick={handleDonate}
       disabled={submitting}
-      className="w-full bg-[#ff2e3b] hover:bg-red-600 active:scale-[0.99] text-white font-bold py-3.5 transition text-sm sm:text-base uppercase tracking-wider disabled:bg-gray-300 shadow-md flex items-center justify-center gap-2"
+      className="w-full bg-[#ff2e3b] hover:bg-red-600 active:scale-[0.99] text-white font-bold py-3.5 transition text-sm sm:text-base uppercase tracking-wider disabled:bg-gray-300 shadow-md flex items-center justify-center gap-2 cursor-pointer rounded-lg"
     >
       {submitting ? 'Memproses...' : 'Lanjut ke Pembayaran 🚀'}
     </button>
@@ -294,7 +288,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // 🚀 Deteksi user login mutlak: Membaca langsung dari akun aktif yang login tanpa hardcode statis
+  // 🚀 Deteksi user login mutlak: Membaca langsung dari akun aktif Supabase / localStorage
   useEffect(() => {
     async function resolveUserData() {
       try {
@@ -335,7 +329,6 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           setDonorPhone(phoneVal);
           setIsLoggedIn(true); // 🚀 Menandakan user sudah terautentikasi Google
         } else {
-          // Bersihkan total jika belum login (tidak ada data hardcode nyangkut)
           setDonorEmail('');
           setDonorName('');
           setDonorPhone('');
@@ -483,19 +476,19 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           <div className="flex border-b border-gray-200 text-xs sm:text-sm font-bold text-slate-500 space-x-6 pt-2">
             <button
               onClick={() => setActiveTab('cerita')}
-              className={`pb-2.5 transition focus:outline-none ${activeTab === 'cerita' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
+              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'cerita' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
             >
               Cerita
             </button>
             <button
               onClick={() => setActiveTab('donatur')}
-              className={`pb-2.5 transition focus:outline-none ${activeTab === 'donatur' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
+              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'donatur' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
             >
               Donatur ({(program.donors || []).length})
             </button>
             <button
               onClick={() => setActiveTab('laporan')}
-              className={`pb-2.5 transition focus:outline-none ${activeTab === 'laporan' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
+              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'laporan' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
             >
               Laporan ({(program.reports || []).length})
             </button>
@@ -576,7 +569,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
         <div className="w-[calc(100%-1.5rem)] max-w-md bg-white border border-gray-200 p-3.5 shadow-xl pointer-events-auto">
           <button 
             onClick={() => setIsMobileFormOpen(true)} 
-            className="w-full bg-[#ff2e3b] hover:bg-red-600 active:scale-[0.99] text-white text-sm sm:text-base font-extrabold py-3.5 shadow-md transition-all uppercase tracking-wide"
+            className="w-full bg-[#ff2e3b] hover:bg-red-600 active:scale-[0.99] text-white text-sm sm:text-base font-extrabold py-3.5 shadow-md transition-all uppercase tracking-wide cursor-pointer rounded-lg"
           >
             Donasi Sekarang 🚀
           </button>
@@ -587,12 +580,12 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
       {isMobileFormOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3">
           <div className="absolute inset-0" onClick={() => setIsMobileFormOpen(false)} />
-          <div className="relative w-full max-w-md bg-white p-5 space-y-4 max-h-[85vh] overflow-y-auto z-10 shadow-2xl border border-gray-200">
+          <div className="relative w-full max-w-md bg-white p-5 space-y-4 max-h-[85vh] overflow-y-auto z-10 shadow-2xl border border-gray-200 rounded-2xl">
             <div className="flex justify-between items-center pb-3 border-b border-gray-100">
               <h3 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wide">Form Infak / Zakat</h3>
               <button 
                 onClick={() => setIsMobileFormOpen(false)} 
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -613,12 +606,12 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
       {isShareModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3">
           <div className="absolute inset-0" onClick={() => setIsShareModalOpen(false)} />
-          <div className="relative w-full max-w-md bg-white p-5 space-y-4 z-10 shadow-2xl border border-gray-200 text-left">
+          <div className="relative w-full max-w-md bg-white p-5 space-y-4 z-10 shadow-2xl border border-gray-200 text-left rounded-2xl">
             <div className="flex justify-between items-center pb-3 border-b border-gray-100">
               <h3 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wide">Bagikan Program Kebaikan</h3>
               <button 
                 onClick={() => setIsShareModalOpen(false)} 
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -632,11 +625,11 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
                   type="text" 
                   readOnly 
                   value={shareUrl} 
-                  className="flex-1 bg-gray-50 border border-gray-300 px-3.5 py-2.5 text-xs sm:text-sm font-mono text-slate-700 truncate focus:outline-none"
+                  className="flex-1 bg-gray-50 border border-gray-300 px-3.5 py-2.5 text-xs sm:text-sm font-mono text-slate-700 truncate focus:outline-none rounded-lg"
                 />
                 <button
                   onClick={handleCopyLink}
-                  className="bg-[#0d5c91] text-white px-4 py-2.5 text-xs sm:text-sm font-bold shrink-0 flex items-center gap-1.5 hover:bg-sky-900 transition shadow-sm"
+                  className="bg-[#0d5c91] text-white px-4 py-2.5 text-xs sm:text-sm font-bold shrink-0 flex items-center gap-1.5 hover:bg-sky-900 transition shadow-sm cursor-pointer rounded-lg"
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   <span>{copied ? 'Tersalin' : 'Salin'}</span>
@@ -650,7 +643,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
                 href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Ayo bantu program kebaikan ini: ${program?.title || ''}\n${shareUrl}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center justify-center p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 space-y-1.5 hover:bg-emerald-100 transition shadow-2xs"
+                className="flex flex-col items-center justify-center p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 space-y-1.5 hover:bg-emerald-100 transition shadow-2xs rounded-xl"
               >
                 <MessageCircle className="w-6 h-6 text-emerald-600" />
                 <span className="text-xs sm:text-sm font-bold">WhatsApp</span>
@@ -660,7 +653,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center justify-center p-3.5 bg-blue-50 border border-blue-200 text-blue-800 space-y-1.5 hover:bg-blue-100 transition shadow-2xs"
+                className="flex flex-col items-center justify-center p-3.5 bg-blue-50 border border-blue-200 text-blue-800 space-y-1.5 hover:bg-blue-100 transition shadow-2xs rounded-xl"
               >
                 <svg className="w-6 h-6 fill-current text-blue-600" viewBox="0 0 24 24">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -672,7 +665,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
                 href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(program?.title || '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center justify-center p-3.5 bg-gray-100 border border-gray-200 text-slate-800 space-y-1.5 hover:bg-gray-200 transition shadow-2xs"
+                className="flex flex-col items-center justify-center p-3.5 bg-gray-100 border border-gray-200 text-slate-800 space-y-1.5 hover:bg-gray-200 transition shadow-2xs rounded-xl"
               >
                 <svg className="w-5 h-5 fill-current text-slate-900 mt-0.5" viewBox="0 0 24 24">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>

@@ -5,7 +5,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { X, UserPlus, Phone, User, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { X, UserPlus, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
+import { createBrowserClient } from '@supabase/ssr';
 
 export interface HeroBanner {
   _id: string;
@@ -45,15 +46,12 @@ export default function Hero({ initialBanners = [] }: HeroProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showFundraiserModal, setShowFundraiserModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'login' | 'register'>('login');
-  
-  const [phone, setPhone] = useState('');
-  const [name, setName] = useState('');
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const allCategories = [
     { name: 'Zakat', icon: '/images/zakat.jpg', href: '/campaign/zakat-maal', glowing: true },
@@ -66,7 +64,7 @@ export default function Hero({ initialBanners = [] }: HeroProps) {
     { name: 'Sedekah Jumat', icon: '/images/sedekah-jumat.png', href: '/program?cat=sedekah-jumat', glowing: false },
     { name: 'Kifarat', icon: '/images/kifarat.jpeg', href: '/program?cat=kifarat', glowing: false },
     { name: 'Donasi Dari Bunga Bank', icon: '/images/bunga.jpg', href: '/program?cat=bunga-bank', glowing: false },
-    { name: 'Jadi Fundraiser', icon: '/images/fundraiser.png', href: '#', isFundraiserBtn: true, glowing: false },
+    { name: 'Gabung Member', icon: '/images/fundraiser.png', href: '#', isAuthBtn: true, glowing: false },
   ];
 
   const displayedCategories = isExpanded ? allCategories : allCategories.slice(0, 7);
@@ -79,63 +77,18 @@ export default function Hero({ initialBanners = [] }: HeroProps) {
     return () => clearInterval(timer);
   }, [banners.length]);
 
-  // Handle Login Fundraiser
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phone) return;
-
-    setIsSubmitting(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
+  // Handler Login Google
+  const handleGoogleLogin = async () => {
     try {
-      const res = await fetch(`/api/fundraiser/stats?phone=${phone}`);
-      const json = await res.json();
-
-      if (json.success) {
-        setSuccessMessage('Login Berhasil! Mengalihkan ke halaman statistik...');
-        setTimeout(() => {
-          router.push(`/fundraiser/stats?phone=${encodeURIComponent(phone)}`);
-        }, 1200);
-      } else {
-        setErrorMessage('Nomor WhatsApp belum terdaftar. Silakan daftar terlebih dahulu.');
-      }
-    } catch (err) {
-      setErrorMessage('Terjadi gangguan jaringan saat memproses login.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Handle Pendaftaran Fundraiser Baru
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !phone) return;
-
-    setIsSubmitting(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    try {
-      const response = await fetch('/api/fundraiser/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone }),
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/akun`,
+        },
       });
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccessMessage(data.message || 'Pendaftaran berhasil! Akun Anda langsung aktif.');
-        setTimeout(() => {
-          router.push(`/fundraiser/stats?phone=${encodeURIComponent(phone)}`);
-        }, 2000);
-      } else {
-        setErrorMessage(data.message || 'Gagal mendaftar. Silakan coba lagi.');
-      }
-    } catch (err) {
-      setErrorMessage('Terjadi kesalahan jaringan. Silakan coba beberapa saat lagi.');
-    } finally {
-      setIsSubmitting(false);
+      if (error) throw error;
+    } catch (err: any) {
+      alert('Gagal masuk dengan Google: ' + err.message);
     }
   };
 
@@ -201,18 +154,14 @@ export default function Hero({ initialBanners = [] }: HeroProps) {
           Raih Keberkahan Dihari Ini!
         </h3>
 
-        {/* 🚀 GRID KATEGORI: Bulatan diperbesar menjadi w-14 h-14 sm:w-16 sm:h-16 */}
         <div className="grid grid-cols-4 gap-y-4 gap-x-2 text-center">
           {displayedCategories.map((cat, index) => {
-            if (cat.isFundraiserBtn) {
+            if (cat.isAuthBtn) {
               return (
                 <button
                   key={index}
-                  onClick={() => {
-                    setModalMode('register');
-                    setShowFundraiserModal(true);
-                  }}
-                  className="group flex flex-col items-center focus:outline-none"
+                  onClick={() => setShowAuthModal(true)}
+                  className="group flex flex-col items-center focus:outline-none cursor-pointer"
                 >
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-50 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden transition-transform group-hover:scale-105 group-active:scale-95 relative">
                     <Image src={cat.icon} alt={cat.name} width={64} height={64} className="w-full h-full object-cover" />
@@ -243,7 +192,7 @@ export default function Hero({ initialBanners = [] }: HeroProps) {
           {!isExpanded && (
             <button
               onClick={() => setIsExpanded(true)}
-              className="group flex flex-col items-center focus:outline-none"
+              className="group flex flex-col items-center focus:outline-none cursor-pointer"
             >
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-50 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden transition-transform group-hover:scale-105 group-active:scale-95 relative">
                 <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -259,7 +208,7 @@ export default function Hero({ initialBanners = [] }: HeroProps) {
           {isExpanded && (
             <button
               onClick={() => setIsExpanded(false)}
-              className="group flex flex-col items-center focus:outline-none"
+              className="group flex flex-col items-center focus:outline-none cursor-pointer"
             >
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-50 border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden transition-transform group-hover:scale-105 group-active:scale-95 relative">
                 <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -274,16 +223,13 @@ export default function Hero({ initialBanners = [] }: HeroProps) {
         </div>
       </div>
 
-      {showFundraiserModal && (
+      {/* ================= MODAL PENDAFTARAN / LOGIN AKUN ================= */}
+      {showAuthModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-100 p-6 text-left space-y-4">
+          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-100 p-6 text-left space-y-5">
             <button
-              onClick={() => {
-                setShowFundraiserModal(false);
-                setSuccessMessage('');
-                setErrorMessage('');
-              }}
-              className="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition"
+              onClick={() => setShowAuthModal(false)}
+              className="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition cursor-pointer"
               aria-label="Tutup"
             >
               <X className="w-4 h-4" />
@@ -293,137 +239,33 @@ export default function Hero({ initialBanners = [] }: HeroProps) {
               <div className="w-12 h-12 bg-sky-50 text-[#0d5c91] rounded-full flex items-center justify-center mx-auto shadow-inner">
                 <UserPlus className="w-6 h-6" />
               </div>
-              <h4 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight">
-                Portal Fundraiser
+              <h4 className="text-base sm:text-lg font-extrabold text-gray-900 tracking-tight">
+                Gabung Member Islami.id
               </h4>
-              
-              <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => { setModalMode('register'); setErrorMessage(''); setSuccessMessage(''); }}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
-                    modalMode === 'register' ? 'bg-white text-[#0d5c91] shadow-xs' : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  Daftar Baru
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setModalMode('login'); setErrorMessage(''); setSuccessMessage(''); }}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
-                    modalMode === 'login' ? 'bg-white text-[#0d5c91] shadow-xs' : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  Sudah Terdaftar (Login)
-                </button>
-              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Nikmati kemudahan berdonasi, catat riwayat amal, dan pantau program kebaikan dalam satu akun eksklusif.
+              </p>
             </div>
 
-            {successMessage ? (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-center space-y-2 animate-in fade-in">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <p className="text-xs font-semibold leading-relaxed">{successMessage}</p>
+            <div className="space-y-3 pt-2">
+              <button
+                onClick={handleGoogleLogin}
+                className="w-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-xs sm:text-sm py-3 px-4 rounded-xl transition shadow-xs flex items-center justify-center gap-3 cursor-pointer"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.19v3.15C3.17 21.3 7.28 24 12 24z"/>
+                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.19C.43 8.12 0 9.87 0 12s.43 3.88 1.19 5.42l4.09-3.15z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.28 0 3.17 2.7 1.19 6.58l4.09 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                </svg>
+                <span>Masuk / Daftar dengan Google</span>
+              </button>
+
+              <div className="flex items-center gap-2 text-[10px] text-slate-400 justify-center pt-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Autentikasi aman & terverifikasi otomatis</span>
               </div>
-            ) : modalMode === 'register' ? (
-              <form onSubmit={handleRegister} className="space-y-3.5">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700">Nama Lengkap</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
-                      <User className="w-4 h-4" />
-                    </span>
-                    <input 
-                      type="text"
-                      required
-                      placeholder="Masukkan nama lengkap"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#0d5c91] focus:bg-white text-gray-800"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700">Nomor WhatsApp</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
-                      <Phone className="w-4 h-4" />
-                    </span>
-                    <input 
-                      type="tel"
-                      required
-                      placeholder="Contoh: 08123456789"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#0d5c91] focus:bg-white text-gray-800"
-                    />
-                  </div>
-                </div>
-
-                {errorMessage && (
-                  <div className="flex items-center gap-2 p-3 text-xs font-bold text-rose-600 bg-rose-50 rounded-xl border border-rose-200">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{errorMessage}</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full mt-3 bg-[#0d5c91] hover:bg-sky-900 disabled:bg-gray-300 text-white font-bold text-xs sm:text-sm uppercase tracking-wider py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Mendaftarkan...</span>
-                    </>
-                  ) : (
-                    'Daftar ➔'
-                  )}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleLogin} className="space-y-3.5">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700">Nomor WhatsApp Terdaftar</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
-                      <Phone className="w-4 h-4" />
-                    </span>
-                    <input 
-                      type="tel"
-                      required
-                      placeholder="Contoh: 08123456789"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-3 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#0d5c91] focus:bg-white text-gray-800"
-                    />
-                  </div>
-                </div>
-
-                {errorMessage && (
-                  <div className="flex items-center gap-2 p-3 text-xs font-bold text-rose-600 bg-rose-50 rounded-xl border border-rose-200">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{errorMessage}</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full mt-3 bg-[#0d5c91] hover:bg-sky-900 disabled:bg-gray-300 text-white font-bold text-xs sm:text-sm uppercase tracking-wider py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Memeriksa...</span>
-                    </>
-                  ) : (
-                    'Masuk Statistik ➔'
-                  )}
-                </button>
-              </form>
-            )}
+            </div>
 
           </div>
         </div>

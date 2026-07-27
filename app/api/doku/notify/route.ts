@@ -67,14 +67,15 @@ export async function POST(req: Request) {
     // 4. Ambil data program, update collectedAmount, dan masukkan data donatur ke array donors
     const programDoc = await sanityClient.fetch(`*[_id == $id][0]`, { id: programId });
     
+    let finalAmount = amount > 0 ? amount : Number(donationDoc.amount || 0);
+
     if (programDoc) {
       const currentCollected = Number(programDoc.collectedAmount || 0);
-      const finalAmount = amount > 0 ? amount : Number(donationDoc.amount || 0);
       const newCollected = currentCollected + finalAmount;
 
-      // Data donatur baru yang akan dimasukkan ke list (Diperbaiki di sini)
+      // Data donatur baru yang akan dimasukkan ke list
       const newDonorEntry = {
-        _key: Math.random().toString(36).substring(2), // 🚀 Diperbaiki kurungnya
+        _key: Math.random().toString(36).substring(2),
         name: donationDoc.donorName || 'Hamba Allah',
         amount: finalAmount,
         date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
@@ -87,6 +88,44 @@ export async function POST(req: Request) {
         .commit();
 
       console.log(`🎉 SUKSES BESAR! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}. Total terkumpul: Rp ${newCollected}`);
+    }
+
+    // 5. 🚀 FITUR KIRIM WHATSAPP OTOMATIS KE DONATUR
+    const donorPhone = donationDoc.donorPhone;
+    const donorName = donationDoc.donorName || 'Hamba Allah';
+    const programTitle = programDoc?.title || 'Program Kebaikan';
+    const formattedAmount = finalAmount.toLocaleString('id-ID');
+
+    if (donorPhone) {
+      try {
+        // Format nomor telepon (pastikan berformat internasional misal 628...)
+        let formattedPhone = donorPhone.replace(/[^0-9]/g, '');
+        if (formattedPhone.startsWith('0')) {
+          formattedPhone = '62' + formattedPhone.slice(1);
+        }
+
+        const waMessage = `Jazakumullah khairan, *${donorName}*.\n\nAlhamdulillah, donasi Anda sebesar *Rp ${formattedAmount}* untuk program *${programTitle}* telah berhasil diverifikasi.\n\nSemoga menjadi amal jariyah yang mengalir pahalanya dan mendatangkan keberkahan. Aamiin. 🚀`;
+
+        // Contoh integrasi menggunakan Fonnte (Sesuaikan dengan API gateway WA Anda jika pakai Wablas/Twilio)
+        const waRes = await fetch('https://api.fonnte.com/send', {
+          method: 'POST',
+          headers: {
+            'Authorization': process.env.WHATSAPP_API_TOKEN || '', // Masukkan token API WA di file .env Anda
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            target: formattedPhone,
+            message: waMessage,
+          }),
+        });
+
+        const waJson = await waRes.json();
+        console.log('📱 Status Kirim WhatsApp:', waJson);
+      } catch (waError) {
+        console.error('⚠️ Gagal mengirim pesan WhatsApp otomatis:', waError);
+      }
+    } else {
+      console.log('ℹ️ Nomor WhatsApp donatur tidak tersedia, melewati pengiriman WA.');
     }
 
     return NextResponse.json({ status: 'SUCCESS' }, { status: 200 });

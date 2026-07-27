@@ -14,7 +14,7 @@ const serverClient = createClient({
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { donorName, amount, programId, programTitle, phone, email } = body;
+    const { donorName, amount, programId, phone, email } = body;
 
     // 🚀 Bersihkan string nominal dari titik/koma/karakter lain agar menjadi angka murni
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
@@ -42,8 +42,15 @@ export async function POST(request: Request) {
       _type: 'donationTransaction',
       orderId,
       donorName: donorName || 'Hamba Allah',
+      donorPhone: phone || '',
       amount: cleanAmount,
-      programName: programTitle || 'Sedekah Umum',
+      
+      // 🚀 DIPERBAIKI: Mengirim programName sebagai object Reference agar cocok dengan skema Sanity
+      programName: programId ? {
+        _type: 'reference',
+        _ref: programId,
+      } : undefined,
+
       status: 'pending',
       paymentUrl: dokuResponse.paymentUrl,
       // 🚀 Dipastikan dikonversi menjadi string murni untuk mencegah error range

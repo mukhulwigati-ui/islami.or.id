@@ -331,7 +331,9 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
   );
 
   const rawTarget = program.targetAmount || 50000000;
-  const percentage = Math.min(Math.round((program.collectedRaw / rawTarget) * 100), 100);
+  // 🚀 Diperbarui menggunakan field collectedAmount agar sinkron dengan skema Sanity terbaru
+  const currentCollected = Number(program.collectedAmount || 0);
+  const percentage = Math.min(Math.round((currentCollected / rawTarget) * 100), 100);
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   return (
@@ -358,7 +360,7 @@ export default function CampaignDetailClient({ slug, referral }: { slug: string;
           {/* Progres Terkumpul & Target */}
           <div className="space-y-2 pt-1">
             <p className="text-lg sm:text-xl font-extrabold text-[#0d5c91]">
-              Rp {Number(program.collectedRaw || 0).toLocaleString('id-ID')}
+              Rp {currentCollected.toLocaleString('id-ID')}
             </p>
             <div className="flex justify-between items-center text-xs sm:text-sm text-slate-500 font-medium">
               <span>Terkumpul dari <strong className="text-slate-800">Rp {rawTarget.toLocaleString('id-ID')}</strong></span>

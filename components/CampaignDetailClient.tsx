@@ -5,12 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortableText } from '@portabletext/react';
 import { ArrowLeft, Share2, Copy, Check, MessageCircle, ShieldCheck } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+import { supabase } from '@/lib/supabase/client'; // 🚀 Menggunakan instance tunggal yang konsisten
 
 // ===================================================================
 // 1. HEADER KHUSUS DETAIL PROGRAM
@@ -219,14 +214,14 @@ const DonationFormFields = ({
 
       <hr className="border-slate-100 my-2" />
 
-      {/* 🚀 LOGIKA ALUR PROFIL & WHATSAPP */}
+      {/* 🚀 LOGIKA ALUR PROFIL & WHATSAPP BERDASARKAN KONSISTENSI SESSION */}
       {isLoggedIn ? (
         hasPhone ? (
           /* KONDISI 1: SUDAH LOGIN & NOMOR WA ADA -> BERSIH TANPA FORM APA PUN */
           <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-xl flex items-center justify-between">
             <div className="space-y-0.5 overflow-hidden">
-              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide block">Login ✓ • {profile.name}</span>
-              <p className="text-xs font-extrabold text-slate-900 truncate">WhatsApp: {profile.phone}</p>
+              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide block">Login ✓ • {profile?.name}</span>
+              <p className="text-xs font-extrabold text-slate-900 truncate">WhatsApp: {profile?.phone}</p>
             </div>
             <span className="text-[11px] bg-emerald-600 text-white font-bold px-2.5 py-1 rounded-full shrink-0">Siap Donasi</span>
           </div>
@@ -308,8 +303,8 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('10.000'); 
   
-  // State Profile Database
-  const [profile, setProfile] = useState<any>({ name: '', email: '', phone: '', avatar: '' });
+  // State Profile Database & Auth Session
+  const [profile, setProfile] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [inlinePhone, setInlinePhone] = useState('');
   const [savingPhone, setSavingPhone] = useState(false);
@@ -320,44 +315,52 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
 
-  // Ambil data profil dari tabel profiles saat modal dibuka / halaman dimuat
+  // 🚀 Menggunakan loadProfileFromDatabase dengan getSession() & onAuthStateChange()
   useEffect(() => {
     async function loadProfileFromDatabase() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setIsLoggedIn(true);
-          let { data: prof } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
+        const { data: { session } } = await supabase.auth.getSession();
 
-          if (!prof) {
-            const meta = user.user_metadata || {};
-            const newProf = {
-              id: user.id,
-              email: user.email,
-              name: meta.full_name || meta.name || user.email?.split('@')[0],
-              avatar: meta.avatar_url || meta.picture,
-              phone: ''
-            };
-            await supabase.from('profiles').upsert(newProf);
-            prof = newProf;
-          }
+        if (!session) {
+          setIsLoggedIn(false);
+          return;
+        }
 
+        const user = session.user;
+        setIsLoggedIn(true);
+
+        const meta = user.user_metadata || {};
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (prof) {
           setProfile(prof);
         } else {
-          setIsLoggedIn(false);
+          setProfile({
+            id: user.id,
+            name: meta.full_name || meta.name || user.email?.split('@')[0] || 'Dermawan',
+            email: user.email,
+            avatar: meta.avatar_url || meta.picture || '',
+            phone: '',
+          });
         }
-      } catch (err) {
-        console.error('Error fetching profile:', err);
+      } catch (e) {
+        console.error(e);
         setIsLoggedIn(false);
       }
     }
 
     loadProfileFromDatabase();
-  }, [isMobileFormOpen]);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      loadProfileFromDatabase();
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Fungsi simpan nomor WA kilat dari dalam popup donasi
   const handleInlineSavePhone = async () => {
@@ -369,13 +372,13 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
 
     setSavingPhone(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Sesi habis, silakan login ulang.');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('Sesi habis, silakan login ulang.');
 
       const { error } = await supabase
         .from('profiles')
         .update({ phone: clean, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+        .eq('id', session.user.id);
 
       if (error) throw error;
 

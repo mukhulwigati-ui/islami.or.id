@@ -27,6 +27,13 @@ export async function POST(req: Request) {
       0
     );
 
+    // Ambil informasi channel pembayaran (Metode) jika ada dari DOKU
+    const paymentMethod = 
+      body.payment?.method || 
+      body.channel?.id || 
+      body.payment_channel || 
+      'QRIS / Transfer';
+
     if (!orderId) {
       console.error('❌ ERROR: Order ID / Invoice kosong dari payload DOKU!');
       return NextResponse.json({ status: 'FAILED', message: 'Order ID not found' }, { status: 400 });
@@ -69,11 +76,17 @@ export async function POST(req: Request) {
         const currentCollected = Number(programDoc.collectedAmount || 0);
         const newCollected = currentCollected + finalAmount;
 
+        const currentDateStr = new Date().toLocaleDateString('id-ID', { 
+          day: 'numeric', 
+          month: 'long', 
+          year: 'numeric' 
+        });
+
         const newDonorEntry = {
           _key: Math.random().toString(36).substring(2),
           name: donationDoc.donorName || 'Hamba Allah',
           amount: finalAmount,
-          date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+          date: currentDateStr,
         };
 
         await sanityClient
@@ -86,12 +99,20 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. 🚀 EKSEKUSI KIRIM WHATSAPP OTOMATIS KE DONATUR (Terisolasi agar aman dari error lain)
+    // 4. 🚀 EKSEKUSI KIRIM WHATSAPP OTOMATIS KE DONATUR DENGAN FORMAT LENGKAP
     try {
       const donorPhone = donationDoc.donorPhone;
       const donorName = donationDoc.donorName || 'Hamba Allah';
       const programTitle = programDoc?.title || 'Program Kebaikan';
       const formattedAmount = finalAmount.toLocaleString('id-ID');
+      const invoiceNo = donationDoc.orderId || orderId;
+
+      // Format Tanggal & Waktu saat ini (contoh: 25 Juli 2026 - 23.24 WIB)
+      const now = new Date();
+      const optionsDate: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+      const dateString = now.toLocaleDateString('id-ID', optionsDate);
+      const timeString = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
+      const fullDateTime = `${dateString} - ${timeString} WIB`;
 
       console.log('📱 MEMULAI PENGIRIMAN WA. Nomor Target:', donorPhone);
 
@@ -101,9 +122,9 @@ export async function POST(req: Request) {
           formattedPhone = '62' + formattedPhone.slice(1);
         }
 
-        const waMessage = `Jazakumullah khairan, *${donorName}*.\n\nAlhamdulillah, donasi Anda sebesar *Rp ${formattedAmount}* untuk program *${programTitle}* telah berhasil diverifikasi.\n\nSemoga menjadi amal jariyah yang mengalir pahalanya dan mendatangkan keberkahan. Aamiin. 🚀`;
+        // Template Pesan Lengkap Sesuai Permintaan
+        const waMessage = `*DONASI BERHASIL DITERIMA* 🎉\n\nJazakumullah khairan, *${donorName}*.\nDonasi Anda telah berhasil kami verifikasi dengan detail berikut:\n\n📝 *No. Invoice:* ${invoiceNo}\n📌 *Program:* ${programTitle}\n💰 *Nominal:* Rp ${formattedAmount}\n💳 *Metode:* ${paymentMethod.toUpperCase()}\n⏰ *Tanggal:* ${fullDateTime}\n\nSemoga sedekah yang ditunaikan menjadi penggugur dosa, pembuka pintu rezeki, dan membawa keberkahan yang berlipat ganda untuk Anda beserta keluarga. Aamiin Yaa Rabbal 'Aalamiin.\n\n----------------------------\n*islami.or.id*\n_Salurkan kepedulian Anda secara amanah & transparan_`;
 
-        // 🚀 Membaca FONNTE_TOKEN dari Vercel dengan fallback ke WHATSAPP_API_TOKEN
         const fonnteToken = process.env.FONNTE_TOKEN || process.env.WHATSAPP_API_TOKEN;
         console.log('🔑 Token Fonnte terdeteksi (panjang karakter):', fonnteToken ? fonnteToken.length : 'KOSONG!');
 

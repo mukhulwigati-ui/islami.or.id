@@ -2,7 +2,6 @@
 import { Metadata } from 'next';
 import CampaignDetailClient from '@/components/CampaignDetailClient';
 import { createClient } from '@sanity/client';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'; // 🚀 1. Import helper Supabase Server
 import { cookies } from 'next/headers';
 
 interface Props {
@@ -13,11 +12,11 @@ interface Props {
 export const dynamic = 'force-dynamic';
 
 const serverMetadataClient = createClient({
-  projectId: '61d8vnuq',
+  projectId: 'xqggeww8',
   dataset: 'production',
   useCdn: false,
   apiVersion: '2024-01-01',
-  token: 'sk44JM4AlD6urcLa9Ak9vvnRpLGlsRai9aftW1wPA4w9zxwhrCpKREk2ArKU25K4kENIPxVXenu4kZhm2cOSaxGP69kz8az2qM2BZDIVzqyAGLjIvVTGKMu39CExUrKwbw2wCb2bfxKPgZ4lqEt2nwLZT4HEc4XT1qfrZ0i6KYupIlT6IOlP',
+  token: 'skzKLS9YXZtUK01FN8VMv2TUleuscVo9d9SXtqAlcLjt3MvaRh0IWaaruV6ObSlpJwD5UoDI0QpPJ26Xh8EpaZsK7DIIMSZ1aq7EnLzUiCUY7aHsAm1a6LeJZb9I9ygWcRTKjEJzw8c5rRCbcFAxPhzjvAgPF715JSXnJxy2lbtWm6ePtVfl',
 });
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -111,16 +110,36 @@ export default async function CampaignPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const { ref } = await searchParams;
 
-  // 🚀 2. Ambil sesi user yang sedang login di server secara aman
-  const supabase = createServerComponentClient({ cookies });
-  const { data: { session } } = await supabase.auth.getSession();
+  // 🚀 Deteksi session user secara manual dari cookie tanpa helper eksternal
+  let userEmail = '';
+  let userName = '';
+  let userPhone = '';
 
-  const userEmail = session?.user?.email || '';
-  const userMeta = session?.user?.user_metadata || {};
-  const userName = userMeta.full_name || userMeta.name || userMeta.user_name || '';
-  const userPhone = userMeta.phone || userMeta.phone_number || '';
+  try {
+    const cookieStore = await cookies();
+    // Cari cookie auth supabase yang tersimpan di browser
+    const allCookies = cookieStore.getAll();
+    for (const cookie of allCookies) {
+      if (cookie.name.includes('auth-token') || cookie.name.startsWith('sb-')) {
+        try {
+          const parsed = JSON.parse(cookie.value);
+          const user = parsed?.user || parsed;
+          if (user?.email) {
+            userEmail = user.email;
+            const meta = user.user_metadata || {};
+            userName = meta.full_name || meta.name || meta.user_name || userEmail.split('@')[0];
+            userPhone = meta.phone || meta.phone_number || '';
+            break;
+          }
+        } catch (e) {
+          // Abaikan jika format cookie bukan JSON murni
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Gagal membaca cookie session:', err);
+  }
 
-  // 🚀 3. Lempar data user ke komponen Client di bawahnya
   return (
     <CampaignDetailClient 
       slug={slug} 

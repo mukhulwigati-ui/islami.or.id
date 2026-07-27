@@ -81,7 +81,8 @@ export default function DonationModal({
     setErrorMsg('');
 
     try {
-      const response = await fetch('/api/donation/create', {
+      // 🚀 DIPERBAIKI: Mengarah ke /api/donate sesuai backend route.ts Anda
+      const response = await fetch('/api/donate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

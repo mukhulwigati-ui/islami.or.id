@@ -3,23 +3,28 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Heart, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
 
 interface DonationModalProps {
   isOpen: boolean;
   onClose: () => void;
   programId?: string;
   programTitle?: string;
+  defaultName?: string; // 🚀 Ditambahkan props data langsung
+  defaultEmail?: string;
+  defaultPhone?: string;
 }
 
 const PRESET_AMOUNTS = [10000, 25000, 50000, 100000, 250000, 500000];
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
-
-export default function DonationModal({ isOpen, onClose, programId, programTitle }: DonationModalProps) {
+export default function DonationModal({ 
+  isOpen, 
+  onClose, 
+  programId, 
+  programTitle,
+  defaultName = '',
+  defaultEmail = '',
+  defaultPhone = ''
+}: DonationModalProps) {
   const [amount, setAmount] = useState<number>(50000);
   const [customAmount, setCustomAmount] = useState<string>('');
   const [donorName, setDonorName] = useState<string>('');
@@ -28,37 +33,14 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // 🚀 Eksekusi langsung pengecekan user saat modal terbuka
+  // 🚀 Otomatis isi state saat modal dibuka berdasarkan props yang dikirim induknya
   useEffect(() => {
-    if (!isOpen) return;
-
-    let isMounted = true;
-
-    async function fetchAuthUser() {
-      try {
-        const { data } = await supabase.auth.getUser();
-        const user = data?.user;
-
-        if (user && isMounted) {
-          const meta = user.user_metadata || {};
-          const userEmail = user.email || '';
-          const fullName = meta.full_name || meta.name || meta.user_name || userEmail.split('@')[0];
-          
-          setEmail(userEmail);
-          setDonorName(fullName);
-          setPhone(meta.phone || meta.phone_number || '');
-        }
-      } catch (err) {
-        console.error('Error fetching auth user:', err);
-      }
+    if (isOpen) {
+      setDonorName(defaultName || (defaultEmail ? defaultEmail.split('@')[0] : ''));
+      setEmail(defaultEmail);
+      setPhone(defaultPhone);
     }
-
-    fetchAuthUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen]);
+  }, [isOpen, defaultName, defaultEmail, defaultPhone]);
 
   if (!isOpen) return null;
 
@@ -186,7 +168,7 @@ export default function DonationModal({ isOpen, onClose, programId, programTitle
             </div>
           </div>
 
-          {/* Form Data Donatur (Otomatis Terisi Jika Login) */}
+          {/* Form Data Donatur */}
           <div className="space-y-3 pt-1 border-t border-slate-100">
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-700 block">Nama Lengkap / Inisial</label>

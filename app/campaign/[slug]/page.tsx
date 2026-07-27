@@ -2,6 +2,8 @@
 import { Metadata } from 'next';
 import CampaignDetailClient from '@/components/CampaignDetailClient';
 import { createClient } from '@sanity/client';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'; // 🚀 1. Import helper Supabase Server
+import { cookies } from 'next/headers';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -10,18 +12,14 @@ interface Props {
 
 export const dynamic = 'force-dynamic';
 
-// 🚀 BYPASS CLIENT: Menggunakan token tulis/baca rahasia agar kebal dari delay cache/CDN Sanity
 const serverMetadataClient = createClient({
   projectId: '61d8vnuq',
   dataset: 'production',
-  useCdn: false, // Wajib false agar datanya langsung ditarik real-time dari master database
+  useCdn: false,
   apiVersion: '2024-01-01',
   token: 'sk44JM4AlD6urcLa9Ak9vvnRpLGlsRai9aftW1wPA4w9zxwhrCpKREk2ArKU25K4kENIPxVXenu4kZhm2cOSaxGP69kz8az2qM2BZDIVzqyAGLjIvVTGKMu39CExUrKwbw2wCb2bfxKPgZ4lqEt2nwLZT4HEc4XT1qfrZ0i6KYupIlT6IOlP',
 });
 
-// ===================================================================
-// 🚀 DYNAMIC METADATA: Murni query server-to-server (Anti-Timeout / Kebal 404)
-// ===================================================================
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   
@@ -35,7 +33,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   let imageUrl = '';
 
   try {
-    // Tembak langsung ke Sanity master server, tangkap semua variasi field gambar (mainImage, image, banner, dll)
     const query = `*[(_type == "program" || _type == "campaign") && slug.current == $slug][0] {
       title,
       description,
@@ -50,7 +47,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     if (found) {
       if (found.title) campaignTitle = found.title;
       
-      // LOGIC PARSING DESKRIPSI
       if (found.description) {
         if (typeof found.description === 'string') {
           campaignDesc = found.description.slice(0, 140) + '...';
@@ -63,7 +59,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         }
       }
 
-      // Pilih gambar mana pun yang sukses terisi dari CMS Sanity
       const finalSanityImage = found.mainImageUrl || found.imageUrl || found.thumbnailUrl || found.bannerUrl;
       if (finalSanityImage) {
         imageUrl = `${finalSanityImage}?format=jpg&w=1200&h=630&fit=crop`;
@@ -73,7 +68,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     console.error('🔥 Direct server metadata query failed:', error);
   }
 
-  // ABSOLUTE JAMINAN: Jika database kosong/eror, paksa pakai gambar asset blog yang terbukti sukses lolos WhatsApp
   if (!imageUrl) {
     imageUrl = 'https://cdn.sanity.io/images/61d8vnuq/production/54504f4c2810fb8bece0e88229ef5e2ad6f0ba8c-1200x630.jpg?format=jpg';
   }
@@ -90,7 +84,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url: `${siteUrl}/campaign/${slug}`,
       siteName: 'LAZIS Khoiro Ummah',
       locale: 'id_ID',
-      type: 'article', // Tetap gunakan tipe artikel karena terbukti sukses meloloskan halaman berita
+      type: 'article',
       images: [
         {
           url: imageUrl,
@@ -117,5 +111,25 @@ export default async function CampaignPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const { ref } = await searchParams;
 
-  return <CampaignDetailClient slug={slug} referral={ref || null} />;
+  // 🚀 2. Ambil sesi user yang sedang login di server secara aman
+  const supabase = createServerComponentClient({ cookies });
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const userEmail = session?.user?.email || '';
+  const userMeta = session?.user?.user_metadata || {};
+  const userName = userMeta.full_name || userMeta.name || userMeta.user_name || '';
+  const userPhone = userMeta.phone || userMeta.phone_number || '';
+
+  // 🚀 3. Lempar data user ke komponen Client di bawahnya
+  return (
+    <CampaignDetailClient 
+      slug={slug} 
+      referral={ref || null} 
+      initialUser={{
+        email: userEmail,
+        name: userName,
+        phone: userPhone,
+      }}
+    />
+  );
 }

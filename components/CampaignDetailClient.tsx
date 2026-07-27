@@ -363,8 +363,16 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
   const handleDonate = async () => {
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
 
+    // 🚀 VALIDASI NOMINAL
     if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
       alert('Masukkan nominal minimal Rp 1.000!');
+      return;
+    }
+
+    // 🚀 VALIDASI NOMOR WHATSAPP (Wajib diisi dan minimal 9 digit angka)
+    const cleanPhone = String(donorPhone || '').replace(/[^0-9]/g, '');
+    if (!cleanPhone || cleanPhone.length < 9) {
+      alert('Silakan masukkan Nomor WhatsApp yang valid untuk menerima laporan donasi!');
       return;
     }
 
@@ -386,7 +394,7 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
           slug: program?.slug,
           amount: cleanAmount,
           donorName: donorName.trim() || 'Hamba Allah',
-          phone: donorPhone.trim(),
+          phone: cleanPhone,
           email: donorEmail.trim(),
           fundraiserPhone: referral,
         }),

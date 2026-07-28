@@ -1,6 +1,6 @@
 {
-  "name": "yaibadurrohman.or.id",
-  "short_name": "Ibadurrohman",
+  "name": "islami.or.id",
+  "short_name": "islami",
   "description": "Platform Sedekah, Infaq & Zakat Online Amanah",
   "start_url": "/",
   "display": "standalone",
@@ -26,7 +26,7 @@
       "sizes": "1200x630",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Tampilan Utama yaibadurrohman.or.id"
+      "label": "Tampilan Utama islami.or.id"
     }
   ]
 }

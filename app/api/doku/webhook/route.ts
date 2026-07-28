@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
     console.log(`🔔 Webhook DOKU diterima untuk Invoice: ${invoiceNumber}, Status: ${transactionStatus}`);
 
-    // 4. Perbaikan Query Sanity (Langsung mengembalikan objek tunggal [0] dengan field lengkap)
+    // 4. Perbaikan Query Sanity
     const query = `*[(_type == "donationTransaction" || _type == "donation") && (orderId == $orderId || invoiceId == $orderId)][0]{
       _id,
       status,
@@ -101,7 +101,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: 'Amount mismatch' }, { status: 400 });
     }
 
-    // Cek apakah status pembayaran sukses
     const isSuccess = transactionStatus === 'SUCCESS' || transaction.success === true || data.result_code === '00';
 
     if (isSuccess) {
@@ -109,42 +108,50 @@ export async function POST(request: Request) {
       const paymentMethod = data.channel?.id || data.payment_method || 'QRIS / VA';
       const referenceNumber = transaction.reference_id || data.reference_number || '';
 
-      // Eksekusi Transaksi Sanity secara Atomik
-      const transactionPatch = serverClient.transaction();
-
-      // A. Update status transaksi
-      transactionPatch.patch(txDoc._id, {
-        set: {
+      // A. Update status transaksi terlebih dahulu
+      await serverClient
+        .patch(txDoc._id)
+        .set({
           status: 'success',
           paymentMethod,
           referenceNumber,
           paymentTime,
           updatedAt: paymentTime,
-        },
-      });
+        })
+        .commit();
 
-      // B. Perbarui nominal program (collectedAmount & push donatur) secara atomik jika programId terikat
+      // B. Perbarui nominal program (collectedAmount & append donatur) jika programId terikat
       if (txDoc.programId) {
-        transactionPatch.patch(txDoc.programId, {
-          setIfMissing: { donors: [] },
-          inc: { collectedAmount: amount },
-          push: {
-            donors: [
-              {
-                _key: crypto.randomUUID(),
-                donorName: txDoc.donorName || 'Hamba Allah',
-                amount: amount,
-                donatedAt: paymentTime,
-              },
-            ],
-          },
-        });
+        const programDoc = await serverClient.fetch(`*[_id == $id][0]{_id, collectedAmount}`, { id: txDoc.programId });
+        
+        if (programDoc) {
+          const currentCollected = Number(programDoc.collectedAmount || 0);
+          const newCollected = currentCollected + amount;
+
+          const currentDateStr = new Date().toLocaleDateString('id-ID', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+          });
+
+          const newDonorEntry = {
+            _key: crypto.randomUUID(),
+            name: txDoc.donorName || 'Hamba Allah',
+            amount: amount,
+            date: currentDateStr,
+          };
+
+          await serverClient
+            .patch(txDoc.programId)
+            .setIfMissing({ donors: [] })
+            .set({ collectedAmount: newCollected })
+            .append('donors', [newDonorEntry])
+            .commit();
+        }
       }
 
-      await transactionPatch.commit();
-
       console.log(`✅ Transaksi ${invoiceNumber} berhasil diproses, saldo program diperbarui.`);
-      return NextResponse.json({ success: true, message: 'Webhook berhasil diproses dan data diperbarui secara atomik.' });
+      return NextResponse.json({ success: true, message: 'Webhook berhasil diproses dan data diperbarui.' });
 
     } else if (transactionStatus === 'FAILED' || transactionStatus === 'EXPIRED') {
       await serverClient

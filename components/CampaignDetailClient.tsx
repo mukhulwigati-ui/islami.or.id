@@ -446,8 +446,15 @@ export default function CampaignDetailClient({ slug, referral }: CampaignDetailC
     fetch(`/api/programs?t=${Date.now()}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((json) => {
-        if (json.success) {
-          const found = json.data.find((p: any) => p.slug === slug);
+        if (json.success && json.data) {
+          // Bersihkan slug dari URL dan slug dari database untuk dicocokkan dengan aman
+          const cleanParamSlug = decodeURIComponent(slug).toLowerCase().replace(/[^a-z0-9]/g, '');
+          
+          const found = json.data.find((p: any) => {
+            const cleanDbSlug = (p.slug || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            return cleanDbSlug === cleanParamSlug || p.slug === slug || p._id === slug;
+          });
+
           setProgram(found);
         }
         setLoading(false);

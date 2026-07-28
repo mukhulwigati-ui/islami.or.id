@@ -17,7 +17,7 @@ const serverClient = createClient({
 
 async function getProgramsData() {
   try {
-    // 🚀 Fetch data program galang dana langsung dari Sanity di server
+    // 🚀 Perbaikan GROQ: Menyertakan pengambilan field donors & perhitungan jumlah donatur
     const data = await serverClient.fetch(
       `*[_type in ["program", "campaign"] && active != false] | order(order asc, _createdAt desc) {
         "id": _id,
@@ -25,9 +25,11 @@ async function getProgramsData() {
         "slug": slug.current,
         "image": coalesce(mainImage.asset->url, image.asset->url, banner.asset->url),
         "category": category,
-        "collectedRaw": coalesce(collected, 0),
+        "collectedRaw": coalesce(collectedAmount, collected, 0),
         "targetRaw": coalesce(targetAmount, 50000000),
-        "daysLeft": daysLeft
+        "daysLeft": daysLeft,
+        "donors": donors,
+        "donorsCount": coalesce(donorsCount, count(donors), 0)
       }`
     );
 
@@ -41,6 +43,8 @@ async function getProgramsData() {
         collectedRaw: item.collectedRaw,
         targetRaw: item.targetRaw,
         daysLeft: item.daysLeft || null,
+        donors: item.donors || [],
+        donorsCount: item.donorsCount || (item.donors ? item.donors.length : 0),
       }));
     }
     return [];
@@ -54,16 +58,16 @@ export default async function ProgramPage() {
   const initialPrograms = await getProgramsData();
 
   return (
-    <div className="min-h-screen bg-gray-100/70 pt-6 pb-24">
+    <div className="min-h-screen bg-stone-50 pt-6 pb-24">
       {/* 🚀 KUNCI FRAME MOBILE-FIRST (max-w-md mx-auto) */}
       <div className="w-full max-w-md mx-auto px-3 space-y-4">
         
         {/* Header Judul Halaman Mobile */}
-        <div className="text-center space-y-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">
+        <div className="text-center space-y-1 bg-white p-5 border border-stone-200/80 shadow-xs">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight">
             Semua Program Kebaikan
           </h1>
-          <p className="text-xs text-slate-400 font-normal">
+          <p className="text-xs text-stone-500 font-normal">
             Pilih dan tunaikan infak terbaik Anda secara instan & amanah
           </p>
         </div>

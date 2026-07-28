@@ -7,13 +7,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   History, FileText, Bookmark, Phone, Settings, 
-  HelpCircle, LogOut, ChevronRight, Target, Sparkles, X, Loader2 
+  HelpCircle, LogOut, ChevronRight, Target, Sparkles, X, Loader2, Eye 
 } from 'lucide-react';
 
 export default function AkunPage() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [donations, setDonations] = useState<any[]>([]);
+  const [referralClicks, setReferralClicks] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   // State Modal Ubah WhatsApp
@@ -67,6 +68,21 @@ export default function AkunPage() {
         .eq('user_id', user.id);
 
       if (donData) setDonations(donData);
+
+      // 3. Ambil Statistik Kunjungan / Klik Referral (Opsional: Berdasarkan nomor telepon atau ID user)
+      try {
+        const phoneKey = prof?.phone || user.id;
+        const { count, error: countErr } = await supabase
+          .from('referral_visits') // Sesuaikan dengan nama tabel pelacakan kunjungan Anda jika ada
+          .select('*', { count: 'exact', head: true })
+          .eq('ref_code', phoneKey);
+
+        if (!countErr && count !== null) {
+          setReferralClicks(count);
+        }
+      } catch (err) {
+        console.log('Belum ada tabel pelacakan referral.');
+      }
 
       setLoading(false);
     };
@@ -137,10 +153,6 @@ export default function AkunPage() {
     );
   }
 
-  const memberSince = profile?.created_at 
-    ? new Date(profile.created_at).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) 
-    : 'Juli 2026';
-
   return (
     <div className="min-h-screen bg-slate-50 pb-28 pt-4 px-4">
       <div className="max-w-md mx-auto space-y-4">
@@ -165,7 +177,7 @@ export default function AkunPage() {
           </div>
         </div>
 
-        {/* ================= 2. RINGKASAN DONASI ================= */}
+        {/* ================= 2. RINGKASAN DONASI & STATISTIK KUNJUNGAN REFERRAL ================= */}
         <div className="bg-gradient-to-br from-[#0d5c91] to-sky-900 text-white p-5 shadow-lg space-y-3 relative overflow-hidden">
           <div className="flex justify-between items-center">
             <span className="text-xs text-sky-200 font-bold uppercase tracking-wider">Total Donasi Anda</span>
@@ -175,14 +187,20 @@ export default function AkunPage() {
             <span className="text-2xl sm:text-3xl font-extrabold text-white">Rp {totalAmount.toLocaleString('id-ID')}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/15 text-xs">
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/15 text-center text-xs">
             <div>
-              <span className="text-sky-200">Program Didukung</span>
-              <p className="font-extrabold text-sm text-white">{uniqueProgramsCount} Program</p>
+              <span className="text-sky-200 block text-[10px]">Program</span>
+              <p className="font-extrabold text-sm text-white">{uniqueProgramsCount}</p>
+            </div>
+            <div className="border-x border-white/15 px-1">
+              <span className="text-sky-200 block text-[10px]">Berhasil</span>
+              <p className="font-extrabold text-sm text-white">{successfulDonations.length}x</p>
             </div>
             <div>
-              <span className="text-sky-200">Donasi Berhasil</span>
-              <p className="font-extrabold text-sm text-white">{successfulDonations.length} kali</p>
+              <span className="text-sky-200 block text-[10px]">Kunjungan Ref</span>
+              <p className="font-extrabold text-sm text-white flex items-center justify-center gap-1">
+                <Eye className="w-3.5 h-3.5 text-sky-300" /> {referralClicks}
+              </p>
             </div>
           </div>
         </div>

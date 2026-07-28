@@ -13,7 +13,6 @@ export default function Header() {
   const pathname = usePathname();
 
   // 🚀 SEMBUNYIKAN HEADER UTAMA SAAT BERADA DI HALAMAN DETAIL CAMPAIGN
-  // Ini mencegah header double dengan DetailHeader (tombol Back & Share)
   if (pathname.startsWith('/campaign/')) {
     return null;
   }
@@ -26,7 +25,7 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#0d5c91] text-white shadow-md">
+    <header className="sticky top-0 z-50 w-full bg-[#4a2e1b] text-white shadow-md border-b border-[#c59b27]/30">
       {/* Container utama dikunci di max-w-md agar sejajar presisi dengan konten app mobile */}
       <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between gap-3">
         
@@ -41,21 +40,21 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* 2. Search Bar Rounded (Pill Shape) di Tengah */}
+        {/* 2. Search Bar Rounded (Pill Shape) dengan Warna Baru */}
         <form onSubmit={handleSearchSubmit} className="relative flex-1">
           <div className="relative flex items-center w-full">
-            <Search className="absolute left-3.5 w-4 h-4 text-gray-500 pointer-events-none stroke-[2.2]" />
+            <Search className="absolute left-3.5 w-4 h-4 text-stone-500 pointer-events-none stroke-[2.2]" />
             <input
               type="text"
               placeholder="Cari Nama Program"
-              className="w-full bg-gray-100 text-gray-800 text-xs font-medium pl-9 pr-4 py-2 rounded-full placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/40 shadow-inner transition-all"
+              className="w-full bg-stone-100 text-stone-900 text-xs font-medium pl-9 pr-4 py-2 rounded-full placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-[#c59b27]/50 shadow-inner transition-all"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         </form>
 
-        {/* 3. Komponen Dropdown Notifikasi Canggih (Menggantikan ikon statis) */}
+        {/* 3. Komponen Dropdown Notifikasi */}
         <NotificationDropdown />
 
       </div>

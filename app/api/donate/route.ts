@@ -18,7 +18,6 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { donorName, amount, programId, phone, email, fundraiserPhone, programTitle, category } = body;
 
-    // Bersihkan string nominal dari titik/koma/karakter lain agar menjadi angka murni
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
 
     if (!cleanAmount || cleanAmount <= 0) {
@@ -28,8 +27,8 @@ export async function POST(request: Request) {
     const orderId = `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.islami.or.id';
 
-    // Ambil user yang sedang login dari Supabase Cookies (jika ada)
-    const cookieStore = cookies();
+    // 🚀 Gunakan await pada cookies() agar sesuai dengan tipe data Next.js terbaru
+    const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -72,7 +71,7 @@ export async function POST(request: Request) {
       transactionId: String(dokuResponse.transactionId || ''),
     });
 
-    // 3. 🚀 Simpan juga ke tabel Supabase `donations` agar langsung tampil di "Donasi Saya" (Pending)
+    // 3. Simpan ke tabel Supabase `donations` agar tampil di "Donasi Saya" (Pending)
     if (user) {
       await supabase.from('donations').insert([
         {

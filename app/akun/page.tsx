@@ -159,7 +159,7 @@ export default function AkunPage() {
               <h1 className="font-extrabold text-base sm:text-lg text-slate-900 leading-snug">{profile?.name || 'Dermawan Islami'}</h1>
               <p className="text-xs text-slate-400">{profile?.email}</p>
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md mt-1">
-                ✓ Member Islami.id
+                ✓ Member Islami.or.id
               </span>
             </div>
           </div>

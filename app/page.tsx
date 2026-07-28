@@ -1,5 +1,6 @@
 // app/page.tsx
 import React from 'react';
+import { Metadata } from 'next';
 import { createClient } from '@sanity/client';
 import Hero, { HeroBanner } from '@/components/Hero';
 import TotalAccumulationWidget from '@/components/TotalAccumulationWidget';
@@ -7,8 +8,40 @@ import Campaign from '@/components/Campaign';
 import News from '@/components/News';
 import Footer from '@/components/Footer';
 
+// 🚀 METADATA OPEN GRAPH UNTUK SOSIAL MEDIA SHARING
+export const metadata: Metadata = {
+  title: 'Islami.or.id | Platform Sedekah, Zakat, dan Wakaf Terpercaya',
+  description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di Islami.or.id.',
+  alternates: {
+    canonical: 'https://www.islami.or.id',
+  },
+  openGraph: {
+    title: 'Islami.or.id | Platform Sedekah, Zakat, dan Wakaf Terpercaya',
+    description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di Islami.or.id.',
+    url: 'https://www.islami.or.id',
+    siteName: 'Islami.or.id',
+    locale: 'id_ID',
+    type: 'website',
+    images: [
+      {
+        url: 'https://www.islami.or.id/images/banner.png',
+        width: 1200,
+        height: 630,
+        alt: 'Islami.or.id - Platform Kebaikan',
+        type: 'image/png',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Islami.or.id | Platform Sedekah, Zakat, dan Wakaf Terpercaya',
+    description: 'Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui program terpercaya di Islami.or.id.',
+    images: ['https://www.islami.or.id/images/banner.png'],
+  },
+};
+
 // 🚀 INITIALIZE SANITY CLIENT
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'xqggeww8';
 const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production';
 
 if (!projectId) {

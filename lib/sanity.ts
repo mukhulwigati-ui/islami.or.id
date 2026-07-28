@@ -1,25 +1,33 @@
-import { createClient } from '@sanity/client';
-const coreConfig = {
-projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'AKUN_BARU_ANDA',
-dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
-apiVersion: '2026-07-18',
+// lib/sanity.ts
+
+import { createClient } from "@sanity/client";
+import imageUrlBuilder from "@sanity/image-url";
+import type { Image } from "sanity";
+
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!;
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET!;
+
+const config = {
+  projectId,
+  dataset,
+  apiVersion: "2026-07-18",
 };
-/**
-* JALUR 1: CLIENT PUBLIK (GRATIS & UNLIMITED)
-* Diarahkan langsung ke API CDN Sanity global yang memiliki cache bawaan.
-* Digunakan untuk: Halaman Beranda, Daftar Campaign, Cerita, dan Artikel Berita.
-*/
+
 export const clientPublik = createClient({
-...coreConfig,
-useCdn: true, // KUNCI PERTAHANAN: Menggunakan Edge Cache Gratis
+  ...config,
+  useCdn: true,
 });
-/**
-* JALUR 2: CLIENT INTERNAL & MUTASI (MENGURANGI KUOTA)
-* Menembak database utama secara real-time bypass cache.
-* Digunakan KHUSUS untuk: Webhook API Pakasir (/api/webhook/pakasir).
-*/
+
 export const clientInternal = createClient({
-...coreConfig,
-useCdn: false, // Menembak langsung database (Gunakan hanya untuk webhook)
-token: process.env.SANITY_API_WRITE_TOKEN || 'TOKEN_WRITE_BARU_ANDA',
+  ...config,
+  useCdn: false,
+  token: process.env.SANITY_API_WRITE_TOKEN,
 });
+
+const builder = imageUrlBuilder(clientPublik);
+
+export function urlFor(source: Image | any) {
+  return builder.image(source);
+}
+
+export default clientPublik;

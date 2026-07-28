@@ -1,89 +1,145 @@
 // app/campaign/[slug]/page.tsx
-import { Metadata } from 'next';
-import CampaignDetailClient from '@/components/CampaignDetailClient';
+
+import { Metadata } from "next";
+import CampaignDetailClient from "@/components/CampaignDetailClient";
 
 interface Props {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ ref?: string }>;
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
   const { slug } = await params;
-  const decodedSlug = decodeURIComponent(slug).trim();
-  
-  let siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://islami.or.id';
-  if (!siteUrl.startsWith('https://')) {
-    siteUrl = `https://${siteUrl}`;
-  }
-  
-  let campaignTitle = 'Program Donasi | Islami.or.id';
-  let campaignDesc = 'Salurkan kebaikan dan sedekah terbaik Anda melalui program terpercaya di Islami.or.id.';  
-  let imageUrl = 'https://cdn.sanity.io/images/61d8vnuq/production/54504f4c2810fb8bece0e88229ef5e2ad6f0ba8c-1200x630.jpg?format=jpg';
+  const decodedSlug = decodeURIComponent(slug);
+
+  const siteUrl = (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://www.islami.or.id"
+  ).replace(/\/$/, "");
+
+  let title = "Program Donasi | islami.or.id";
+
+  let description =
+    "Salurkan sedekah, infak, zakat, dan wakaf terbaik Anda melalui islami.or.id.";
+
+  // Gambar default
+  let image =
+    `${siteUrl}/images/banner.png`;
 
   try {
-    // Ambil data langsung dari endpoint API publik aplikasi Anda yang sudah terhubung dengan benar
-    const res = await fetch(`${siteUrl}/api/programs`, { cache: 'no-store' });
-    const json = await res.json();
-    
-    if (json.success && json.data) {
-      const found = json.data.find((p: any) => p.slug === decodedSlug || p._id === decodedSlug);
-      
-      if (found) {
-        if (found.title) campaignTitle = found.title;
-        if (found.description || found.excerpt) {
-          campaignDesc = (found.description || found.excerpt).slice(0, 140) + '...';
-        }
-        if (found.imageUrl || found.image) {
-          imageUrl = found.imageUrl || found.image;
+    const res = await fetch(`${siteUrl}/api/programs`, {
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+
+      if (json.success && Array.isArray(json.data)) {
+        const campaign = json.data.find(
+          (item: any) =>
+            item.slug === decodedSlug ||
+            item._id === decodedSlug
+        );
+
+        if (campaign) {
+          title = campaign.title || title;
+
+          const rawDesc =
+            campaign.excerpt ||
+            campaign.description ||
+            description;
+
+          description = String(rawDesc)
+            .replace(/<[^>]*>/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .substring(0, 160);
+
+          if (campaign.image) {
+            image = campaign.image;
+          }
+
+          // Hapus parameter yang sering membuat crawler bermasalah
+          image = image
+            .replace("?format=jpg", "")
+            .replace("&format=jpg", "")
+            .replace("?fm=jpg", "")
+            .replace("&fm=jpg", "");
+
+          // Pastikan absolut
+          if (!image.startsWith("http")) {
+            image = `${siteUrl}${image}`;
+          }
         }
       }
     }
-  } catch (error) {
-    console.error('🔥 Metadata fetch API failed:', error);
+  } catch (err) {
+    console.error("Metadata Error:", err);
   }
 
   return {
-    title: campaignTitle,
-    description: campaignDesc,
+    metadataBase: new URL(siteUrl),
+
+    title,
+
+    description,
+
     alternates: {
-      canonical: `${siteUrl}/campaign/${slug}`,
+      canonical: `/campaign/${decodedSlug}`,
     },
+
+    robots: {
+      index: true,
+      follow: true,
+    },
+
     openGraph: {
-      title: campaignTitle,
-      description: campaignDesc,
-      url: `${siteUrl}/campaign/${slug}`,
-      siteName: 'Islami.or.id',
-      locale: 'id_ID',
-      type: 'article',
+      type: "website",
+      url: `${siteUrl}/campaign/${decodedSlug}`,
+      siteName: "islami.or.id",
+      locale: "id_ID",
+
+      title,
+      description,
+
       images: [
         {
-          url: imageUrl,
+          url: image,
           width: 1200,
           height: 630,
-          type: 'image/jpeg',
-          alt: campaignTitle,
+          alt: title,
+          type: "image/jpeg",
         },
       ],
     },
+
     twitter: {
-      card: 'summary_large_image',
-      title: campaignTitle,
-      description: campaignDesc,
-      images: [imageUrl],
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
     },
   };
 }
 
-export default async function CampaignPage({ params, searchParams }: Props) {
+export default async function CampaignPage({
+  params,
+  searchParams,
+}: Props) {
   const { slug } = await params;
   const { ref } = await searchParams;
 
   return (
-    <CampaignDetailClient 
-      slug={slug} 
-      referral={ref || null} 
+    <CampaignDetailClient
+      slug={slug}
+      referral={ref ?? null}
     />
   );
 }

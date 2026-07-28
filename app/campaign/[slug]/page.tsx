@@ -1,7 +1,6 @@
 // app/campaign/[slug]/page.tsx
 import { Metadata } from 'next';
 import CampaignDetailClient from '@/components/CampaignDetailClient';
-import { createClient } from '@sanity/client';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -10,19 +9,10 @@ interface Props {
 
 export const dynamic = 'force-dynamic';
 
-const serverMetadataClient = createClient({
-  projectId: 'xqggeww8',
-  dataset: 'production',
-  useCdn: false,
-  apiVersion: '2024-01-01',
-  token: 'skzKLS9YXZtUK01FN8VMv2TUleuscVo9d9SXtqAlcLjt3MvaRh0IWaaruV6ObSlpJwD5UoDI0QpPJ26Xh8EpaZsK7DIIMSZ1aq7EnLzUiCUY7aHsAm1a6LeJZb9I9ygWcRTKjEJzw8c5rRCbcFAxPhzjvAgPF715JSXnJxy2lbtWm6ePtVfl',
-});
-
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const decodedSlug = decodeURIComponent(slug).trim();
   
-  // Sesuaikan domain utama menjadi islami.or.id
   let siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://islami.or.id';
   if (!siteUrl.startsWith('https://')) {
     siteUrl = `https://${siteUrl}`;
@@ -30,48 +20,28 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   
   let campaignTitle = 'Program Donasi | Islami.or.id';
   let campaignDesc = 'Salurkan kebaikan dan sedekah terbaik Anda melalui program terpercaya di Islami.or.id.';  
-  let imageUrl = '';
+  let imageUrl = 'https://cdn.sanity.io/images/61d8vnuq/production/54504f4c2810fb8bece0e88229ef5e2ad6f0ba8c-1200x630.jpg?format=jpg';
 
   try {
-    // Query yang lebih fleksibel mencocokkan slug atau fallback ID
-    const query = `*[(_type == "program" || _type == "campaign") && (slug.current == $slug || _id == $slug)[0] {
-      title,
-      description,
-      "mainImageUrl": mainImage.asset->url,
-      "imageUrl": image.asset->url,
-      "thumbnailUrl": thumbnail.asset->url,
-      "bannerUrl": banner.asset->url
-    }`;
+    // Ambil data langsung dari endpoint API publik aplikasi Anda yang sudah terhubung dengan benar
+    const res = await fetch(`${siteUrl}/api/programs`, { cache: 'no-store' });
+    const json = await res.json();
     
-    const found = await serverMetadataClient.fetch(query, { slug: decodedSlug });
-    
-    if (found) {
-      if (found.title) campaignTitle = found.title;
+    if (json.success && json.data) {
+      const found = json.data.find((p: any) => p.slug === decodedSlug || p._id === decodedSlug);
       
-      if (found.description) {
-        if (typeof found.description === 'string') {
-          campaignDesc = found.description.slice(0, 140) + '...';
-        } else if (Array.isArray(found.description)) {
-          const plainText = found.description
-            .filter((block: any) => block._type === 'block' && block.children)
-            .map((block: any) => block.children.map((child: any) => child.text).join(''))
-            .join(' ');
-          if (plainText) campaignDesc = plainText.slice(0, 140) + '...';
+      if (found) {
+        if (found.title) campaignTitle = found.title;
+        if (found.description || found.excerpt) {
+          campaignDesc = (found.description || found.excerpt).slice(0, 140) + '...';
         }
-      }
-
-      const finalSanityImage = found.mainImageUrl || found.imageUrl || found.thumbnailUrl || found.bannerUrl;
-      if (finalSanityImage) {
-        imageUrl = `${finalSanityImage}?format=jpg&w=1200&h=630&fit=crop`;
+        if (found.imageUrl || found.image) {
+          imageUrl = found.imageUrl || found.image;
+        }
       }
     }
   } catch (error) {
-    console.error('🔥 Direct server metadata query failed:', error);
-  }
-
-  // Fallback gambar default jika Sanity tidak merespons
-  if (!imageUrl) {
-    imageUrl = 'https://cdn.sanity.io/images/61d8vnuq/production/54504f4c2810fb8bece0e88229ef5e2ad6f0ba8c-1200x630.jpg?format=jpg';
+    console.error('🔥 Metadata fetch API failed:', error);
   }
 
   return {
@@ -106,9 +76,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-// ===================================================================
-// 🖥️ SERVER COMPONENT ENTRY
-// ===================================================================
 export default async function CampaignPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const { ref } = await searchParams;

@@ -6,7 +6,6 @@ import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
-// Menggunakan SANITY_API_WRITE_TOKEN dengan izin minimum khusus tulis transaksi & program
 const sanityClient = createClient({
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'xqggeww8',
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
@@ -42,7 +41,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Validasi Keamanan Signature DOKU (Wajib / Tolak jika tidak valid)
+    // 3. Validasi Keamanan Signature DOKU
     const secretKey = process.env.DOKU_SECRET_KEY || '';
     if (secretKey && signature) {
       const digest = crypto.createHash('sha256').update(rawBody).digest('base64');
@@ -76,8 +75,6 @@ export async function POST(req: Request) {
     );
 
     const transactionStatus = String(body.transaction?.status || body.status || '').toUpperCase();
-
-    // Ambil informasi channel pembayaran (Metode) dari DOKU
     const paymentMethod = 
       body.payment?.method || 
       body.channel?.id || 
@@ -89,7 +86,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'FAILED', message: 'Order ID not found' }, { status: 400 });
     }
 
-    // 4. Cari data transaksi donasi berdasarkan orderId di Sanity (Query objek tunggal [0])
+    // 4. Cari data transaksi donasi berdasarkan orderId di Sanity
     const donationDoc = await sanityClient.fetch(
       `*[(_type == "donationTransaction" || _type == "donation") && (orderId == $orderId || invoiceId == $orderId)][0]{
         _id,
@@ -109,7 +106,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'NOT_FOUND', message: 'Transaction not found' }, { status: 404 });
     }
 
-    // 5. Idempotency Check (Hindari proses ganda jika sudah sukses sebelumnya)
+    // 5. Idempotency Check
     if (donationDoc.status === 'success' || donationDoc.status === 'paid' || donationDoc.status === 'completed') {
       return NextResponse.json({ status: 'SUCCESS', message: 'Already processed' });
     }
@@ -120,7 +117,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'FAILED', message: 'Amount mismatch' }, { status: 400 });
     }
 
-    // Cek apakah status pembayaran sukses dari DOKU
     const isSuccess = transactionStatus === 'SUCCESS' || body.transaction?.success === true || body.result_code === '00';
 
     if (!isSuccess) {
@@ -130,20 +126,15 @@ export async function POST(req: Request) {
 
     const paymentTime = new Date().toISOString();
 
-    // 7. Transaksi Sanity secara Atomik (Update Status Transaksi + Update Program)
-    const transactionPatch = sanityClient.transaction();
+    // 7. Update status transaksi menjadi success
+    await sanityClient.patch(donationDoc._id).set({
+      status: 'success',
+      paymentMethod: paymentMethod.toUpperCase(),
+      paymentTime,
+      updatedAt: paymentTime,
+    }).commit();
 
-    // A. Update status transaksi menjadi success
-    transactionPatch.patch(donationDoc._id, {
-      set: {
-        status: 'success',
-        paymentMethod: paymentMethod.toUpperCase(),
-        paymentTime,
-        updatedAt: paymentTime,
-      },
-    });
-
-    // B. Ambil Program ID
+    // 8. Ambil Program ID dan Update Saldo secara Aman
     let programId = donationDoc.programName?._ref;
     if (!programId) {
       const defaultProgram = await sanityClient.fetch(`*[_type == "program"][0]{_id}`);
@@ -159,6 +150,9 @@ export async function POST(req: Request) {
       programDoc = await sanityClient.fetch(`*[_id == $id][0]{_id, title, collectedAmount}`, { id: programId });
       
       if (programDoc) {
+        const currentCollected = Number(programDoc.collectedAmount || 0);
+        const newCollected = currentCollected + finalAmount;
+
         const currentDateStr = new Date().toLocaleDateString('id-ID', { 
           day: 'numeric', 
           month: 'long', 
@@ -172,20 +166,17 @@ export async function POST(req: Request) {
           date: currentDateStr,
         };
 
-        // Increment collectedAmount secara atomik dan push data ke array donors
-        transactionPatch.patch(programId, {
-          setIfMissing: { donors: [] },
-          inc: { collectedAmount: finalAmount },
-          push: { donors: [newDonorEntry] },
-        });
+        // Menggunakan method .set() untuk collectedAmount dan .append() untuk menambah data ke array donors
+        await sanityClient
+          .patch(programId)
+          .setIfMissing({ donors: [] })
+          .set({ collectedAmount: newCollected })
+          .append('donors', [newDonorEntry])
+          .commit();
 
-        console.log(`🎉 SUKSES! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}.`);
+        console.log(`🎉 SUKSES! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}. Total terkumpul: Rp ${newCollected}`);
       }
     }
-
-    // Eksekusi transaksi atomik ke Sanity
-    await transactionPatch.commit();
-    console.log('✅ Status transaksi berhasil diubah menjadi success dan saldo program diperbarui.');
 
     // Format Tanggal & Waktu (untuk WA & Google Sheet)
     const now = new Date();
@@ -201,7 +192,7 @@ export async function POST(req: Request) {
     const invoiceNo = donationDoc.orderId || orderId;
     const fundraiserRef = donationDoc.fundraiserPhone || '-';
 
-    // 8. 🚀 OTOMATIS CATAT KE GOOGLE SHEETS
+    // 9. 🚀 OTOMATIS CATAT KE GOOGLE SHEETS
     try {
       const auth = new google.auth.GoogleAuth({
         credentials: {
@@ -214,7 +205,6 @@ export async function POST(req: Request) {
       const sheets = google.sheets({ version: 'v4', auth });
       const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
-      // Urutan Kolom: [Tanggal, Invoice, Nama Donatur, No WhatsApp, Program, Nominal, Metode, Status, Fundraiser]
       const rowData = [
         fullDateTime,
         invoiceNo,
@@ -241,7 +231,7 @@ export async function POST(req: Request) {
       console.error('🔥 GAGAL CATAT KE GOOGLE SHEETS:', sheetErr);
     }
 
-    // 9. 🚀 EKSEKUSI KIRIM WHATSAPP OTOMATIS KE DONATUR (FORMAT LENGKAP)
+    // 10. 🚀 EKSEKUSI KIRIM WHATSAPP OTOMATIS KE DONATUR
     try {
       console.log('📱 MEMULAI PENGIRIMAN WA. Nomor Target:', donorPhone);
 
@@ -254,7 +244,6 @@ export async function POST(req: Request) {
         const waMessage = `*DONASI BERHASIL DITERIMA* 🎉\n\nJazakumullah khairan, *${donorName}*.\nDonasi Anda telah berhasil kami verifikasi dengan detail berikut:\n\n📝 *No. Invoice:* ${invoiceNo}\n📌 *Program:* ${programTitle}\n💰 *Nominal:* Rp ${formattedAmount}\n💳 *Metode:* ${paymentMethod.toUpperCase()}\n⏰ *Tanggal:* ${fullDateTime}\n\nSemoga sedekah yang ditunaikan menjadi penggugur dosa, pembuka pintu rezeki, dan membawa keberkahan yang berlipat ganda untuk Anda beserta keluarga. Aamiin Yaa Rabbal 'Aalamiin.\n\n----------------------------\n*islami.or.id*\n_Salurkan kepedulian Anda secara amanah & transparan_`;
 
         const fonnteToken = process.env.FONNTE_TOKEN || process.env.WHATSAPP_API_TOKEN;
-        console.log('🔑 Token Fonnte terdeteksi (panjang karakter):', fonnteToken ? fonnteToken.length : 'KOSONG!');
 
         const fonnteRes = await fetch('https://api.fonnte.com/send', {
           method: 'POST',

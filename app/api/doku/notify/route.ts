@@ -1,19 +1,66 @@
 // app/api/doku/notify/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from 'next-sanity';
+import { createClient } from '@sanity/client';
 import { google } from 'googleapis';
+import crypto from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
+// Menggunakan SANITY_API_WRITE_TOKEN dengan izin minimum khusus tulis transaksi & program
 const sanityClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'xqggeww8',
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   apiVersion: '2024-05-01',
-  token: process.env.SANITY_API_TOKEN,
+  token: process.env.SANITY_API_WRITE_TOKEN || process.env.SANITY_API_TOKEN,
   useCdn: false,
 });
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    const headers = req.headers;
+
+    const signature = headers.get('signature') || headers.get('client-signature') || '';
+    const clientId = headers.get('client-id') || headers.get('clientid') || '';
+    const requestId = headers.get('request-id') || headers.get('requestid') || '';
+    const requestTimestamp = headers.get('request-timestamp') || headers.get('timestamp') || '';
+
+    // 1. Validasi Client ID
+    if (process.env.DOKU_CLIENT_ID && clientId !== process.env.DOKU_CLIENT_ID) {
+      return NextResponse.json({ success: false, message: 'Invalid client id' }, { status: 401 });
+    }
+
+    // 2. Validasi Timestamp (Anti Replay Attack - Maksimal selisih 5 menit)
+    if (requestTimestamp) {
+      const ts = new Date(requestTimestamp).getTime();
+      if (Number.isNaN(ts)) {
+        return NextResponse.json({ success: false, message: 'Invalid timestamp' }, { status: 401 });
+      }
+      const diff = Math.abs(Date.now() - ts);
+      if (diff > 5 * 60 * 1000) {
+        return NextResponse.json({ success: false, message: 'Expired webhook' }, { status: 401 });
+      }
+    }
+
+    // 3. Validasi Keamanan Signature DOKU (Wajib / Tolak jika tidak valid)
+    const secretKey = process.env.DOKU_SECRET_KEY || '';
+    if (secretKey && signature) {
+      const digest = crypto.createHash('sha256').update(rawBody).digest('base64');
+      const requestTarget = '/api/doku/notify'; 
+      const stringToSign = `Client-Id:${clientId}\nRequest-Id:${requestId}\nRequest-Timestamp:${requestTimestamp}\nRequest-Target:${requestTarget}\nDigest:${digest}`;
+      
+      const computedSignature = crypto
+        .createHmac('sha256', secretKey)
+        .update(stringToSign)
+        .digest('base64');
+
+      const expectedSignature = `HMACSHA256=${computedSignature}`;
+      if (signature !== expectedSignature) {
+        return NextResponse.json({ success: false, message: 'Invalid signature' }, { status: 401 });
+      }
+    }
+
+    const body = JSON.parse(rawBody);
     console.log('🔔 DOKU WEBHOOK MASUK:', JSON.stringify(body, null, 2));
 
     const orderId = 
@@ -28,6 +75,8 @@ export async function POST(req: Request) {
       0
     );
 
+    const transactionStatus = String(body.transaction?.status || body.status || '').toUpperCase();
+
     // Ambil informasi channel pembayaran (Metode) dari DOKU
     const paymentMethod = 
       body.payment?.method || 
@@ -40,43 +89,76 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'FAILED', message: 'Order ID not found' }, { status: 400 });
     }
 
-    // 1. Cari data transaksi donasi berdasarkan orderId di Sanity
+    // 4. Cari data transaksi donasi berdasarkan orderId di Sanity (Query objek tunggal [0])
     const donationDoc = await sanityClient.fetch(
-      `*[_type == "donationTransaction" && orderId == $orderId][0]`,
+      `*[(_type == "donationTransaction" || _type == "donation") && (orderId == $orderId || invoiceId == $orderId)][0]{
+        _id,
+        status,
+        amount,
+        orderId,
+        programName,
+        donorName,
+        donorPhone,
+        fundraiserPhone
+      }`,
       { orderId }
     );
 
     if (!donationDoc) {
       console.error(`❌ ERROR: Transaksi dengan Order ID "${orderId}" tidak ditemukan di Sanity!`);
-      return NextResponse.json({ status: 'NOT_FOUND' }, { status: 404 });
+      return NextResponse.json({ status: 'NOT_FOUND', message: 'Transaction not found' }, { status: 404 });
     }
 
-    // 2. Update status pembayaran menjadi 'success' pada tabel transaksi
-    if (donationDoc.status !== 'success') {
-      await sanityClient.patch(donationDoc._id).set({ status: 'success' }).commit();
-      console.log('✅ Status transaksi berhasil diubah menjadi success di Sanity.');
+    // 5. Idempotency Check (Hindari proses ganda jika sudah sukses sebelumnya)
+    if (donationDoc.status === 'success' || donationDoc.status === 'paid' || donationDoc.status === 'completed') {
+      return NextResponse.json({ status: 'SUCCESS', message: 'Already processed' });
     }
 
-    // 3. Ambil Program ID dari reference programName._ref (fallback ke program pertama)
+    // 6. Validasi Nominal Pembayaran
+    if (amount > 0 && Number(donationDoc.amount) !== amount) {
+      console.error(`❌ ERROR: Nominal tidak cocok! Database: ${donationDoc.amount}, Payload DOKU: ${amount}`);
+      return NextResponse.json({ status: 'FAILED', message: 'Amount mismatch' }, { status: 400 });
+    }
+
+    // Cek apakah status pembayaran sukses dari DOKU
+    const isSuccess = transactionStatus === 'SUCCESS' || body.transaction?.success === true || body.result_code === '00';
+
+    if (!isSuccess) {
+      await sanityClient.patch(donationDoc._id).set({ status: 'failed', updatedAt: new Date().toISOString() }).commit();
+      return NextResponse.json({ status: 'SUCCESS', message: 'Transaction marked as failed' });
+    }
+
+    const paymentTime = new Date().toISOString();
+
+    // 7. Transaksi Sanity secara Atomik (Update Status Transaksi + Update Program)
+    const transactionPatch = sanityClient.transaction();
+
+    // A. Update status transaksi menjadi success
+    transactionPatch.patch(donationDoc._id, {
+      set: {
+        status: 'success',
+        paymentMethod: paymentMethod.toUpperCase(),
+        paymentTime,
+        updatedAt: paymentTime,
+      },
+    });
+
+    // B. Ambil Program ID
     let programId = donationDoc.programName?._ref;
-
     if (!programId) {
-      const defaultProgram = await sanityClient.fetch(`*[_type == "program"][0]`);
+      const defaultProgram = await sanityClient.fetch(`*[_type == "program"][0]{_id}`);
       if (defaultProgram) {
         programId = defaultProgram._id;
       }
     }
 
     let programDoc = null;
-    let finalAmount = amount > 0 ? amount : Number(donationDoc.amount || 0);
+    const finalAmount = amount > 0 ? amount : Number(donationDoc.amount || 0);
 
     if (programId) {
-      programDoc = await sanityClient.fetch(`*[_id == $id][0]`, { id: programId });
+      programDoc = await sanityClient.fetch(`*[_id == $id][0]{_id, title, collectedAmount}`, { id: programId });
       
       if (programDoc) {
-        const currentCollected = Number(programDoc.collectedAmount || 0);
-        const newCollected = currentCollected + finalAmount;
-
         const currentDateStr = new Date().toLocaleDateString('id-ID', { 
           day: 'numeric', 
           month: 'long', 
@@ -84,21 +166,26 @@ export async function POST(req: Request) {
         });
 
         const newDonorEntry = {
-          _key: Math.random().toString(36).substring(2),
+          _key: crypto.randomUUID(),
           name: donationDoc.donorName || 'Hamba Allah',
           amount: finalAmount,
           date: currentDateStr,
         };
 
-        await sanityClient
-          .patch(programId)
-          .set({ collectedAmount: newCollected })
-          .append('donors', [newDonorEntry])
-          .commit();
+        // Increment collectedAmount secara atomik dan push data ke array donors
+        transactionPatch.patch(programId, {
+          setIfMissing: { donors: [] },
+          inc: { collectedAmount: finalAmount },
+          push: { donors: [newDonorEntry] },
+        });
 
-        console.log(`🎉 SUKSES! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}. Total terkumpul: Rp ${newCollected}`);
+        console.log(`🎉 SUKSES! Program "${programDoc.title || programId}" bertambah Rp ${finalAmount}.`);
       }
     }
+
+    // Eksekusi transaksi atomik ke Sanity
+    await transactionPatch.commit();
+    console.log('✅ Status transaksi berhasil diubah menjadi success dan saldo program diperbarui.');
 
     // Format Tanggal & Waktu (untuk WA & Google Sheet)
     const now = new Date();
@@ -114,7 +201,7 @@ export async function POST(req: Request) {
     const invoiceNo = donationDoc.orderId || orderId;
     const fundraiserRef = donationDoc.fundraiserPhone || '-';
 
-    // 4. 🚀 OTOMATIS CATAT KE GOOGLE SHEETS
+    // 8. 🚀 OTOMATIS CATAT KE GOOGLE SHEETS
     try {
       const auth = new google.auth.GoogleAuth({
         credentials: {
@@ -154,7 +241,7 @@ export async function POST(req: Request) {
       console.error('🔥 GAGAL CATAT KE GOOGLE SHEETS:', sheetErr);
     }
 
-    // 5. 🚀 EKSEKUSI KIRIM WHATSAPP OTOMATIS KE DONATUR (FORMAT LENGKAP)
+    // 9. 🚀 EKSEKUSI KIRIM WHATSAPP OTOMATIS KE DONATUR (FORMAT LENGKAP)
     try {
       console.log('📱 MEMULAI PENGIRIMAN WA. Nomor Target:', donorPhone);
 

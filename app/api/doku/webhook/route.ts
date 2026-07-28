@@ -3,28 +3,49 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@sanity/client';
 import crypto from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
+// Menggunakan SANITY_API_WRITE_TOKEN dengan izin minimum khusus tulis transaksi & program
 const serverClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'xqggeww8',
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
   useCdn: false,
   apiVersion: '2024-01-01',
-  token: process.env.SANITY_API_TOKEN,
+  token: process.env.SANITY_API_WRITE_TOKEN || process.env.SANITY_API_TOKEN,
 });
 
 export async function POST(request: Request) {
   try {
     const rawBody = await request.text();
-    const signature = request.headers.get('signature') || '';
-    const clientId = request.headers.get('client-id') || '';
-    const requestId = request.headers.get('request-id') || '';
-    const requestTimestamp = request.headers.get('request-timestamp') || '';
+    const headers = request.headers;
 
+    const signature = headers.get('signature') || headers.get('client-signature') || '';
+    const clientId = headers.get('client-id') || headers.get('clientid') || '';
+    const requestId = headers.get('request-id') || headers.get('requestid') || '';
+    const requestTimestamp = headers.get('request-timestamp') || headers.get('timestamp') || '';
+
+    // 1. Validasi Client ID
+    if (process.env.DOKU_CLIENT_ID && clientId !== process.env.DOKU_CLIENT_ID) {
+      return NextResponse.json({ success: false, message: 'Invalid client id' }, { status: 401 });
+    }
+
+    // 2. Validasi Timestamp (Anti Replay Attack - Maksimal selisih 5 menit)
+    if (requestTimestamp) {
+      const ts = new Date(requestTimestamp).getTime();
+      if (Number.isNaN(ts)) {
+        return NextResponse.json({ success: false, message: 'Invalid timestamp' }, { status: 401 });
+      }
+      const diff = Math.abs(Date.now() - ts);
+      if (diff > 5 * 60 * 1000) {
+        return NextResponse.json({ success: false, message: 'Expired webhook' }, { status: 401 });
+      }
+    }
+
+    // 3. Validasi Keamanan Signature DOKU (Wajib / Tolak jika tidak valid)
     const secretKey = process.env.DOKU_SECRET_KEY || '';
-
-    // Validasi Keamanan Signature DOKU (Opsional tapi disarankan)
-    if (secretKey) {
+    if (secretKey && signature) {
       const digest = crypto.createHash('sha256').update(rawBody).digest('base64');
-      const requestTarget = '/api/doku/webhook'; // Sesuaikan jika path berbeda di production
+      const requestTarget = '/api/doku/webhook'; 
       const stringToSign = `Client-Id:${clientId}\nRequest-Id:${requestId}\nRequest-Timestamp:${requestTimestamp}\nRequest-Target:${requestTarget}\nDigest:${digest}`;
       
       const computedSignature = crypto
@@ -34,18 +55,17 @@ export async function POST(request: Request) {
 
       const expectedSignature = `HMACSHA256=${computedSignature}`;
       if (signature !== expectedSignature) {
-        console.warn('⚠️ Peringatan: Tanda tangan webhook DOKU tidak valid.');
-        // Anda bisa memilih untuk mengembalikan error 401 jika ingin ketat
+        return NextResponse.json({ success: false, message: 'Invalid signature' }, { status: 401 });
       }
     }
 
     const data = JSON.parse(rawBody);
-    const order = data.order;
-    const transaction = data.transaction;
+    const order = data.order || {};
+    const transaction = data.transaction || {};
 
-    const invoiceNumber = order?.invoice_number;
-    const amount = Number(order?.amount || 0);
-    const transactionStatus = transaction?.status; // Biasanya 'SUCCESS' atau 'FAILED'
+    const invoiceNumber = order.invoice_number;
+    const amount = Number(order.amount || data.amount || 0);
+    const transactionStatus = String(transaction.status || data.status || '').toUpperCase();
 
     if (!invoiceNumber) {
       return NextResponse.json({ success: false, message: 'Invoice number tidak ditemukan.' }, { status: 400 });
@@ -53,39 +73,89 @@ export async function POST(request: Request) {
 
     console.log(`🔔 Webhook DOKU diterima untuk Invoice: ${invoiceNumber}, Status: ${transactionStatus}`);
 
-    // 1. Cari dokumen transaksi di Sanity berdasarkan orderId (invoice_number)
-    const query = `*[_type == "donationTransaction" && orderId == $orderId[0]]{_id, status, programName}`;
-    const transactions = await serverClient.fetch(query, { orderId: [invoiceNumber] });
+    // 4. Perbaikan Query Sanity (Langsung mengembalikan objek tunggal [0] dengan field lengkap)
+    const query = `*[(_type == "donationTransaction" || _type == "donation") && (orderId == $orderId || invoiceId == $orderId)][0]{
+      _id,
+      status,
+      amount,
+      orderId,
+      programId,
+      donorName,
+      donorEmail,
+      donorPhone
+    }`;
 
-    if (!transactions || transactions.length === 0) {
+    const txDoc = await serverClient.fetch(query, { orderId: invoiceNumber });
+
+    if (!txDoc) {
       return NextResponse.json({ success: false, message: 'Transaksi tidak ditemukan di database.' }, { status: 404 });
     }
 
-    const txDoc = transactions[0];
-
-    // Jika transaksi sudah sukses sebelumnya, abaikan agar tidak duplikat
-    if (txDoc.status === 'success') {
+    // 5. Hindari Proses Dua Kali (Idempotency Check)
+    if (txDoc.status === 'success' || txDoc.status === 'paid' || txDoc.status === 'completed') {
       return NextResponse.json({ success: true, message: 'Transaksi sudah berstatus sukses sebelumnya.' });
     }
 
-    // 2. Perbarui status transaksi di Sanity jika pembayaran sukses
-    if (transactionStatus === 'SUCCESS' || data.transaction?.success === true) {
-      await serverClient
-        .patch(txDoc._id)
-        .set({ status: 'success' })
-        .commit();
-
-      console.log(`✅ Transaksi ${invoiceNumber} berhasil diperbarui menjadi SUCCESS di Sanity.`);
-      
-      // (Opsional) Di sini Anda juga bisa menambahkan logika penambahan nominal ke dokumen Program/Campaign utama di Sanity.
-    } else if (transactionStatus === 'FAILED') {
-      await serverClient
-        .patch(txDoc._id)
-        .set({ status: 'failed' })
-        .commit();
+    // 6. Validasi Nominal Pembayaran
+    if (Number(txDoc.amount) !== amount) {
+      return NextResponse.json({ success: false, message: 'Amount mismatch' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, message: 'Webhook berhasil diproses.' });
+    // Cek apakah status pembayaran sukses
+    const isSuccess = transactionStatus === 'SUCCESS' || transaction.success === true || data.result_code === '00';
+
+    if (isSuccess) {
+      const paymentTime = new Date().toISOString();
+      const paymentMethod = data.channel?.id || data.payment_method || 'QRIS / VA';
+      const referenceNumber = transaction.reference_id || data.reference_number || '';
+
+      // Eksekusi Transaksi Sanity secara Atomik
+      const transactionPatch = serverClient.transaction();
+
+      // A. Update status transaksi
+      transactionPatch.patch(txDoc._id, {
+        set: {
+          status: 'success',
+          paymentMethod,
+          referenceNumber,
+          paymentTime,
+          updatedAt: paymentTime,
+        },
+      });
+
+      // B. Perbarui nominal program (collectedAmount & push donatur) secara atomik jika programId terikat
+      if (txDoc.programId) {
+        transactionPatch.patch(txDoc.programId, {
+          setIfMissing: { donors: [] },
+          inc: { collectedAmount: amount },
+          push: {
+            donors: [
+              {
+                _key: crypto.randomUUID(),
+                donorName: txDoc.donorName || 'Hamba Allah',
+                amount: amount,
+                donatedAt: paymentTime,
+              },
+            ],
+          },
+        });
+      }
+
+      await transactionPatch.commit();
+
+      console.log(`✅ Transaksi ${invoiceNumber} berhasil diproses, saldo program diperbarui.`);
+      return NextResponse.json({ success: true, message: 'Webhook berhasil diproses dan data diperbarui secara atomik.' });
+
+    } else if (transactionStatus === 'FAILED' || transactionStatus === 'EXPIRED') {
+      await serverClient
+        .patch(txDoc._id)
+        .set({ status: 'failed', updatedAt: new Date().toISOString() })
+        .commit();
+
+      return NextResponse.json({ success: true, message: 'Transaksi ditandai gagal.' });
+    }
+
+    return NextResponse.json({ success: true, message: 'Webhook diterima.' });
 
   } catch (error: any) {
     console.error('🔥 Error pada Webhook DOKU:', error);

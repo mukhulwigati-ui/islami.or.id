@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server';
 import { createDokuCheckout } from '@/lib/doku';
 import { createClient } from '@sanity/client';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 const serverClient = createClient({
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 'xqggeww8',
@@ -14,7 +16,7 @@ const serverClient = createClient({
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { donorName, amount, programId, phone, email, fundraiserPhone } = body;
+    const { donorName, amount, programId, phone, email, fundraiserPhone, programTitle, category } = body;
 
     // Bersihkan string nominal dari titik/koma/karakter lain agar menjadi angka murni
     const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
@@ -25,6 +27,21 @@ export async function POST(request: Request) {
 
     const orderId = `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.islami.or.id';
+
+    // Ambil user yang sedang login dari Supabase Cookies (jika ada)
+    const cookieStore = cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+        },
+      }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
 
     // 1. Buat transaksi pembayaran di DOKU
     const dokuResponse = await createDokuCheckout({
@@ -37,7 +54,7 @@ export async function POST(request: Request) {
       notifyUrl: `${baseUrl}/api/doku/webhook`,
     });
 
-    // 2. Simpan record transaksi awal berstatus pending ke Sanity CMS dengan Reference Program
+    // 2. Simpan record transaksi awal berstatus pending ke Sanity CMS
     await serverClient.create({
       _type: 'donationTransaction',
       orderId,
@@ -46,19 +63,31 @@ export async function POST(request: Request) {
       donorEmail: email || '',
       amount: cleanAmount,
       fundraiserPhone: fundraiserPhone || '',
-      
-      // Menyimpan programId sebagai format _reference yang valid ke Sanity
       programName: programId ? {
         _type: 'reference',
         _ref: programId,
       } : undefined,
-
       status: 'pending',
       paymentUrl: dokuResponse.paymentUrl,
       transactionId: String(dokuResponse.transactionId || ''),
     });
 
-    // 3. Kembalikan respons sukses ke frontend
+    // 3. 🚀 Simpan juga ke tabel Supabase `donations` agar langsung tampil di "Donasi Saya" (Pending)
+    if (user) {
+      await supabase.from('donations').insert([
+        {
+          user_id: user.id,
+          program_name: programTitle || 'Sedekah Umum',
+          category: category || 'Kemanusiaan',
+          amount: cleanAmount,
+          status: 'pending',
+          payment_url: dokuResponse.paymentUrl,
+          invoice_id: orderId,
+        },
+      ]);
+    }
+
+    // 4. Kembalikan respons sukses ke frontend
     return NextResponse.json({
       success: true,
       paymentUrl: dokuResponse.paymentUrl,

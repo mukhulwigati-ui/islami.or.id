@@ -25,6 +25,15 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
   const [hasClosedPrompt, setHasClosedPrompt] = useState(false);
 
   useEffect(() => {
+    // 🚀 Deteksi perangkat: Jika diakses melalui PC/Desktop, hentikan proses agar tidak muncul
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(userAgent);
+    
+    if (!isMobileDevice) {
+      setShowPrompt(false);
+      return;
+    }
+
     // Cek apakah di sesi ini user sudah pernah menutup PWA prompt
     const closedInSession = sessionStorage.getItem('pwa_prompt_closed');
     if (closedInSession === 'true') {
@@ -37,7 +46,6 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
       return;
     }
 
-    const userAgent = window.navigator.userAgent.toLowerCase();
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIOSDevice);
 
@@ -54,7 +62,7 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
       }
     };
 
-    // 🚀 Ditunda selama 10 detik agar tidak langsung muncul mengganggu pengunjung baru
+    // 🚀 Ditunda selama 10 detik agar tidak langsung muncul mengganggu pengunjung baru di mobile
     if (isIOSDevice) {
       const timer = setTimeout(() => {
         checkAndShow();
@@ -124,7 +132,7 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
         </nav>
       )}
 
-      {/* MODAL PWA PROMPT (SOFT, ELEGAN, DAN TOMBOL MERAH) */}
+      {/* MODAL PWA PROMPT (HANYA MUNCUL DI MOBILE, SOFT & TOMBOL MERAH) */}
       {isHomePage && !isStudioPage && showPrompt && !hasClosedPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-300">
           <div className="relative w-full max-w-sm bg-white border border-slate-100 shadow-xl p-6 text-left space-y-4 rounded-xl">

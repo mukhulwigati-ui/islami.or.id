@@ -124,31 +124,31 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
         </nav>
       )}
 
-      {/* MODAL PWA PROMPT (DITENGAHKAN, ROUNDED PROPORSIONAL / TIDAK KELEBAREN) */}
+      {/* MODAL PWA PROMPT (SOFT, ELEGAN, DAN TOMBOL MERAH) */}
       {isHomePage && !isStudioPage && showPrompt && !hasClosedPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-sm bg-white border border-slate-200 shadow-2xl p-5 text-left space-y-4 rounded-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-300">
+          <div className="relative w-full max-w-sm bg-white border border-slate-100 shadow-xl p-6 text-left space-y-4 rounded-xl">
             
             <button
               onClick={handleClose}
-              className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-1.5 transition rounded-lg"
+              className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-1.5 transition rounded-lg"
               aria-label="Tutup"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <div className="w-12 h-12 bg-sky-50 text-[#0d5c91] border border-sky-100 flex items-center justify-center shadow-inner rounded-lg">
+            <div className="w-12 h-12 bg-red-50 text-red-600 border border-red-100 flex items-center justify-center rounded-lg shadow-xs">
               <Smartphone className="w-6 h-6" />
             </div>
 
             <div className="space-y-1.5 pr-4">
-              <span className="text-[10px] font-bold text-sky-600 uppercase tracking-widest block">
+              <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest block">
                 APLIKASI RESMI
               </span>
-              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
+              <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">
                 Install Aplikasi Islami.or.id
               </h2>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
                 {showIOSGuide
                   ? "Ketuk ikon Share (Bagikan) di Safari, lalu pilih 'Add to Home Screen' (Tambah ke Layar Utama)."
                   : "Pasang aplikasi islami.or.id di perangkat Anda untuk akses layanan donasi, infaq, dan zakat yang lebih cepat, praktis, serta optimal."}
@@ -158,7 +158,7 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
             {!showIOSGuide && (
               <button
                 onClick={handleInstallClick}
-                className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white font-bold text-xs sm:text-sm uppercase tracking-wider py-3.5 transition shadow-sm flex items-center justify-center gap-2 rounded-lg"
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm uppercase tracking-wider py-3 transition shadow-sm hover:shadow flex items-center justify-center gap-2 rounded-lg"
               >
                 <Download className="w-4 h-4" /> Install Sekarang 🚀
               </button>

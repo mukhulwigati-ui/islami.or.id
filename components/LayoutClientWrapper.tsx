@@ -1,4 +1,4 @@
-// components/LayoutClientWrapper.tsx
+// app/components/LayoutClientWrapper.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -54,7 +54,7 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
       }
     };
 
-    // 🚀 Diperbarui menjadi 10 detik sesuai instruksi
+    // 🚀 Ditunda selama 10 detik agar tidak langsung muncul mengganggu pengunjung baru
     if (isIOSDevice) {
       const timer = setTimeout(() => {
         checkAndShow();
@@ -124,20 +124,20 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
         </nav>
       )}
 
-      {/* MODAL PWA PROMPT (DITENGAHKAN, TANPA SUDUT LENGKUNG) */}
+      {/* MODAL PWA PROMPT (DITENGAHKAN, ROUNDED PROPORSIONAL / TIDAK KELEBAREN) */}
       {isHomePage && !isStudioPage && showPrompt && !hasClosedPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-sm bg-white border border-slate-200 shadow-2xl p-5 text-left space-y-4">
+          <div className="relative w-full max-w-sm bg-white border border-slate-200 shadow-2xl p-5 text-left space-y-4 rounded-xl">
             
             <button
               onClick={handleClose}
-              className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-1.5 transition"
+              className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-1.5 transition rounded-lg"
               aria-label="Tutup"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <div className="w-12 h-12 bg-sky-50 text-[#0d5c91] border border-sky-100 flex items-center justify-center shadow-inner">
+            <div className="w-12 h-12 bg-sky-50 text-[#0d5c91] border border-sky-100 flex items-center justify-center shadow-inner rounded-lg">
               <Smartphone className="w-6 h-6" />
             </div>
 
@@ -158,7 +158,7 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
             {!showIOSGuide && (
               <button
                 onClick={handleInstallClick}
-                className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white font-bold text-xs sm:text-sm uppercase tracking-wider py-3.5 transition shadow-sm flex items-center justify-center gap-2"
+                className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white font-bold text-xs sm:text-sm uppercase tracking-wider py-3.5 transition shadow-sm flex items-center justify-center gap-2 rounded-lg"
               >
                 <Download className="w-4 h-4" /> Install Sekarang 🚀
               </button>

@@ -1,58 +1,81 @@
 // app/sitemap.ts
-import { MetadataRoute } from 'next';
-import { createClient } from '@sanity/client';
+import type { MetadataRoute } from "next";
+import { createClient } from "@sanity/client";
 
-// 🚀 CONFIG SANITY CLIENT UNTUK SITEMAP
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+const BASE_URL = "https://www.islami.or.id";
+
 const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
-const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production';
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || "production";
 
 if (!projectId) {
-  throw new Error('🔥 GAGAL: NEXT_PUBLIC_SANITY_PROJECT_ID belum disetel di environment variables.');
+  throw new Error(
+    "NEXT_PUBLIC_SANITY_PROJECT_ID belum disetel di environment variables."
+  );
 }
+
+// ============================================================================
+// SANITY CLIENT
+// ============================================================================
 
 const sanityClient = createClient({
   projectId,
   dataset,
-  apiVersion: '2026-06-20',
+  apiVersion: "2026-06-20",
   useCdn: true,
 });
 
-// 🚀 URL Domain Utama islami.or.id
-const BASE_URL = 'https://www.islami.or.id';
+// ============================================================================
+// SITEMAP
+// ============================================================================
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  
-  // 1. Rute Statis Utama (Halaman Inti Web)
+  // --------------------------------------------------------------------------
+  // STATIC PUBLIC PAGES
+  // --------------------------------------------------------------------------
+  //
+  // Hanya masukkan halaman yang memang:
+  // - dapat diakses publik
+  // - ingin diindeks Google
+  // - memiliki nilai pencarian
+  //
+  // Jangan masukkan:
+  // /api
+  // /admin
+  // /dashboard
+  // /checkout
+  // /profile
+  // /donasi-saya
+  // halaman statistik internal
+  //
+  // --------------------------------------------------------------------------
+
   const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: BASE_URL,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1.0,
+      changeFrequency: "daily",
+      priority: 1,
     },
+
     {
       url: `${BASE_URL}/news`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.8,
+      changeFrequency: "daily",
+      priority: 0.9,
     },
+
     {
       url: `${BASE_URL}/zakat`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
+      changeFrequency: "weekly",
       priority: 0.8,
     },
-    {
-      url: `${BASE_URL}/fundraiser/stats`,
-      lastModified: new Date(),
-      changeFrequency: 'always',
-      priority: 0.8,
-    },
+
     {
       url: `${BASE_URL}/peta-situs`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.5,
+      changeFrequency: "weekly",
+      priority: 0.6,
     },
   ];
 
@@ -60,38 +83,110 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let newsRoutes: MetadataRoute.Sitemap = [];
 
   try {
-    // Ambil data dinamis langsung dari Sanity CMS dalam satu query GROQ
-    const query = `{
-      "programs": *[_type == "program" && defined(slug.current)] { "slug": slug.current, _updatedAt },
-      "news": *[_type == "news" && defined(slug.current)] { "slug": slug.current, publishedAt, _updatedAt }
-    }`;
+    // ========================================================================
+    // FETCH SEO-INDEXABLE CONTENT FROM SANITY
+    // ========================================================================
+
+    const query = `
+      {
+        "programs": *[
+          _type == "program" &&
+          defined(slug.current)
+        ] {
+          "slug": slug.current,
+          _updatedAt
+        },
+
+        "news": *[
+          _type == "news" &&
+          defined(slug.current)
+        ] {
+          "slug": slug.current,
+          publishedAt,
+          _updatedAt
+        }
+      }
+    `;
 
     const data = await sanityClient.fetch(query);
 
-    // 2. Mapping Rute Program / Campaign
-    if (data.programs && Array.isArray(data.programs)) {
-      campaignRoutes = data.programs.map((program: any) => ({
-        url: `${BASE_URL}/campaign/${program.slug}`,
-        lastModified: program._updatedAt ? new Date(program._updatedAt) : new Date(),
-        changeFrequency: 'hourly',
-        priority: 0.9,
-      }));
+    // ========================================================================
+    // CAMPAIGN / PROGRAM
+    // ========================================================================
+
+    if (Array.isArray(data?.programs)) {
+      campaignRoutes = data.programs
+        .filter(
+          (program: any) =>
+            typeof program?.slug === "string" &&
+            program.slug.trim().length > 0
+        )
+        .map((program: any) => {
+          const route: MetadataRoute.Sitemap[number] = {
+            url: `${BASE_URL}/campaign/${encodeURIComponent(
+              program.slug.trim()
+            )}`,
+            changeFrequency: "daily",
+            priority: 0.8,
+          };
+
+          if (program._updatedAt) {
+            route.lastModified = new Date(program._updatedAt);
+          }
+
+          return route;
+        });
     }
 
-    // 3. Mapping Rute Berita / News
-    if (data.news && Array.isArray(data.news)) {
-      newsRoutes = data.news.map((article: any) => ({
-        url: `${BASE_URL}/news/${article.slug}`,
-        lastModified: article.publishedAt ? new Date(article.publishedAt) : (article._updatedAt ? new Date(article._updatedAt) : new Date()),
-        changeFrequency: 'weekly',
-        priority: 0.7,
-      }));
-    }
+    // ========================================================================
+    // NEWS / ARTICLES
+    // ========================================================================
 
+    if (Array.isArray(data?.news)) {
+      newsRoutes = data.news
+        .filter(
+          (article: any) =>
+            typeof article?.slug === "string" &&
+            article.slug.trim().length > 0
+        )
+        .map((article: any) => {
+          const route: MetadataRoute.Sitemap[number] = {
+            url: `${BASE_URL}/news/${encodeURIComponent(
+              article.slug.trim()
+            )}`,
+            changeFrequency: "weekly",
+            priority: 0.7,
+          };
+
+          // _updatedAt lebih tepat untuk lastModified sitemap
+          // karena menunjukkan perubahan terakhir dokumen.
+          if (article._updatedAt) {
+            route.lastModified = new Date(article._updatedAt);
+          } else if (article.publishedAt) {
+            route.lastModified = new Date(article.publishedAt);
+          }
+
+          return route;
+        });
+    }
   } catch (error) {
-    console.error('Failed to fetch dynamic sitemap data from Sanity:', error);
+    console.error(
+      "[SITEMAP] Gagal mengambil data sitemap dari Sanity:",
+      error
+    );
   }
 
-  // 4. Gabungkan semua rute menjadi satu kesatuan sitemap utuh
-  return [...staticRoutes, ...campaignRoutes, ...newsRoutes];
+  // ==========================================================================
+  // REMOVE DUPLICATE URL
+  // ==========================================================================
+
+  const allRoutes: MetadataRoute.Sitemap = [
+    ...staticRoutes,
+    ...campaignRoutes,
+    ...newsRoutes,
+  ];
+
+  return Array.from(
+    new Map(allRoutes.map((route) => [route.url, route])).values()
+  );
 }

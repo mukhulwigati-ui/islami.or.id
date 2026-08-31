@@ -1,42 +1,53 @@
 // components/BlogDetailClient.tsx
-"use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { PortableText } from "@portabletext/react";
+
 import RelatedNews from "@/components/RelatedNews";
+import ShareButton from "@/components/ShareButton";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-interface ArticleData {
+export interface ArticleData {
+  id?: string;
   title?: string | { current?: string };
+  slug?: string;
+
   category?: string | { current?: string };
 
   publishedAt?: string;
+  updatedAt?: string;
   timeAgo?: string;
+
+  authorName?: string;
+
+  excerpt?: string;
 
   imageUrl?: string;
 
   alt?: string | { current?: string };
   caption?: string | { current?: string };
 
-  content?: any;
+  content?: any[];
 }
 
-interface BlogApiData {
-  article?: ArticleData;
-  allNews?: any[];
-}
-
-interface ApiResponse {
-  success?: boolean;
-  data?: BlogApiData;
+export interface RelatedArticleData {
+  id?: string;
+  title?: string;
+  slug?: string;
+  imageUrl?: string;
+  publishedAt?: string;
+  updatedAt?: string;
+  category?: string;
 }
 
 interface BlogDetailClientProps {
   slug: string;
+  article: ArticleData;
+  allNews?: RelatedArticleData[];
 }
 
 // ============================================================================
@@ -66,7 +77,9 @@ function renderSafeString(
       }
     ).current;
 
-    if (typeof current === "string") {
+    if (
+      typeof current === "string"
+    ) {
       return current;
     }
   }
@@ -79,44 +92,54 @@ function formatArticleDate(
   fallback?: string
 ): string {
   if (!publishedAt) {
-    return fallback || "Artikel Terbaru";
+    return (
+      fallback ||
+      "Artikel Terbaru"
+    );
   }
 
-  const date = new Date(publishedAt);
+  const date =
+    new Date(publishedAt);
 
-  if (Number.isNaN(date.getTime())) {
-    return fallback || "Artikel Terbaru";
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return (
+      fallback ||
+      "Artikel Terbaru"
+    );
   }
 
-  return date.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return date.toLocaleDateString(
+    "id-ID",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }
+  );
 }
 
 // ============================================================================
-// PORTABLE TEXT COMPONENTS
+// PORTABLE TEXT
 // ============================================================================
 //
-// Sengaja memakai `any`.
-//
-// Alasannya:
-// beberapa versi @portabletext/react mempunyai definisi generic props
-// yang berbeda dan membuat children dianggap optional.
-//
-// Dengan `any`, serializer tetap bekerja normal di runtime dan build
-// tidak bentrok dengan versi library yang terpasang.
-//
-// SEO tetap aman:
-// H1 utama hanya berasal dari judul artikel.
-// Heading H1 dari Sanity diturunkan menjadi H2.
+// `any` sengaja dipertahankan untuk kompatibilitas dengan versi
+// @portabletext/react yang sekarang terpasang di project.
 //
 // ============================================================================
 
 const portableTextComponents: any = {
+  // ==========================================================================
+  // IMAGE
+  // ==========================================================================
+
   types: {
-    image: ({ value }: any) => {
+    image: ({
+      value,
+    }: any) => {
       const imageUrl =
         value?.asset?.url;
 
@@ -125,19 +148,21 @@ const portableTextComponents: any = {
       }
 
       const altText =
-        typeof value?.alt === "string" &&
+        typeof value?.alt ===
+          "string" &&
         value.alt.trim()
           ? value.alt.trim()
           : "Gambar artikel islami.or.id";
 
       const caption =
-        typeof value?.caption === "string"
+        typeof value?.caption ===
+        "string"
           ? value.caption.trim()
           : "";
 
       return (
-        <figure className="my-6 w-full space-y-2 text-left">
-          <div className="aspect-[16/9] overflow-hidden border border-gray-200/90 bg-gray-50 shadow-sm">
+        <figure className="my-7 w-full space-y-2">
+          <div className="aspect-[16/9] overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
             <img
               src={imageUrl}
               alt={altText}
@@ -150,7 +175,7 @@ const portableTextComponents: any = {
           </div>
 
           {caption && (
-            <figcaption className="text-center text-xs font-medium italic text-slate-500 sm:text-sm">
+            <figcaption className="px-2 text-center text-xs font-medium italic leading-relaxed text-slate-500 sm:text-sm">
               {caption}
             </figcaption>
           )}
@@ -159,13 +184,18 @@ const portableTextComponents: any = {
     },
   },
 
+  // ==========================================================================
+  // MARKS
+  // ==========================================================================
+
   marks: {
     link: ({
       children,
       value,
     }: any) => {
       const href =
-        typeof value?.href === "string" &&
+        typeof value?.href ===
+          "string" &&
         value.href.trim()
           ? value.href.trim()
           : "#";
@@ -182,17 +212,17 @@ const portableTextComponents: any = {
       return (
         <a
           href={href}
-          rel={
-            isInternal
-              ? undefined
-              : "noopener noreferrer"
-          }
           target={
             isInternal
               ? undefined
               : "_blank"
           }
-          className="font-bold text-[#0d5c91] underline underline-offset-2 transition hover:text-sky-900"
+          rel={
+            isInternal
+              ? undefined
+              : "noopener noreferrer"
+          }
+          className="font-semibold text-[#0d5c91] underline decoration-sky-300 underline-offset-2 transition hover:text-sky-900"
         >
           {children}
         </a>
@@ -214,22 +244,35 @@ const portableTextComponents: any = {
         {children}
       </em>
     ),
+
+    code: ({
+      children,
+    }: any) => (
+      <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.9em] text-slate-800">
+        {children}
+      </code>
+    ),
   },
+
+  // ==========================================================================
+  // BLOCK
+  // ==========================================================================
 
   block: {
     normal: ({
       children,
     }: any) => (
-      <p className="mb-5 text-base leading-relaxed text-slate-800 sm:text-lg">
+      <p className="mb-5 text-base leading-[1.85] text-slate-800 sm:text-[17px]">
         {children}
       </p>
     ),
 
-    // Jangan render H1 kedua.
+    // H1 dari editor Sanity sengaja dirender sebagai H2.
+    // H1 halaman hanya judul artikel.
     h1: ({
       children,
     }: any) => (
-      <h2 className="mb-4 mt-8 text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+      <h2 className="mb-4 mt-9 text-xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-2xl">
         {children}
       </h2>
     ),
@@ -237,7 +280,7 @@ const portableTextComponents: any = {
     h2: ({
       children,
     }: any) => (
-      <h2 className="mb-3 mt-7 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+      <h2 className="mb-4 mt-9 text-xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-2xl">
         {children}
       </h2>
     ),
@@ -245,7 +288,7 @@ const portableTextComponents: any = {
     h3: ({
       children,
     }: any) => (
-      <h3 className="mb-2.5 mt-6 text-base font-bold text-slate-800 sm:text-lg">
+      <h3 className="mb-3 mt-7 text-lg font-bold leading-snug text-slate-900 sm:text-xl">
         {children}
       </h3>
     ),
@@ -253,7 +296,7 @@ const portableTextComponents: any = {
     h4: ({
       children,
     }: any) => (
-      <h4 className="mb-2 mt-5 text-base font-bold text-slate-800">
+      <h4 className="mb-2.5 mt-6 text-base font-bold leading-snug text-slate-900 sm:text-lg">
         {children}
       </h4>
     ),
@@ -261,17 +304,21 @@ const portableTextComponents: any = {
     blockquote: ({
       children,
     }: any) => (
-      <blockquote className="my-5 border-l-4 border-[#0d5c91] bg-sky-50/60 py-3 pl-4 pr-3 italic text-slate-700">
+      <blockquote className="my-7 border-l-4 border-[#0d5c91] bg-sky-50/60 px-5 py-4 text-base italic leading-relaxed text-slate-700 sm:text-[17px]">
         {children}
       </blockquote>
     ),
   },
 
+  // ==========================================================================
+  // LIST
+  // ==========================================================================
+
   list: {
     bullet: ({
       children,
     }: any) => (
-      <ul className="mb-5 list-disc space-y-2 pl-6 text-base text-slate-800 sm:text-lg">
+      <ul className="mb-6 list-disc space-y-2.5 pl-6 text-base leading-relaxed text-slate-800 sm:text-[17px]">
         {children}
       </ul>
     ),
@@ -279,7 +326,7 @@ const portableTextComponents: any = {
     number: ({
       children,
     }: any) => (
-      <ol className="mb-5 list-decimal space-y-2 pl-6 text-base text-slate-800 sm:text-lg">
+      <ol className="mb-6 list-decimal space-y-2.5 pl-6 text-base leading-relaxed text-slate-800 sm:text-[17px]">
         {children}
       </ol>
     ),
@@ -307,163 +354,27 @@ const portableTextComponents: any = {
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
+//
+// CATATAN:
+// Tidak ada lagi:
+// - "use client"
+// - useEffect
+// - useState
+// - fetch('/api/news/...')
+// - skeleton akibat fetch browser
+//
+// Seluruh artikel datang langsung dari Server Component page.tsx.
+//
+// ============================================================================
 
 export default function BlogDetailClient({
   slug,
+  article,
+  allNews = [],
 }: BlogDetailClientProps) {
-  const [data, setData] =
-    useState<BlogApiData | null>(null);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState<string | null>(null);
-
-  const [copied, setCopied] =
-    useState(false);
-
   // ==========================================================================
-  // FETCH ARTICLE
+  // ARTICLE VALUES
   // ==========================================================================
-
-  useEffect(() => {
-    const controller =
-      new AbortController();
-
-    async function loadArticle() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(
-          `/api/news/${encodeURIComponent(slug)}`,
-          {
-            cache: "no-store",
-            signal: controller.signal,
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `HTTP ${response.status}`
-          );
-        }
-
-        const json: ApiResponse =
-          await response.json();
-
-        if (
-          !json?.success ||
-          !json?.data?.article
-        ) {
-          setData(null);
-
-          setError(
-            "Artikel tidak ditemukan."
-          );
-
-          return;
-        }
-
-        setData(json.data);
-      } catch (err) {
-        if (
-          err instanceof DOMException &&
-          err.name === "AbortError"
-        ) {
-          return;
-        }
-
-        console.error(
-          "Fetch article detail error:",
-          err
-        );
-
-        setData(null);
-
-        setError(
-          "Gagal memuat artikel. Silakan coba lagi."
-        );
-      } finally {
-        if (
-          !controller.signal.aborted
-        ) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadArticle();
-
-    return () => {
-      controller.abort();
-    };
-  }, [slug]);
-
-  // ==========================================================================
-  // LOADING
-  // ==========================================================================
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 pb-24 pt-6">
-        <div className="mx-auto w-full max-w-md animate-pulse space-y-4 px-3">
-          <div className="mx-auto h-5 w-2/3 bg-gray-200" />
-
-          <div className="h-8 w-full bg-gray-200" />
-
-          <div className="h-4 w-1/3 bg-gray-200" />
-
-          <div className="aspect-[16/9] w-full bg-gray-200" />
-
-          <div className="space-y-3 pt-2">
-            <div className="h-4 w-full bg-gray-200" />
-            <div className="h-4 w-full bg-gray-200" />
-            <div className="h-4 w-5/6 bg-gray-200" />
-            <div className="h-4 w-2/3 bg-gray-200" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================================================
-  // NOT FOUND / ERROR
-  // ==========================================================================
-
-  if (!data?.article) {
-    return (
-      <main className="min-h-screen bg-gray-50 px-4 pb-24 pt-16 text-center">
-        <div className="mx-auto max-w-md">
-          <h1 className="text-xl font-extrabold text-slate-900">
-            Artikel tidak ditemukan
-          </h1>
-
-          <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            {error ||
-              "Artikel yang Anda cari mungkin sudah dipindahkan atau tidak tersedia."}
-          </p>
-
-          <Link
-            href="/news"
-            className="mt-5 inline-block border border-sky-100 bg-sky-50 px-4 py-2.5 text-xs font-bold text-[#0d5c91] transition hover:bg-sky-100"
-          >
-            ← Kembali ke Artikel
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  // ==========================================================================
-  // ARTICLE DATA
-  // ==========================================================================
-
-  const {
-    article,
-    allNews = [],
-  } = data;
 
   const titleString =
     renderSafeString(
@@ -496,123 +407,66 @@ export default function BlogDetailClient({
     );
 
   const mainImage =
-    typeof article.imageUrl === "string" &&
+    typeof article.imageUrl ===
+      "string" &&
     article.imageUrl.trim()
       ? article.imageUrl.trim()
-      : "/images/placeholder.jpg";
+      : "/images/banner.png";
 
-  // ==========================================================================
-  // SHARE
-  // ==========================================================================
-
-  async function handleShare() {
-    if (
-      typeof window === "undefined"
-    ) {
-      return;
-    }
-
-    const shareData = {
-      title: titleString,
-      text: titleString,
-      url: window.location.href,
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(
-          shareData
-        );
-
-        return;
-      }
-
-      await navigator.clipboard.writeText(
-        window.location.href
-      );
-
-      setCopied(true);
-
-      window.setTimeout(() => {
-        setCopied(false);
-      }, 2000);
-    } catch (err) {
-      if (
-        err instanceof DOMException &&
-        err.name === "AbortError"
-      ) {
-        return;
-      }
-
-      console.error(
-        "Share article error:",
-        err
-      );
-    }
-  }
+  const authorName =
+    typeof article.authorName ===
+      "string" &&
+    article.authorName.trim()
+      ? article.authorName.trim()
+      : "Redaksi islami.or.id";
 
   // ==========================================================================
   // OUTPUT
   // ==========================================================================
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-28 pt-4">
-      <div className="mx-auto w-full max-w-md space-y-4 px-3">
+    <main className="min-h-screen bg-slate-50 pb-28 pt-4">
+      <div className="mx-auto w-full max-w-3xl px-3 sm:px-4">
 
+        {/* ================================================================== */}
         {/* ARTICLE */}
-        <article className="space-y-4 border border-gray-200/90 bg-white p-4 shadow-sm sm:p-6">
+        {/* ================================================================== */}
 
-          {/* BREADCRUMB */}
-          <nav
-            aria-label="Breadcrumb"
-            className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400"
-          >
-            <Link
-              href="/"
-              className="transition hover:text-[#0d5c91]"
+        <article
+          itemScope
+          itemType="https://schema.org/Article"
+          className="overflow-hidden border border-slate-200/80 bg-white shadow-sm"
+        >
+          <div className="p-4 sm:p-6 md:p-8">
+
+            {/* ============================================================== */}
+            {/* BREADCRUMB */}
+            {/* ============================================================== */}
+
+            <nav
+              aria-label="Breadcrumb"
+              className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-400 sm:text-sm"
             >
-              Beranda
-            </Link>
-
-            <span aria-hidden="true">
-              /
-            </span>
-
-            <Link
-              href="/news"
-              className="transition hover:text-[#0d5c91]"
-            >
-              Artikel
-            </Link>
-
-            {categoryString && (
-              <>
-                <span aria-hidden="true">
-                  /
-                </span>
-
-                <span className="truncate text-slate-500">
-                  {categoryString}
-                </span>
-              </>
-            )}
-          </nav>
-
-          {/* ARTICLE HEADER */}
-          <header className="space-y-3">
-            <h1 className="text-xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-2xl">
-              {titleString}
-            </h1>
-
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-gray-100 pb-3 text-xs font-semibold text-slate-500 sm:text-sm">
-              <time
-                dateTime={
-                  article.publishedAt ||
-                  undefined
-                }
+              <Link
+                href="/"
+                className="transition hover:text-[#0d5c91]"
               >
-                📅 {formattedDate}
-              </time>
+                Beranda
+              </Link>
+
+              <span
+                aria-hidden="true"
+                className="text-slate-300"
+              >
+                /
+              </span>
+
+              <Link
+                href="/news"
+                className="transition hover:text-[#0d5c91]"
+              >
+                Artikel
+              </Link>
 
               {categoryString && (
                 <>
@@ -620,91 +474,186 @@ export default function BlogDetailClient({
                     aria-hidden="true"
                     className="text-slate-300"
                   >
-                    •
+                    /
                   </span>
 
-                  <span>
+                  <span
+                    aria-current="page"
+                    className="max-w-[180px] truncate text-slate-500 sm:max-w-xs"
+                  >
                     {categoryString}
                   </span>
                 </>
               )}
-            </div>
-          </header>
+            </nav>
 
-          {/* MAIN IMAGE */}
-          <figure className="w-full space-y-2 pt-1">
-            <div className="aspect-[16/9] w-full overflow-hidden border border-gray-200/80 bg-gray-100 shadow-inner">
-              <img
-                src={mainImage}
-                alt={altString}
-                width={800}
-                height={450}
-                loading="eager"
-                fetchPriority="high"
-                decoding="async"
-                className="h-full w-full object-cover"
-              />
-            </div>
+            {/* ============================================================== */}
+            {/* HEADER */}
+            {/* ============================================================== */}
 
-            {captionString && (
-              <figcaption className="text-center text-xs font-medium italic text-slate-500 sm:text-sm">
-                Foto: {captionString}
-              </figcaption>
-            )}
-          </figure>
+            <header className="mb-5">
 
-          {/* ARTICLE CONTENT */}
-          <section
-            aria-label="Isi artikel"
-            className="border-b border-gray-100 pb-6 pt-2"
-          >
-            {article.content ? (
-              <PortableText
-                value={article.content}
-                components={portableTextComponents}
-              />
-            ) : (
-              <p className="text-base italic text-slate-400">
-                Isi artikel belum tersedia.
-              </p>
-            )}
-          </section>
+              <h1
+                itemProp="headline"
+                className="text-2xl font-extrabold leading-[1.25] tracking-tight text-slate-950 sm:text-3xl md:text-[34px]"
+              >
+                {titleString}
+              </h1>
 
-          {/* SHARE */}
-          <footer className="flex items-center justify-between gap-3 pt-1">
-            <span className="text-xs font-bold text-slate-600 sm:text-sm">
-              Bagikan artikel ini:
-            </span>
+              <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-2 text-xs font-medium text-slate-500 sm:text-sm">
 
-            <button
-              type="button"
-              onClick={() => {
-                void handleShare();
-              }}
-              className="border border-sky-100 bg-sky-50 px-4 py-2.5 text-xs font-bold text-[#0d5c91] shadow-sm transition hover:bg-sky-100 sm:text-sm"
+                <span>
+                  Oleh{" "}
+                  <span className="font-semibold text-slate-700">
+                    {authorName}
+                  </span>
+                </span>
+
+                <span
+                  aria-hidden="true"
+                  className="text-slate-300"
+                >
+                  •
+                </span>
+
+                <time
+                  itemProp="datePublished"
+                  dateTime={
+                    article.publishedAt
+                  }
+                >
+                  {formattedDate}
+                </time>
+
+                {categoryString && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="text-slate-300"
+                    >
+                      •
+                    </span>
+
+                    <span className="font-semibold text-[#0d5c91]">
+                      {categoryString}
+                    </span>
+                  </>
+                )}
+
+              </div>
+
+            </header>
+
+            {/* ============================================================== */}
+            {/* MAIN IMAGE */}
+            {/* ============================================================== */}
+
+            <figure className="mb-7">
+
+              <div className="aspect-[16/9] overflow-hidden bg-slate-100">
+                <img
+                  itemProp="image"
+                  src={mainImage}
+                  alt={altString}
+                  width={1200}
+                  height={675}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+
+              {captionString && (
+                <figcaption className="mt-2 px-1 text-center text-xs font-medium italic leading-relaxed text-slate-500 sm:text-sm">
+                  {captionString}
+                </figcaption>
+              )}
+
+            </figure>
+
+            {/* ============================================================== */}
+            {/* ARTICLE CONTENT */}
+            {/* ============================================================== */}
+
+            <section
+              itemProp="articleBody"
+              aria-label="Isi artikel"
+              className="article-content"
             >
-              {copied
-                ? "✓ Tautan Tersalin"
-                : "🔗 Bagikan"}
-            </button>
-          </footer>
+              {Array.isArray(
+                article.content
+              ) &&
+              article.content.length >
+                0 ? (
+                <PortableText
+                  value={
+                    article.content
+                  }
+                  components={
+                    portableTextComponents
+                  }
+                />
+              ) : (
+                <p className="py-8 text-center text-sm italic text-slate-400">
+                  Isi artikel belum
+                  tersedia.
+                </p>
+              )}
+            </section>
+
+            {/* ============================================================== */}
+            {/* FOOTER ARTICLE */}
+            {/* ============================================================== */}
+
+            <footer className="mt-8 border-t border-slate-100 pt-5">
+
+              <div className="flex flex-wrap items-center justify-between gap-4">
+
+                <div>
+                  <p className="text-xs text-slate-400">
+                    Bagikan artikel ini
+                  </p>
+
+                  <p className="mt-0.5 text-sm font-bold text-slate-700">
+                    Bermanfaat untuk
+                    orang lain?
+                  </p>
+                </div>
+
+                <ShareButton
+                  title={
+                    titleString
+                  }
+                />
+
+              </div>
+
+            </footer>
+
+          </div>
         </article>
 
+        {/* ================================================================== */}
         {/* RELATED ARTICLES */}
-        <section
-          aria-label="Artikel terkait"
-          className="pt-2"
-        >
-          <RelatedNews
-            currentSlug={slug}
-            category={categoryString}
-            allNews={
-              Array.isArray(allNews)
-                ? allNews
-                : []
-            }
-          />
-        </section>
+        {/* ================================================================== */}
+
+        {allNews.length > 0 && (
+          <section
+            aria-labelledby="related-news-heading"
+            className="mt-5"
+          >
+            <RelatedNews
+              currentSlug={slug}
+              category={
+                categoryString
+              }
+              allNews={
+                allNews
+              }
+            />
+          </section>
+        )}
 
       </div>
     </main>

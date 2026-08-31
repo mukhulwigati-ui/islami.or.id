@@ -345,14 +345,18 @@ export default async function NewsPage() {
         {/* ================================================================== */}
         {/* MOBILE-FIRST WRAPPER */}
         {/* ================================================================== */}
+        {/*
+          max-w-md = lebar utama aplikasi
+          px-3     = inset kiri-kanan yang sama dengan detail artikel/bottomnav
+        */}
 
-        <div className="mx-auto w-full max-w-md">
+        <div className="mx-auto w-full max-w-md px-3">
 
           {/* ================================================================ */}
           {/* HEADER */}
           {/* ================================================================ */}
 
-          <header className="bg-white px-4 pb-5 pt-5 text-center">
+          <header className="mt-3 w-full bg-white px-4 pb-5 pt-5 text-center shadow-sm">
 
             <nav
               aria-label="Breadcrumb"
@@ -397,11 +401,12 @@ export default async function NewsPage() {
           {/* CONTENT */}
           {/* ================================================================ */}
 
-          <div className="px-3 pb-5 pt-3">
+          <div className="w-full pb-5 pt-3">
 
             {newsList.length === 0 ? (
 
-              <section className="bg-white px-5 py-14 text-center">
+              <section className="w-full bg-white px-5 py-14 text-center shadow-sm">
+
                 <h2 className="text-sm font-bold text-slate-700">
                   Belum ada artikel
                 </h2>
@@ -409,14 +414,16 @@ export default async function NewsPage() {
                 <p className="mt-2 text-xs text-slate-400">
                   Artikel terbaru akan ditampilkan di halaman ini.
                 </p>
+
               </section>
 
             ) : (
 
               <section
                 aria-label="Daftar artikel Islam terbaru"
-                className="space-y-3"
+                className="w-full space-y-3"
               >
+
                 {newsList.map((post) => {
                   const image =
                     normalizeImage(
@@ -504,9 +511,11 @@ export default async function NewsPage() {
                         </div>
 
                       </Link>
+
                     </article>
                   );
                 })}
+
               </section>
             )}
 

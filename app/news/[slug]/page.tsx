@@ -1,172 +1,133 @@
 // app/news/[slug]/page.tsx
 
 import type { Metadata } from "next";
-import { createClient } from "@sanity/client";
+import { notFound } from "next/navigation";
+
 import BlogDetailClient from "@/components/BlogDetailClient";
+import { clientPublik as client } from "@/lib/sanity";
+
+// ============================================================================
+// CONFIG
+// ============================================================================
+
+const SITE_URL = "https://www.islami.or.id";
+const SITE_NAME = "islami.or.id";
+
+const DEFAULT_DESCRIPTION =
+  "Baca artikel Islam terbaru seputar Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan inspirasi kebaikan.";
+
+const DEFAULT_IMAGE = `${SITE_URL}/images/banner.png`;
+
+// Artikel publik cocok memakai ISR.
+// Tidak perlu force-dynamic.
+export const revalidate = 60;
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-interface Props {
+interface PageProps {
   params: Promise<{
     slug: string;
   }>;
 }
 
-interface PortableTextChild {
-  text?: string;
-}
+interface NewsSeoData {
+  id?: string;
 
-interface PortableTextBlock {
-  _type?: string;
-  children?: PortableTextChild[];
-}
-
-interface ArticleMetadataData {
   title?: string;
-  excerpt?: string;
 
-  content?: string | PortableTextBlock[];
+  slug?: string;
+
+  excerpt?: string;
 
   imageUrl?: string;
 
+  alt?: string;
+
   publishedAt?: string;
+
   updatedAt?: string;
 
   authorName?: string;
+
+  category?: string;
 }
 
 // ============================================================================
-// SITE CONFIGURATION
+// GROQ
 // ============================================================================
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  "https://www.islami.or.id";
+const NEWS_SEO_QUERY = `
+*[
+  _type == "news" &&
+  defined(slug.current) &&
+  lower(slug.current) == lower($slug)
+][0] {
+  "id": _id,
 
-const SITE_NAME = "islami.or.id";
+  title,
 
-const DEFAULT_IMAGE =
-  `${SITE_URL}/images/banner.png`;
+  "slug": slug.current,
 
-const DEFAULT_TITLE =
-  "Artikel Islam & Inspirasi Muslim";
+  excerpt,
 
-const DEFAULT_DESCRIPTION =
-  "Baca artikel Islam, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan berbagai inspirasi kebaikan di islami.or.id.";
+  "imageUrl": coalesce(
+    image.asset->url,
+    mainImage.asset->url,
+    banner.asset->url
+  ),
 
-// ============================================================================
-// SANITY CONFIGURATION
-// ============================================================================
+  "alt": coalesce(
+    image.alt,
+    mainImage.alt,
+    banner.alt,
+    title
+  ),
 
-const projectId =
-  process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ||
-  "915u7hh1";
+  "publishedAt": coalesce(
+    publishedAt,
+    _createdAt
+  ),
 
-const dataset =
-  process.env.NEXT_PUBLIC_SANITY_DATASET ||
-  "production";
+  "updatedAt": coalesce(
+    _updatedAt,
+    publishedAt,
+    _createdAt
+  ),
 
-const serverClient = createClient({
-  projectId,
-  dataset,
-  useCdn: false,
-  apiVersion: "2026-06-20",
-  token: process.env.SANITY_API_TOKEN,
-});
+  "authorName": coalesce(
+    author->name,
+    author.name,
+    authorName,
+    "Redaksi islami.or.id"
+  ),
 
-// ============================================================================
-// RENDERING
-// ============================================================================
-
-export const dynamic = "force-dynamic";
-export const revalidate = 60;
-
-// ============================================================================
-// HELPER: PORTABLE TEXT → PLAIN TEXT
-// ============================================================================
-
-function portableTextToPlainText(
-  content?: string | PortableTextBlock[]
-): string {
-  if (!content) {
-    return "";
-  }
-
-  if (typeof content === "string") {
-    return content
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  if (!Array.isArray(content)) {
-    return "";
-  }
-
-  return content
-    .filter(
-      (block) =>
-        block?._type === "block" &&
-        Array.isArray(block.children)
-    )
-    .map((block) =>
-      (block.children || [])
-        .map((child) => child?.text || "")
-        .join("")
-    )
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  "category": coalesce(
+    category->title,
+    category.title,
+    category,
+    "Artikel Islam"
+  )
 }
+`;
 
 // ============================================================================
-// HELPER: DESCRIPTION
+// HELPERS
 // ============================================================================
 
-function createDescription(
-  article: ArticleMetadataData,
-  title: string
-): string {
-  let description = "";
-
-  if (
-    typeof article.excerpt === "string" &&
-    article.excerpt.trim()
-  ) {
-    description = article.excerpt.trim();
+function normalizeSlug(value: string): string {
+  try {
+    return decodeURIComponent(value).trim();
+  } catch {
+    return value.trim();
   }
-
-  if (!description) {
-    description = portableTextToPlainText(
-      article.content
-    );
-  }
-
-  if (!description) {
-    description =
-      `Baca pembahasan lengkap "${title}" di islami.or.id, portal Islam dan inspirasi Muslim Indonesia.`;
-  }
-
-  // Hindari meta description terlalu panjang.
-  if (description.length > 160) {
-    return `${description.slice(0, 157).trim()}...`;
-  }
-
-  return description;
 }
-
-// ============================================================================
-// HELPER: IMAGE URL
-// ============================================================================
 
 function normalizeImageUrl(
   imageUrl?: string
 ): string {
-  if (
-    !imageUrl ||
-    typeof imageUrl !== "string"
-  ) {
+  if (!imageUrl) {
     return DEFAULT_IMAGE;
   }
 
@@ -177,113 +138,115 @@ function normalizeImageUrl(
     return imageUrl;
   }
 
-  return `${SITE_URL}${
-    imageUrl.startsWith("/") ? "" : "/"
-  }${imageUrl}`;
+  if (imageUrl.startsWith("/")) {
+    return `${SITE_URL}${imageUrl}`;
+  }
+
+  return `${SITE_URL}/${imageUrl}`;
 }
 
-// ============================================================================
-// DYNAMIC METADATA
-// ============================================================================
+function portableDescription(
+  value?: string
+): string {
+  const fallback = DEFAULT_DESCRIPTION;
 
-export async function generateMetadata({
-  params,
-}: Props): Promise<Metadata> {
-  const { slug } = await params;
+  if (
+    typeof value !== "string" ||
+    !value.trim()
+  ) {
+    return fallback;
+  }
 
-  const canonicalUrl =
-    `${SITE_URL}/news/${encodeURIComponent(slug)}`;
+  const cleaned = value
+    .replace(/\s+/g, " ")
+    .trim();
 
-  let articleTitle = DEFAULT_TITLE;
-  let articleDescription =
-    DEFAULT_DESCRIPTION;
+  if (cleaned.length <= 160) {
+    return cleaned;
+  }
 
-  let articleImage = DEFAULT_IMAGE;
+  return `${cleaned.slice(0, 157).trim()}...`;
+}
 
-  let publishedAt: string | undefined;
-  let updatedAt: string | undefined;
-
+async function getArticleSeo(
+  slug: string
+): Promise<NewsSeoData | null> {
   try {
-    const article =
-      await serverClient.fetch<ArticleMetadataData | null>(
-        `
-          *[
-            _type in ["news", "post", "article"] &&
-            slug.current == $slug
-          ][0] {
-            title,
-            excerpt,
-            content,
-
-            "imageUrl": coalesce(
-              mainImage.asset->url,
-              image.asset->url,
-              banner.asset->url
-            ),
-
-            publishedAt,
-
-            "updatedAt": _updatedAt,
-
-            "authorName": coalesce(
-              author->name,
-              author.name,
-              author,
-              "Redaksi islami.or.id"
-            )
-          }
-        `,
+    const data =
+      await client.fetch<NewsSeoData | null>(
+        NEWS_SEO_QUERY,
         {
           slug,
         }
       );
 
-    if (article) {
-      if (
-        typeof article.title === "string" &&
-        article.title.trim()
-      ) {
-        articleTitle =
-          article.title.trim();
-      }
-
-      articleDescription =
-        createDescription(
-          article,
-          articleTitle
-        );
-
-      articleImage =
-        normalizeImageUrl(
-          article.imageUrl
-        );
-
-      publishedAt =
-        article.publishedAt;
-
-      updatedAt =
-        article.updatedAt;
-    }
+    return data || null;
   } catch (error) {
     console.error(
-      "[NEWS METADATA] Gagal mengambil metadata artikel:",
+      "[NEWS PAGE] Gagal mengambil data SEO artikel:",
       error
     );
+
+    return null;
+  }
+}
+
+// ============================================================================
+// METADATA
+// ============================================================================
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug: rawSlug } =
+    await params;
+
+  const slug =
+    normalizeSlug(rawSlug);
+
+  const article =
+    await getArticleSeo(slug);
+
+  // Page component tetap akan menghasilkan 404 via notFound().
+  if (!article?.title) {
+    return {
+      title: "Artikel Tidak Ditemukan",
+
+      description:
+        "Artikel yang Anda cari tidak ditemukan di islami.or.id.",
+
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
   }
 
-  return {
-    // Root layout sudah memiliki:
-    // template: "%s | islami.or.id"
-    //
-    // Jadi jangan tambahkan islami.or.id lagi di sini.
-    title: articleTitle,
+  const title =
+    article.title.trim();
 
-    description:
-      articleDescription,
+  const description =
+    portableDescription(
+      article.excerpt
+    );
+
+  const image =
+    normalizeImageUrl(
+      article.imageUrl
+    );
+
+  const canonical =
+    `${SITE_URL}/news/${encodeURIComponent(
+      article.slug || slug
+    )}`;
+
+  return {
+    title,
+
+    description,
 
     alternates: {
-      canonical:
-        canonicalUrl,
+      canonical,
     },
 
     robots: {
@@ -293,66 +256,66 @@ export async function generateMetadata({
       googleBot: {
         index: true,
         follow: true,
-        "max-video-preview": -1,
-        "max-image-preview": "large",
+
+        "max-image-preview":
+          "large",
+
         "max-snippet": -1,
+
+        "max-video-preview":
+          -1,
       },
     },
 
     openGraph: {
-      title:
-        articleTitle,
+      type: "article",
 
-      description:
-        articleDescription,
+      locale: "id_ID",
 
-      url:
-        canonicalUrl,
+      siteName: SITE_NAME,
 
-      siteName:
-        SITE_NAME,
+      url: canonical,
 
-      locale:
-        "id_ID",
+      title,
 
-      type:
-        "article",
+      description,
 
       publishedTime:
-        publishedAt,
+        article.publishedAt,
 
       modifiedTime:
-        updatedAt,
+        article.updatedAt,
+
+      authors:
+        article.authorName
+          ? [
+              article.authorName,
+            ]
+          : undefined,
 
       images: [
         {
-          url:
-            articleImage,
+          url: image,
 
-          width:
-            1200,
-
-          height:
-            630,
+          width: 1200,
+          height: 630,
 
           alt:
-            articleTitle,
+            article.alt ||
+            title,
         },
       ],
     },
 
     twitter: {
-      card:
-        "summary_large_image",
+      card: "summary_large_image",
 
-      title:
-        articleTitle,
+      title,
 
-      description:
-        articleDescription,
+      description,
 
       images: [
-        articleImage,
+        image,
       ],
     },
   };
@@ -364,12 +327,272 @@ export async function generateMetadata({
 
 export default async function NewsDetailPage({
   params,
-}: Props) {
-  const { slug } = await params;
+}: PageProps) {
+  const { slug: rawSlug } =
+    await params;
+
+  const slug =
+    normalizeSlug(rawSlug);
+
+  const article =
+    await getArticleSeo(slug);
+
+  // ==========================================================================
+  // REAL SERVER-SIDE 404
+  // ==========================================================================
+
+  if (
+    !article ||
+    !article.title ||
+    !article.slug
+  ) {
+    notFound();
+  }
+
+  // ==========================================================================
+  // BASIC VALUES
+  // ==========================================================================
+
+  const title =
+    article.title.trim();
+
+  const description =
+    portableDescription(
+      article.excerpt
+    );
+
+  const image =
+    normalizeImageUrl(
+      article.imageUrl
+    );
+
+  const canonical =
+    `${SITE_URL}/news/${encodeURIComponent(
+      article.slug
+    )}`;
+
+  const authorName =
+    article.authorName ||
+    "Redaksi islami.or.id";
+
+  const category =
+    article.category ||
+    "Artikel Islam";
+
+  // ==========================================================================
+  // ARTICLE JSON-LD
+  // ==========================================================================
+
+  const articleSchema = {
+    "@context":
+      "https://schema.org",
+
+    "@type": "Article",
+
+    "@id":
+      `${canonical}#article`,
+
+    headline:
+      title,
+
+    description,
+
+    url:
+      canonical,
+
+    mainEntityOfPage: {
+      "@type":
+        "WebPage",
+
+      "@id":
+        canonical,
+    },
+
+    image: [
+      image,
+    ],
+
+    ...(article.publishedAt
+      ? {
+          datePublished:
+            article.publishedAt,
+        }
+      : {}),
+
+    ...(article.updatedAt
+      ? {
+          dateModified:
+            article.updatedAt,
+        }
+      : {}),
+
+    author: {
+      "@type":
+        "Organization",
+
+      name:
+        authorName,
+    },
+
+    publisher: {
+      "@type":
+        "Organization",
+
+      name:
+        SITE_NAME,
+
+      url:
+        SITE_URL,
+    },
+
+    articleSection:
+      category,
+
+    inLanguage:
+      "id-ID",
+
+    isAccessibleForFree:
+      true,
+  };
+
+  // ==========================================================================
+  // BREADCRUMB JSON-LD
+  // ==========================================================================
+
+  const breadcrumbSchema = {
+    "@context":
+      "https://schema.org",
+
+    "@type":
+      "BreadcrumbList",
+
+    itemListElement: [
+      {
+        "@type":
+          "ListItem",
+
+        position: 1,
+
+        name:
+          "Beranda",
+
+        item:
+          SITE_URL,
+      },
+
+      {
+        "@type":
+          "ListItem",
+
+        position: 2,
+
+        name:
+          "Artikel",
+
+        item:
+          `${SITE_URL}/news`,
+      },
+
+      {
+        "@type":
+          "ListItem",
+
+        position: 3,
+
+        name:
+          title,
+
+        item:
+          canonical,
+      },
+    ],
+  };
+
+  // ==========================================================================
+  // WEBSITE / WEBPAGE RELATIONSHIP
+  // ==========================================================================
+
+  const webPageSchema = {
+    "@context":
+      "https://schema.org",
+
+    "@type":
+      "WebPage",
+
+    "@id":
+      canonical,
+
+    url:
+      canonical,
+
+    name:
+      title,
+
+    description,
+
+    isPartOf: {
+      "@type":
+        "WebSite",
+
+      "@id":
+        `${SITE_URL}/#website`,
+
+      name:
+        SITE_NAME,
+
+      url:
+        SITE_URL,
+    },
+
+    primaryImageOfPage: {
+      "@type":
+        "ImageObject",
+
+      url:
+        image,
+    },
+
+    inLanguage:
+      "id-ID",
+  };
+
+  // ==========================================================================
+  // SAFE JSON SERIALIZER
+  // ==========================================================================
+
+  const jsonLd = JSON.stringify([
+    articleSchema,
+    breadcrumbSchema,
+    webPageSchema,
+  ]).replace(
+    /</g,
+    "\\u003c"
+  );
+
+  // ==========================================================================
+  // OUTPUT
+  // ==========================================================================
 
   return (
-    <BlogDetailClient
-      slug={slug}
-    />
+    <>
+      {/* ================================================================ */}
+      {/* STRUCTURED DATA */}
+      {/* ================================================================ */}
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd,
+        }}
+      />
+
+      {/* ================================================================ */}
+      {/* ARTICLE UI */}
+      {/* ================================================================ */}
+
+      <BlogDetailClient
+        slug={slug}
+      />
+    </>
   );
 }

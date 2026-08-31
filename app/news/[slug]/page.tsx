@@ -1,4 +1,4 @@
-// app/blog/[slug]/page.tsx
+// app/news/[slug]/page.tsx
 import { Metadata } from 'next';
 import { createClient } from '@sanity/client';
 import BlogDetailClient from '@/components/BlogDetailClient';

@@ -13,6 +13,7 @@ const SITE_URL = "https://www.islami.or.id";
 const SITE_NAME = "islami.or.id";
 
 const PAGE_TITLE = "Artikel Islam Terbaru";
+
 const PAGE_DESCRIPTION =
   "Baca artikel Islam terbaru seputar Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan inspirasi kehidupan Muslim.";
 
@@ -20,16 +21,6 @@ const DEFAULT_IMAGE = "/images/banner.png";
 
 // ============================================================================
 // ISR
-// ============================================================================
-//
-// Tidak perlu:
-// - "use client"
-// - useEffect
-// - fetch /api/news
-// - Date.now()
-// - cache: no-store
-//
-// Listing artikel cocok memakai ISR.
 // ============================================================================
 
 export const revalidate = 300;
@@ -98,17 +89,12 @@ export const metadata: Metadata = {
 
 interface NewsItem {
   id: string;
-
   title: string;
-
   slug: string;
 
   excerpt?: string;
-
   imageUrl?: string;
-
   publishedAt?: string;
-
   category?: string;
 }
 
@@ -193,7 +179,7 @@ function normalizeImage(value?: string): string {
 
 function cleanText(
   value?: string,
-  maxLength = 145
+  maxLength = 120
 ): string {
   if (
     typeof value !== "string" ||
@@ -210,7 +196,9 @@ function cleanText(
     return text;
   }
 
-  return `${text.slice(0, maxLength - 3).trim()}...`;
+  return `${text
+    .slice(0, maxLength - 3)
+    .trim()}...`;
 }
 
 // ============================================================================
@@ -219,20 +207,23 @@ function cleanText(
 
 async function getNews(): Promise<NewsItem[]> {
   try {
-    const data = await client.fetch<NewsItem[]>(
-      NEWS_QUERY
-    );
+    const data =
+      await client.fetch<NewsItem[]>(
+        NEWS_QUERY
+      );
 
-    return Array.isArray(data)
-      ? data.filter(
-          (item) =>
-            item &&
-            typeof item.slug === "string" &&
-            item.slug.trim() &&
-            typeof item.title === "string" &&
-            item.title.trim()
-        )
-      : [];
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    return data.filter(
+      (item) =>
+        item &&
+        typeof item.slug === "string" &&
+        item.slug.trim() &&
+        typeof item.title === "string" &&
+        item.title.trim()
+    );
   } catch (error) {
     console.error(
       "[NEWS PAGE] Gagal mengambil daftar artikel:",
@@ -251,10 +242,10 @@ export default async function NewsPage() {
   const newsList = await getNews();
 
   // ==========================================================================
-  // ITEM LIST SCHEMA
+  // STRUCTURED DATA
   // ==========================================================================
 
-  const itemListSchema = {
+  const collectionSchema = {
     "@context": "https://schema.org",
 
     "@type": "CollectionPage",
@@ -273,24 +264,33 @@ export default async function NewsPage() {
       "@id": `${SITE_URL}/#website`,
     },
 
+    breadcrumb: {
+      "@id": `${SITE_URL}/news#breadcrumb`,
+    },
+
     mainEntity: {
       "@type": "ItemList",
 
-      numberOfItems: newsList.length,
+      numberOfItems:
+        newsList.length,
 
-      itemListElement: newsList.map(
-        (post, index) => ({
-          "@type": "ListItem",
+      itemListElement:
+        newsList.map(
+          (post, index) => ({
+            "@type": "ListItem",
 
-          position: index + 1,
+            position:
+              index + 1,
 
-          url: `${SITE_URL}/news/${encodeURIComponent(
-            post.slug
-          )}`,
+            url:
+              `${SITE_URL}/news/${encodeURIComponent(
+                post.slug
+              )}`,
 
-          name: post.title,
-        })
-      ),
+            name:
+              post.title,
+          })
+        ),
     },
   };
 
@@ -308,6 +308,7 @@ export default async function NewsPage() {
         name: "Beranda",
         item: SITE_URL,
       },
+
       {
         "@type": "ListItem",
         position: 2,
@@ -317,10 +318,18 @@ export default async function NewsPage() {
     ],
   };
 
-  const jsonLd = JSON.stringify([
-    itemListSchema,
-    breadcrumbSchema,
-  ]).replace(/</g, "\\u003c");
+  const jsonLd =
+    JSON.stringify([
+      collectionSchema,
+      breadcrumbSchema,
+    ]).replace(
+      /</g,
+      "\\u003c"
+    );
+
+  // ==========================================================================
+  // OUTPUT
+  // ==========================================================================
 
   return (
     <>
@@ -331,27 +340,37 @@ export default async function NewsPage() {
         }}
       />
 
-      <main className="min-h-screen bg-gray-50 pb-24 pt-6">
-        <div className="mx-auto w-full max-w-3xl px-3 sm:px-4">
+      <main className="min-h-screen w-full bg-gray-50 pb-28">
+
+        {/* ================================================================== */}
+        {/* MOBILE-FIRST WRAPPER */}
+        {/* ================================================================== */}
+
+        <div className="mx-auto w-full max-w-md">
 
           {/* ================================================================ */}
           {/* HEADER */}
           {/* ================================================================ */}
 
-          <header className="mb-6 text-center">
+          <header className="bg-white px-4 pb-5 pt-5 text-center">
 
             <nav
               aria-label="Breadcrumb"
-              className="mb-3 flex items-center justify-center gap-2 text-xs font-medium text-slate-400"
+              className="mb-3 flex items-center justify-center gap-2 text-[11px] font-medium text-slate-400"
             >
               <Link
                 href="/"
-                className="transition hover:text-[#0d5c91]"
+                className="transition-colors hover:text-[#0d5c91]"
               >
                 Beranda
               </Link>
 
-              <span aria-hidden="true">/</span>
+              <span
+                aria-hidden="true"
+                className="text-slate-300"
+              >
+                /
+              </span>
 
               <span
                 aria-current="page"
@@ -361,126 +380,140 @@ export default async function NewsPage() {
               </span>
             </nav>
 
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
+            <h1 className="text-[24px] font-extrabold leading-tight tracking-tight text-slate-950 sm:text-[28px]">
               Artikel Islam Terbaru
             </h1>
 
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base">
+            <p className="mx-auto mt-2.5 max-w-sm text-[13px] leading-relaxed text-slate-500 sm:text-sm">
               Temukan artikel seputar Al-Qur&apos;an,
               hadis, fikih, doa, sejarah Islam,
               keluarga Muslim, zakat, sedekah, wakaf,
-              dan berbagai inspirasi kehidupan Islami.
+              dan inspirasi kehidupan Islami.
             </p>
 
           </header>
 
           {/* ================================================================ */}
-          {/* EMPTY */}
+          {/* CONTENT */}
           {/* ================================================================ */}
 
-          {newsList.length === 0 ? (
-            <section className="border border-slate-200 bg-white px-5 py-16 text-center shadow-sm">
-              <h2 className="text-base font-bold text-slate-700">
-                Belum ada artikel
-              </h2>
+          <div className="px-3 pb-5 pt-3">
 
-              <p className="mt-2 text-sm text-slate-400">
-                Artikel terbaru akan ditampilkan di
-                halaman ini.
-              </p>
-            </section>
-          ) : (
+            {newsList.length === 0 ? (
 
-            /* ============================================================= */
-            /* LIST ARTICLE */
-            /* ============================================================= */
+              <section className="bg-white px-5 py-14 text-center">
+                <h2 className="text-sm font-bold text-slate-700">
+                  Belum ada artikel
+                </h2>
 
-            <section
-              aria-label="Daftar artikel Islam terbaru"
-              className="space-y-3"
-            >
-              {newsList.map((post) => {
-                const image =
-                  normalizeImage(post.imageUrl);
+                <p className="mt-2 text-xs text-slate-400">
+                  Artikel terbaru akan ditampilkan di halaman ini.
+                </p>
+              </section>
 
-                const excerpt =
-                  cleanText(post.excerpt);
+            ) : (
 
-                const dateLabel =
-                  formatDate(post.publishedAt);
+              <section
+                aria-label="Daftar artikel Islam terbaru"
+                className="space-y-3"
+              >
+                {newsList.map((post) => {
+                  const image =
+                    normalizeImage(
+                      post.imageUrl
+                    );
 
-                const category =
-                  post.category?.trim() ||
-                  "Artikel Islam";
+                  const excerpt =
+                    cleanText(
+                      post.excerpt
+                    );
 
-                return (
-                  <article
-                    key={post.id || post.slug}
-                    className="group overflow-hidden border border-gray-200/90 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
-                  >
-                    <Link
-                      href={`/news/${encodeURIComponent(
+                  const dateLabel =
+                    formatDate(
+                      post.publishedAt
+                    );
+
+                  const category =
+                    post.category?.trim() ||
+                    "Artikel Islam";
+
+                  return (
+                    <article
+                      key={
+                        post.id ||
                         post.slug
-                      )}`}
-                      className="flex items-stretch gap-3.5 p-3 sm:gap-4 sm:p-4"
-                      aria-label={`Baca artikel: ${post.title}`}
+                      }
+                      className="group w-full overflow-hidden bg-white shadow-sm transition-all duration-300 hover:shadow-md"
                     >
 
-                      {/* ==================================================== */}
-                      {/* IMAGE */}
-                      {/* ==================================================== */}
+                      <Link
+                        href={`/news/${encodeURIComponent(
+                          post.slug
+                        )}`}
+                        aria-label={`Baca artikel: ${post.title}`}
+                        className="flex w-full items-center gap-3 p-3"
+                      >
 
-                      <div className="aspect-[16/10] w-28 shrink-0 overflow-hidden bg-gray-100 sm:w-36">
+                        {/* ================================================== */}
+                        {/* THUMBNAIL */}
+                        {/* ================================================== */}
 
-                        <img
-                          src={image}
-                          alt={post.title}
-                          width={320}
-                          height={200}
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
+                        <div className="aspect-[16/10] w-28 shrink-0 overflow-hidden bg-slate-100">
 
-                      </div>
+                          <img
+                            src={image}
+                            alt={post.title}
+                            width={320}
+                            height={200}
+                            loading="lazy"
+                            decoding="async"
+                            className="block h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
 
-                      {/* ==================================================== */}
-                      {/* CONTENT */}
-                      {/* ==================================================== */}
-
-                      <div className="min-w-0 flex-1 py-0.5 text-left">
-
-                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-[#0d5c91] sm:text-[11px]">
-                          {category}
                         </div>
 
-                        <h2 className="line-clamp-2 text-sm font-extrabold leading-snug tracking-tight text-slate-900 transition-colors group-hover:text-[#0d5c91] sm:text-base">
-                          {post.title}
-                        </h2>
+                        {/* ================================================== */}
+                        {/* ARTICLE INFO */}
+                        {/* ================================================== */}
 
-                        {excerpt && (
-                          <p className="mt-1.5 hidden line-clamp-2 text-xs leading-relaxed text-slate-500 sm:block">
-                            {excerpt}
-                          </p>
-                        )}
+                        <div className="min-w-0 flex-1 py-0.5">
 
-                        <time
-                          dateTime={post.publishedAt}
-                          className="mt-2.5 block text-[10px] font-medium text-slate-400 sm:text-xs"
-                        >
-                          {dateLabel}
-                        </time>
+                          <div className="mb-1 text-[9px] font-bold uppercase tracking-wide text-[#0d5c91] sm:text-[10px]">
+                            {category}
+                          </div>
 
-                      </div>
+                          <h2 className="line-clamp-2 text-[13px] font-bold leading-[1.4] tracking-tight text-slate-800 transition-colors group-hover:text-[#0d5c91] sm:text-sm">
+                            {post.title}
+                          </h2>
 
-                    </Link>
-                  </article>
-                );
-              })}
-            </section>
-          )}
+                          {excerpt && (
+                            <p className="mt-1 hidden line-clamp-2 text-xs leading-relaxed text-slate-500 sm:block">
+                              {excerpt}
+                            </p>
+                          )}
+
+                          <time
+                            dateTime={
+                              post.publishedAt
+                            }
+                            className="mt-2 block text-[10px] font-medium text-slate-400"
+                          >
+                            {dateLabel}
+                          </time>
+
+                        </div>
+
+                      </Link>
+                    </article>
+                  );
+                })}
+              </section>
+            )}
+
+          </div>
 
         </div>
+
       </main>
     </>
   );

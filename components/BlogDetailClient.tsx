@@ -13,10 +13,16 @@ import ShareButton from "@/components/ShareButton";
 
 export interface ArticleData {
   id?: string;
-  title?: string | { current?: string };
+
+  title?: string | {
+    current?: string;
+  };
+
   slug?: string;
 
-  category?: string | { current?: string };
+  category?: string | {
+    current?: string;
+  };
 
   publishedAt?: string;
   updatedAt?: string;
@@ -28,8 +34,13 @@ export interface ArticleData {
 
   imageUrl?: string;
 
-  alt?: string | { current?: string };
-  caption?: string | { current?: string };
+  alt?: string | {
+    current?: string;
+  };
+
+  caption?: string | {
+    current?: string;
+  };
 
   content?: any[];
 }
@@ -38,9 +49,12 @@ export interface RelatedArticleData {
   id?: string;
   title?: string;
   slug?: string;
+
   imageUrl?: string;
+
   publishedAt?: string;
   updatedAt?: string;
+
   category?: string;
 }
 
@@ -62,8 +76,10 @@ function renderSafeString(
     return fallback;
   }
 
-  if (typeof value === "string") {
-    return value;
+  if (
+    typeof value === "string"
+  ) {
+    return value.trim() || fallback;
   }
 
   if (
@@ -80,7 +96,10 @@ function renderSafeString(
     if (
       typeof current === "string"
     ) {
-      return current;
+      return (
+        current.trim() ||
+        fallback
+      );
     }
   }
 
@@ -123,15 +142,15 @@ function formatArticleDate(
 }
 
 // ============================================================================
-// PORTABLE TEXT
+// PORTABLE TEXT COMPONENTS
 // ============================================================================
 //
-// `any` sengaja dipertahankan untuk kompatibilitas dengan versi
-// @portabletext/react yang sekarang terpasang di project.
-//
+// `any` sengaja dipertahankan agar kompatibel dengan versi
+// @portabletext/react yang digunakan project sekarang.
 // ============================================================================
 
 const portableTextComponents: any = {
+
   // ==========================================================================
   // IMAGE
   // ==========================================================================
@@ -156,13 +175,15 @@ const portableTextComponents: any = {
 
       const caption =
         typeof value?.caption ===
-        "string"
+          "string"
           ? value.caption.trim()
           : "";
 
       return (
-        <figure className="my-7 w-full space-y-2">
-          <div className="aspect-[16/9] overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
+        <figure className="my-6 w-full">
+
+          <div className="aspect-[16/9] w-full overflow-hidden bg-slate-100">
+
             <img
               src={imageUrl}
               alt={altText}
@@ -170,15 +191,17 @@ const portableTextComponents: any = {
               height={450}
               loading="lazy"
               decoding="async"
-              className="h-full w-full object-cover"
+              className="block h-full w-full object-cover"
             />
+
           </div>
 
           {caption && (
-            <figcaption className="px-2 text-center text-xs font-medium italic leading-relaxed text-slate-500 sm:text-sm">
+            <figcaption className="mt-2 px-1 text-center text-[11px] font-medium italic leading-relaxed text-slate-500 sm:text-xs">
               {caption}
             </figcaption>
           )}
+
         </figure>
       );
     },
@@ -189,6 +212,7 @@ const portableTextComponents: any = {
   // ==========================================================================
 
   marks: {
+
     link: ({
       children,
       value,
@@ -222,7 +246,7 @@ const portableTextComponents: any = {
               ? undefined
               : "noopener noreferrer"
           }
-          className="font-semibold text-[#0d5c91] underline decoration-sky-300 underline-offset-2 transition hover:text-sky-900"
+          className="font-semibold text-[#0d5c91] underline decoration-sky-300 underline-offset-2 transition-colors hover:text-sky-900"
         >
           {children}
         </a>
@@ -248,7 +272,7 @@ const portableTextComponents: any = {
     code: ({
       children,
     }: any) => (
-      <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.9em] text-slate-800">
+      <code className="break-words bg-slate-100 px-1.5 py-0.5 text-[0.9em] text-slate-800">
         {children}
       </code>
     ),
@@ -259,20 +283,24 @@ const portableTextComponents: any = {
   // ==========================================================================
 
   block: {
+
     normal: ({
       children,
     }: any) => (
-      <p className="mb-5 text-base leading-[1.85] text-slate-800 sm:text-[17px]">
+      <p className="mb-5 text-[15px] leading-[1.85] text-slate-700 sm:text-base">
         {children}
       </p>
     ),
 
-    // H1 dari editor Sanity sengaja dirender sebagai H2.
-    // H1 halaman hanya judul artikel.
+    // ------------------------------------------------------------------------
+    // H1 dari Sanity diubah menjadi H2.
+    // H1 halaman hanya judul artikel utama.
+    // ------------------------------------------------------------------------
+
     h1: ({
       children,
     }: any) => (
-      <h2 className="mb-4 mt-9 text-xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-2xl">
+      <h2 className="mb-3 mt-8 text-xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-[22px]">
         {children}
       </h2>
     ),
@@ -280,7 +308,7 @@ const portableTextComponents: any = {
     h2: ({
       children,
     }: any) => (
-      <h2 className="mb-4 mt-9 text-xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-2xl">
+      <h2 className="mb-3 mt-8 text-xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-[22px]">
         {children}
       </h2>
     ),
@@ -304,7 +332,7 @@ const portableTextComponents: any = {
     blockquote: ({
       children,
     }: any) => (
-      <blockquote className="my-7 border-l-4 border-[#0d5c91] bg-sky-50/60 px-5 py-4 text-base italic leading-relaxed text-slate-700 sm:text-[17px]">
+      <blockquote className="my-6 border-l-4 border-[#0d5c91] bg-sky-50/70 px-4 py-3.5 text-[15px] italic leading-[1.8] text-slate-700 sm:text-base">
         {children}
       </blockquote>
     ),
@@ -315,10 +343,11 @@ const portableTextComponents: any = {
   // ==========================================================================
 
   list: {
+
     bullet: ({
       children,
     }: any) => (
-      <ul className="mb-6 list-disc space-y-2.5 pl-6 text-base leading-relaxed text-slate-800 sm:text-[17px]">
+      <ul className="mb-5 list-disc space-y-2 pl-5 text-[15px] leading-[1.8] text-slate-700 sm:text-base">
         {children}
       </ul>
     ),
@@ -326,13 +355,14 @@ const portableTextComponents: any = {
     number: ({
       children,
     }: any) => (
-      <ol className="mb-6 list-decimal space-y-2.5 pl-6 text-base leading-relaxed text-slate-800 sm:text-[17px]">
+      <ol className="mb-5 list-decimal space-y-2 pl-5 text-[15px] leading-[1.8] text-slate-700 sm:text-base">
         {children}
       </ol>
     ),
   },
 
   listItem: {
+
     bullet: ({
       children,
     }: any) => (
@@ -354,24 +384,13 @@ const portableTextComponents: any = {
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
-//
-// CATATAN:
-// Tidak ada lagi:
-// - "use client"
-// - useEffect
-// - useState
-// - fetch('/api/news/...')
-// - skeleton akibat fetch browser
-//
-// Seluruh artikel datang langsung dari Server Component page.tsx.
-//
-// ============================================================================
 
 export default function BlogDetailClient({
   slug,
   article,
   allNews = [],
 }: BlogDetailClientProps) {
+
   // ==========================================================================
   // ARTICLE VALUES
   // ==========================================================================
@@ -425,8 +444,18 @@ export default function BlogDetailClient({
   // ==========================================================================
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-28 pt-4">
-      <div className="mx-auto w-full max-w-3xl px-3 sm:px-4">
+    <main className="min-h-screen w-full bg-slate-50 pb-28">
+
+      {/* ==================================================================== */}
+      {/* MOBILE-FIRST CONTAINER                                              */}
+      {/* ==================================================================== */}
+      {/*
+          Penting:
+          Header, homepage, article dan bottom navigation sekarang sama-sama
+          mengikuti max-w-md.
+      */}
+
+      <div className="mx-auto w-full max-w-md">
 
         {/* ================================================================== */}
         {/* ARTICLE */}
@@ -435,9 +464,10 @@ export default function BlogDetailClient({
         <article
           itemScope
           itemType="https://schema.org/Article"
-          className="overflow-hidden border border-slate-200/80 bg-white shadow-sm"
+          className="w-full bg-white"
         >
-          <div className="p-4 sm:p-6 md:p-8">
+
+          <div className="w-full px-4 pb-6 pt-5 sm:px-5 sm:pt-6">
 
             {/* ============================================================== */}
             {/* BREADCRUMB */}
@@ -445,25 +475,26 @@ export default function BlogDetailClient({
 
             <nav
               aria-label="Breadcrumb"
-              className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-400 sm:text-sm"
+              className="mb-4 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium text-slate-400 sm:text-xs"
             >
+
               <Link
                 href="/"
-                className="transition hover:text-[#0d5c91]"
+                className="shrink-0 transition-colors hover:text-[#0d5c91]"
               >
                 Beranda
               </Link>
 
               <span
                 aria-hidden="true"
-                className="text-slate-300"
+                className="shrink-0 text-slate-300"
               >
                 /
               </span>
 
               <Link
                 href="/news"
-                className="transition hover:text-[#0d5c91]"
+                className="shrink-0 transition-colors hover:text-[#0d5c91]"
               >
                 Artikel
               </Link>
@@ -472,38 +503,44 @@ export default function BlogDetailClient({
                 <>
                   <span
                     aria-hidden="true"
-                    className="text-slate-300"
+                    className="shrink-0 text-slate-300"
                   >
                     /
                   </span>
 
                   <span
                     aria-current="page"
-                    className="max-w-[180px] truncate text-slate-500 sm:max-w-xs"
+                    className="min-w-0 max-w-[150px] truncate text-slate-500 sm:max-w-[190px]"
                   >
                     {categoryString}
                   </span>
                 </>
               )}
+
             </nav>
 
             {/* ============================================================== */}
-            {/* HEADER */}
+            {/* ARTICLE HEADER */}
             {/* ============================================================== */}
 
             <header className="mb-5">
 
               <h1
                 itemProp="headline"
-                className="text-2xl font-extrabold leading-[1.25] tracking-tight text-slate-950 sm:text-3xl md:text-[34px]"
+                className="break-words text-[26px] font-extrabold leading-[1.2] tracking-tight text-slate-950 sm:text-[30px]"
               >
                 {titleString}
               </h1>
 
-              <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-2 text-xs font-medium text-slate-500 sm:text-sm">
+              {/* ============================================================ */}
+              {/* META */}
+              {/* ============================================================ */}
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-[11px] font-medium text-slate-500 sm:text-xs">
 
                 <span>
                   Oleh{" "}
+
                   <span className="font-semibold text-slate-700">
                     {authorName}
                   </span>
@@ -548,24 +585,26 @@ export default function BlogDetailClient({
             {/* MAIN IMAGE */}
             {/* ============================================================== */}
 
-            <figure className="mb-7">
+            <figure className="mb-6 w-full">
 
-              <div className="aspect-[16/9] overflow-hidden bg-slate-100">
+              <div className="aspect-[16/9] w-full overflow-hidden bg-slate-100">
+
                 <img
                   itemProp="image"
                   src={mainImage}
                   alt={altString}
-                  width={1200}
-                  height={675}
+                  width={800}
+                  height={450}
                   loading="eager"
                   fetchPriority="high"
                   decoding="async"
-                  className="h-full w-full object-cover"
+                  className="block h-full w-full object-cover"
                 />
+
               </div>
 
               {captionString && (
-                <figcaption className="mt-2 px-1 text-center text-xs font-medium italic leading-relaxed text-slate-500 sm:text-sm">
+                <figcaption className="mt-2 px-1 text-center text-[11px] font-medium italic leading-relaxed text-slate-500">
                   {captionString}
                 </figcaption>
               )}
@@ -579,13 +618,15 @@ export default function BlogDetailClient({
             <section
               itemProp="articleBody"
               aria-label="Isi artikel"
-              className="article-content"
+              className="min-w-0 w-full overflow-hidden"
             >
+
               {Array.isArray(
                 article.content
               ) &&
               article.content.length >
                 0 ? (
+
                 <PortableText
                   value={
                     article.content
@@ -594,31 +635,35 @@ export default function BlogDetailClient({
                     portableTextComponents
                   }
                 />
+
               ) : (
+
                 <p className="py-8 text-center text-sm italic text-slate-400">
-                  Isi artikel belum
-                  tersedia.
+                  Isi artikel belum tersedia.
                 </p>
+
               )}
+
             </section>
 
             {/* ============================================================== */}
-            {/* FOOTER ARTICLE */}
+            {/* ARTICLE FOOTER */}
             {/* ============================================================== */}
 
             <footer className="mt-8 border-t border-slate-100 pt-5">
 
               <div className="flex flex-wrap items-center justify-between gap-4">
 
-                <div>
-                  <p className="text-xs text-slate-400">
+                <div className="min-w-0">
+
+                  <p className="text-[11px] text-slate-400">
                     Bagikan artikel ini
                   </p>
 
                   <p className="mt-0.5 text-sm font-bold text-slate-700">
-                    Bermanfaat untuk
-                    orang lain?
+                    Bermanfaat untuk orang lain?
                   </p>
+
                 </div>
 
                 <ShareButton
@@ -640,11 +685,14 @@ export default function BlogDetailClient({
 
         {allNews.length > 0 && (
           <section
-            aria-labelledby="related-news-heading"
-            className="mt-5"
+            aria-label="Artikel terkait"
+            className="mt-3 w-full bg-slate-50 px-3 pb-4 pt-2"
           >
+
             <RelatedNews
-              currentSlug={slug}
+              currentSlug={
+                slug
+              }
               category={
                 categoryString
               }
@@ -652,6 +700,7 @@ export default function BlogDetailClient({
                 allNews
               }
             />
+
           </section>
         )}
 

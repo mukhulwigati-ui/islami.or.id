@@ -1,134 +1,556 @@
 // app/tentang-kami/page.tsx
-import React from 'react';
-import type { Metadata } from 'next';
-import Link from 'next/link';
 
-// 🚀 OPTIMASI SEO HALAMAN TENTANG KAMI
+import type { Metadata } from "next";
+import Link from "next/link";
+
+import {
+  BookOpenText,
+  HandHeart,
+  ShieldCheck,
+  Lightbulb,
+  UsersRound,
+  ArrowRight,
+  Home,
+} from "lucide-react";
+
+// ============================================================================
+// CONFIG
+// ============================================================================
+
+const SITE_URL = "https://www.islami.or.id";
+const SITE_NAME = "islami.or.id";
+
+const PAGE_URL = `${SITE_URL}/tentang-kami`;
+
+const PAGE_TITLE = "Tentang Kami";
+
+const PAGE_DESCRIPTION =
+  "Mengenal islami.or.id, platform digital yang menghadirkan artikel Islam, informasi keislaman, program kebaikan, serta layanan donasi dan sosial secara terintegrasi.";
+
+// ============================================================================
+// METADATA
+// ============================================================================
+
 export const metadata: Metadata = {
-  title: 'Tentang Kami | Profil Lembaga Resmi Yayasan Wasilah Hidayah Nusantara',
-  description: 'Mengenal lebih dekat Yayasan Wasilah Hidayah Nusantara (yaibadurrohman.or.id), lembaga sosial kemanusiaan dan keagamaan yang berkhidmat untuk kemaslahatan ummat, pendidikan quran, serta pemberdayaan dhuafa.',
-  keywords: ['profil yayasan wasilah hidayah nusantara', 'tentang yaibadurrohman', 'lembaga sosial amanah', 'sedekah online'],
+  title: PAGE_TITLE,
+
+  description: PAGE_DESCRIPTION,
+
   alternates: {
-    canonical: '/tentang-kami',
+    canonical: PAGE_URL,
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+
+    siteName: SITE_NAME,
+
+    url: PAGE_URL,
+
+    title: `${PAGE_TITLE} | ${SITE_NAME}`,
+
+    description: PAGE_DESCRIPTION,
+
+    images: [
+      {
+        url: `${SITE_URL}/images/banner.png`,
+        width: 1200,
+        height: 630,
+        alt: `Tentang ${SITE_NAME}`,
+      },
+    ],
+  },
+
+  twitter: {
+    card: "summary_large_image",
+
+    title: `${PAGE_TITLE} | ${SITE_NAME}`,
+
+    description: PAGE_DESCRIPTION,
+
+    images: [`${SITE_URL}/images/banner.png`],
   },
 };
 
+// ============================================================================
+// PAGE
+// ============================================================================
+
 export default function TentangKamiPage() {
+  // ==========================================================================
+  // STRUCTURED DATA
+  // ==========================================================================
+
+  const aboutPageSchema = {
+    "@context": "https://schema.org",
+
+    "@type": "AboutPage",
+
+    "@id": `${PAGE_URL}#webpage`,
+
+    url: PAGE_URL,
+
+    name: PAGE_TITLE,
+
+    description: PAGE_DESCRIPTION,
+
+    inLanguage: "id-ID",
+
+    isPartOf: {
+      "@id": `${SITE_URL}/#website`,
+    },
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+
+    "@type": "BreadcrumbList",
+
+    "@id": `${PAGE_URL}#breadcrumb`,
+
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Beranda",
+        item: SITE_URL,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Tentang Kami",
+        item: PAGE_URL,
+      },
+    ],
+  };
+
+  const jsonLd = JSON.stringify([
+    aboutPageSchema,
+    breadcrumbSchema,
+  ]).replace(/</g, "\\u003c");
+
+  // ==========================================================================
+  // OUTPUT
+  // ==========================================================================
+
   return (
-    <div className="min-h-screen bg-slate-50 py-4 px-3 pb-28 text-left">
-      {/* 🚀 MODEL MOBILE FIRST: Lebar card mobile konsisten (max-w-md), tanpa sudut lengkung */}
-      <div className="w-full max-w-md mx-auto space-y-4">
-        
-        {/* 1. HERO SECTION BANNER */}
-        <div className="bg-gradient-to-br from-emerald-900 to-emerald-950 text-white p-6 sm:p-8 text-center space-y-3 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
-          <div className="relative z-10 space-y-2">
-            <span className="bg-emerald-500/25 text-emerald-300 text-[10px] font-bold px-3 py-1 uppercase tracking-widest border border-emerald-500/30 inline-block">
-              PROFIL LEMBAGA
-            </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight leading-snug">
-              Mengalirkan Keberkahan, Wujudkan Kesejahteraan Ummat
-            </h1>
-            <p className="text-xs sm:text-sm text-emerald-100/90 font-light leading-relaxed">
-              Yayasan Wasilah Hidayah Nusantara hadir sebagai jembatan amanah untuk mengelola dan mendistribusikan Zakat, Infaq, Sedekah, serta Wakaf secara transparan, profesional, dan akuntabel.
-            </p>
-          </div>
-        </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd,
+        }}
+      />
 
-        {/* 2. KONTEN SEJARAH & VISI MISI */}
-        <div className="bg-white border border-slate-200 shadow-sm p-4 sm:p-6 space-y-5">
-          <div className="space-y-4">
-            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-wide border-b-2 border-emerald-600 pb-2 w-full">
-              Siapa Kami?
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-              <strong className="text-emerald-700 font-bold">Yayasan Wasilah Hidayah Nusantara (yaibadurrohman.or.id)</strong> adalah lembaga sosial kemanusiaan dan pengelolaan dana filantropi Islam yang berkomitmen penuh dalam menggerakkan kepedulian masyarakat. Kami fokus pada pendayagunaan dana ziswaf yang disalurkan secara produktif, tepat sasaran, dan membawa dampak nyata jangka panjang bagi para penerima manfaat.
-            </p>
-            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-              Berawal dari gerakan kepedulian terhadap pendidikan Al-Quran, pengentasan kemiskinan dhuafa, serta aksi tanggap kemanusiaan, kami terus bertransformasi mengadopsi integrasi teknologi digital otomasi pembayaran untuk memudahkan ribuan donatur mengalirkan kebaikan mereka kapan saja dan di mana saja.
-            </p>
-          </div>
+      <main className="min-h-screen w-full bg-slate-50 pb-28 text-slate-900">
 
-          {/* VISI MISI BOX */}
-          <div className="space-y-4 pt-2">
-            <div className="bg-gray-50 border-l-4 border-emerald-600 p-4 space-y-1.5">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">Visi Kami</h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Menjadi lembaga pengelola ziswaf terkemuka, tepercaya, dan profesional dalam mentransformasikan mustahik menjadi muzakki demi terwujudnya tatanan masyarakat yang mandiri dan berkah.
+        {/* ================================================================== */}
+        {/* MOBILE FIRST WRAPPER */}
+        {/* ================================================================== */}
+
+        <div className="mx-auto w-full max-w-md px-3 pt-3">
+
+          {/* ================================================================ */}
+          {/* MAIN PANEL */}
+          {/* ================================================================ */}
+
+          <article className="w-full border border-slate-200/80 bg-white shadow-sm">
+
+            {/* ============================================================== */}
+            {/* HERO */}
+            {/* ============================================================== */}
+
+            <header className="relative overflow-hidden bg-[#102a43] px-4 pb-6 pt-5 text-white sm:px-5">
+
+              {/* Decorative circles */}
+              <div className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full border border-white/10" />
+              <div className="pointer-events-none absolute -bottom-24 -left-16 h-44 w-44 rounded-full border border-[#d7b66a]/15" />
+
+              <div className="relative z-10">
+
+                {/* Breadcrumb */}
+
+                <nav
+                  aria-label="Breadcrumb"
+                  className="mb-5 flex items-center gap-2 text-[10px] font-medium text-slate-300"
+                >
+                  <Link
+                    href="/"
+                    className="transition-colors hover:text-white"
+                  >
+                    Beranda
+                  </Link>
+
+                  <span
+                    aria-hidden="true"
+                    className="text-slate-500"
+                  >
+                    /
+                  </span>
+
+                  <span
+                    aria-current="page"
+                    className="text-slate-200"
+                  >
+                    Tentang Kami
+                  </span>
+                </nav>
+
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d7b66a]/30 bg-white/10">
+                  <BookOpenText className="h-5 w-5 text-[#e5c979]" />
+                </div>
+
+                <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.2em] text-[#d7b66a]">
+                  Profil islami.or.id
+                </p>
+
+                <h1 className="mt-1.5 text-[25px] font-extrabold leading-[1.2] tracking-tight text-white sm:text-[28px]">
+                  Tentang islami.or.id
+                </h1>
+
+                <p className="mt-3 max-w-[350px] text-[11px] leading-[1.75] text-slate-300 sm:text-xs">
+                  islami.or.id hadir sebagai platform digital yang
+                  menggabungkan konten keislaman, informasi, dan
+                  berbagai program kebaikan dalam satu ekosistem
+                  yang mudah diakses.
+                </p>
+
+              </div>
+
+            </header>
+
+            {/* ============================================================== */}
+            {/* WHO WE ARE */}
+            {/* ============================================================== */}
+
+            <section className="px-4 py-6 sm:px-5">
+
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#0d5c91]">
+                Siapa Kami
               </p>
-            </div>
-            
-            <div className="bg-gray-50 border-l-4 border-emerald-600 p-4 space-y-1.5">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">Misi Kami</h3>
-              <ul className="text-xs sm:text-sm text-slate-600 list-disc list-inside space-y-1.5 leading-relaxed">
-                <li>Mengoptimalkan penghimpunan zakat, infaq, dan sedekah berbasis layanan digital modern.</li>
-                <li>Menyelenggarakan program pendayagunaan inklusif di bidang pendidikan, kesehatan, dan ekonomi.</li>
-                <li>Menjaga transparansi audit keuangan laporan dana donatur secara berkala.</li>
+
+              <h2 className="mt-1.5 text-[18px] font-extrabold leading-tight tracking-tight text-slate-950">
+                Media Islam dan Platform Kebaikan Digital
+              </h2>
+
+              <div className="mt-4 space-y-4 text-[12px] leading-[1.8] text-slate-600 sm:text-[13px]">
+
+                <p>
+                  <strong className="font-bold text-slate-900">
+                    islami.or.id
+                  </strong>{" "}
+                  dikembangkan sebagai ruang digital yang memudahkan
+                  masyarakat memperoleh informasi keislaman sekaligus
+                  menemukan berbagai program sosial dan kebaikan.
+                </p>
+
+                <p>
+                  Konten yang dihadirkan mencakup berbagai tema Islam,
+                  seperti Al-Qur&apos;an, hadis, fikih, doa, sejarah Islam,
+                  keluarga, zakat, sedekah, wakaf, serta informasi
+                  sosial dan kemanusiaan.
+                </p>
+
+                <p>
+                  Di sisi lain, teknologi digital digunakan untuk
+                  mempermudah akses terhadap program kebaikan,
+                  informasi transaksi, pembaruan kegiatan, dan
+                  layanan pengguna dalam satu platform.
+                </p>
+
+              </div>
+
+            </section>
+
+            {/* ============================================================== */}
+            {/* VISION */}
+            {/* ============================================================== */}
+
+            <section className="border-t border-slate-100 px-4 py-6 sm:px-5">
+
+              <div className="flex items-start gap-3">
+
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50">
+                  <Lightbulb className="h-4 w-4 text-[#0d5c91]" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#0d5c91]">
+                    Visi
+                  </p>
+
+                  <h2 className="mt-1 text-[15px] font-bold text-slate-900">
+                    Menjadi ruang digital Islam yang bermanfaat
+                  </h2>
+
+                  <p className="mt-2 text-[12px] leading-[1.75] text-slate-600 sm:text-[13px]">
+                    Menghadirkan platform digital Islam yang informatif,
+                    mudah digunakan, relevan, dan dapat menjadi sarana
+                    untuk memperluas manfaat serta semangat berbagi
+                    kebaikan di tengah masyarakat.
+                  </p>
+
+                </div>
+
+              </div>
+
+            </section>
+
+            {/* ============================================================== */}
+            {/* MISSION */}
+            {/* ============================================================== */}
+
+            <section className="border-t border-slate-100 px-4 py-6 sm:px-5">
+
+              <div className="flex items-start gap-3">
+
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50">
+                  <HandHeart className="h-4 w-4 text-[#0d5c91]" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#0d5c91]">
+                    Misi
+                  </p>
+
+                  <h2 className="mt-1 text-[15px] font-bold text-slate-900">
+                    Menghubungkan ilmu, informasi, dan aksi kebaikan
+                  </h2>
+
+                </div>
+
+              </div>
+
+              <ul className="mt-4 space-y-3">
+
+                <li className="flex items-start gap-3">
+
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[8px] font-extrabold text-[#0d5c91]">
+                    01
+                  </span>
+
+                  <p className="pt-0.5 text-[12px] leading-[1.7] text-slate-600 sm:text-[13px]">
+                    Menghadirkan konten keislaman yang mudah dipahami
+                    dan relevan bagi masyarakat.
+                  </p>
+
+                </li>
+
+                <li className="flex items-start gap-3">
+
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[8px] font-extrabold text-[#0d5c91]">
+                    02
+                  </span>
+
+                  <p className="pt-0.5 text-[12px] leading-[1.7] text-slate-600 sm:text-[13px]">
+                    Memanfaatkan teknologi untuk mempermudah akses
+                    terhadap layanan, informasi, dan program sosial.
+                  </p>
+
+                </li>
+
+                <li className="flex items-start gap-3">
+
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[8px] font-extrabold text-[#0d5c91]">
+                    03
+                  </span>
+
+                  <p className="pt-0.5 text-[12px] leading-[1.7] text-slate-600 sm:text-[13px]">
+                    Mendorong budaya berbagi, kepedulian sosial, dan
+                    partisipasi masyarakat dalam berbagai bentuk
+                    kebaikan.
+                  </p>
+
+                </li>
+
+                <li className="flex items-start gap-3">
+
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[8px] font-extrabold text-[#0d5c91]">
+                    04
+                  </span>
+
+                  <p className="pt-0.5 text-[12px] leading-[1.7] text-slate-600 sm:text-[13px]">
+                    Mengembangkan layanan digital yang sederhana,
+                    responsif, dan mudah digunakan pada berbagai
+                    perangkat.
+                  </p>
+
+                </li>
+
               </ul>
-            </div>
-          </div>
+
+            </section>
+
+            {/* ============================================================== */}
+            {/* VALUES */}
+            {/* ============================================================== */}
+
+            <section className="border-t border-slate-100 px-4 py-6 sm:px-5">
+
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#0d5c91]">
+                Nilai Utama
+              </p>
+
+              <h2 className="mt-1.5 text-[17px] font-extrabold text-slate-900">
+                Prinsip yang Kami Bangun
+              </h2>
+
+              <div className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
+
+                {/* 01 */}
+
+                <div className="flex items-start gap-3 py-4">
+
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50">
+                    <ShieldCheck className="h-4 w-4 text-[#0d5c91]" />
+                  </div>
+
+                  <div>
+
+                    <h3 className="text-[13px] font-bold text-slate-900">
+                      Kepercayaan
+                    </h3>
+
+                    <p className="mt-1.5 text-[11px] leading-[1.7] text-slate-600 sm:text-[12px]">
+                      Mengembangkan layanan dengan komunikasi yang jelas
+                      dan informasi yang dapat dipahami pengguna.
+                    </p>
+
+                  </div>
+
+                </div>
+
+                {/* 02 */}
+
+                <div className="flex items-start gap-3 py-4">
+
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50">
+                    <UsersRound className="h-4 w-4 text-[#0d5c91]" />
+                  </div>
+
+                  <div>
+
+                    <h3 className="text-[13px] font-bold text-slate-900">
+                      Kemanfaatan
+                    </h3>
+
+                    <p className="mt-1.5 text-[11px] leading-[1.7] text-slate-600 sm:text-[12px]">
+                      Setiap fitur dan konten diarahkan agar memberikan
+                      manfaat nyata bagi pengguna dan masyarakat.
+                    </p>
+
+                  </div>
+
+                </div>
+
+                {/* 03 */}
+
+                <div className="flex items-start gap-3 py-4">
+
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50">
+                    <Lightbulb className="h-4 w-4 text-[#0d5c91]" />
+                  </div>
+
+                  <div>
+
+                    <h3 className="text-[13px] font-bold text-slate-900">
+                      Inovasi
+                    </h3>
+
+                    <p className="mt-1.5 text-[11px] leading-[1.7] text-slate-600 sm:text-[12px]">
+                      Memanfaatkan teknologi secara tepat untuk membuat
+                      pengalaman pengguna semakin sederhana dan efisien.
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </section>
+
+            {/* ============================================================== */}
+            {/* POSITIONING */}
+            {/* ============================================================== */}
+
+            <section className="border-t border-slate-100 bg-slate-50 px-4 py-6 sm:px-5">
+
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#0d5c91]">
+                Arah Pengembangan
+              </p>
+
+              <h2 className="mt-1.5 text-[16px] font-extrabold leading-snug text-slate-900">
+                Bukan hanya platform donasi
+              </h2>
+
+              <p className="mt-3 text-[12px] leading-[1.8] text-slate-600 sm:text-[13px]">
+                islami.or.id dikembangkan sebagai portal Islam yang lebih
+                luas. Program donasi dan layanan sosial menjadi salah satu
+                bagian dari ekosistem, berdampingan dengan artikel,
+                pengetahuan, berita, dan konten keislaman lainnya.
+              </p>
+
+            </section>
+
+            {/* ============================================================== */}
+            {/* CTA */}
+            {/* ============================================================== */}
+
+            <footer className="border-t border-slate-200 px-4 py-6 text-center sm:px-5">
+
+              <h2 className="text-[15px] font-extrabold text-slate-900">
+                Jelajahi islami.or.id
+              </h2>
+
+              <p className="mx-auto mt-2 max-w-[330px] text-[11px] leading-[1.7] text-slate-500 sm:text-xs">
+                Temukan artikel Islam terbaru dan berbagai program
+                kebaikan yang tersedia di islami.or.id.
+              </p>
+
+              <div className="mt-5 grid grid-cols-1 gap-2">
+
+                <Link
+                  href="/news"
+                  className="flex w-full items-center justify-center gap-2 bg-[#0d5c91] py-3 text-[10px] font-bold uppercase tracking-wider text-white transition hover:bg-sky-900"
+                >
+                  Lihat Artikel Terbaru
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+
+                <Link
+                  href="/"
+                  className="flex w-full items-center justify-center gap-2 border border-slate-300 bg-white py-3 text-[10px] font-bold uppercase tracking-wider text-slate-700 transition hover:bg-slate-100"
+                >
+                  <Home className="h-3.5 w-3.5" />
+                  Kembali ke Beranda
+                </Link>
+
+              </div>
+
+            </footer>
+
+          </article>
+
         </div>
 
-        {/* 3. NILAI UTAMA & LEGALITAS (SIDEBAR DALAM CARD) */}
-        <div className="space-y-4">
-          
-          {/* NILAI UTAMA */}
-          <div className="bg-emerald-50 border border-emerald-100 p-4 sm:p-5 space-y-3">
-            <h3 className="text-xs sm:text-sm font-bold text-emerald-900 uppercase tracking-wider border-b border-emerald-200 pb-2 flex items-center gap-2">
-              <span>🛡️</span> Nilai Dasar Kinerja
-            </h3>
-            <div className="space-y-3 text-left">
-              <div>
-                <h4 className="text-xs sm:text-sm font-bold text-emerald-950">1. Amanah & Transparan</h4>
-                <p className="text-xs text-emerald-800 leading-relaxed mt-0.5">Setiap rupiah yang dititipkan dicatat penuh di sistem CMS dan disalurkan secara terbuka.</p>
-              </div>
-              <div>
-                <h4 className="text-xs sm:text-sm font-bold text-emerald-950">2. Profesional & Responsif</h4>
-                <p className="text-xs text-emerald-800 leading-relaxed mt-0.5">Melayani konsultasi ibadah zakat dan pengelolaan kampanye dengan standar pelayanan terbaik.</p>
-              </div>
-              <div>
-                <h4 className="text-xs sm:text-sm font-bold text-emerald-950">3. Berkelanjutan (Sustainable)</h4>
-                <p className="text-xs text-emerald-800 leading-relaxed mt-0.5">Orientasi program difokuskan agar mampu memberikan kemandirian ekonomi bagi dhuafa.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* LEGALITAS CHIP */}
-          <div className="bg-white border border-slate-200 p-4 sm:p-5 space-y-2">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider">Legalitas Resmi</h3>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Seluruh operasional penyaluran infak, pengelolaan zakat maal/fitrah, dan kampanye sosial berada di bawah payung hukum legalitas resmi Yayasan Wasilah Hidayah Nusantara serta diawasi secara syariah untuk menjamin keabsahan penyaluran dana ummat.
-            </p>
-          </div>
-
-        </div>
-
-        {/* 4. CALL TO ACTION SECTION */}
-        <div className="bg-white border border-slate-200 p-5 text-center space-y-3">
-          <span className="text-2xl block">🌱</span>
-          <h2 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wide">
-            Mulai Alirkan Keberkahan Hari Ini
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            Sedikit dari kita adalah tumpuan harapan besar bagi mereka. Bergabunglah bersama ribuan #OrangBaik lainnya untuk menghadirkan perubahan nyata bagi ummat.
-          </p>
-          <div className="pt-2 flex flex-col gap-2.5">
-            <Link 
-              href="/program"
-              className="w-full inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm uppercase tracking-wider py-3 transition shadow-sm"
-            >
-              Lihat Program Donasi 🚀
-            </Link>
-            <Link 
-              href="/"
-              className="w-full inline-flex items-center justify-center border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm uppercase tracking-wider py-3 transition"
-            >
-              Kembali ke Beranda 🚀
-            </Link>
-          </div>
-        </div>
-
-      </div>
-    </div>
+      </main>
+    </>
   );
 }

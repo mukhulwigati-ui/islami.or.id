@@ -3,122 +3,16 @@
 import { NextResponse } from "next/server";
 
 import {
-  createClient,
-} from "@sanity/client";
-
-import {
-  createClient as createSupabaseClient,
-} from "@supabase/supabase-js";
+  getDonationByOrderId,
+  reconcileDonation,
+} from "@/lib/payments/casaku-settlement";
 
 // ============================================================================
 // NEXT CONFIG
 // ============================================================================
 
-export const dynamic =
-  "force-dynamic";
-
-export const runtime =
-  "nodejs";
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const CASAKU_STATUS_URL =
-  "https://api.casaku.id/api/generate/check-status";
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-type InternalStatus =
-  | "pending"
-  | "success"
-  | "failed";
-
-type CasakuStatus =
-  | "pending"
-  | "paid"
-  | "expired"
-  | "cancel";
-
-interface DonationTransaction {
-  _id: string;
-
-  orderId?: string;
-
-  transactionId?: string;
-
-  donorName?: string;
-
-  donorPhone?: string;
-
-  donorEmail?: string;
-
-  amount?: number;
-
-  paymentAmount?: number;
-
-  paidAmount?: number;
-
-  status?: string;
-
-  paymentProvider?: string;
-
-  paymentMethod?: string;
-
-  paidAt?: string | null;
-
-  expiresAt?: string | null;
-
-  paymentVerified?: boolean;
-
-  campaignSlug?: string;
-
-  programTitle?: string;
-}
-
-interface CasakuResponseData {
-  transactionId?: string;
-
-  status?: string;
-
-  amount?: number;
-
-  totalAmount?: number;
-
-  paidAt?: string | null;
-
-  expiredAt?: string | null;
-
-  packageName?: string;
-
-  appName?: string;
-
-  [key: string]: unknown;
-}
-
-interface CasakuResponse {
-  success?: boolean;
-
-  message?: string;
-
-  status?: string | number;
-
-  data?: CasakuResponseData;
-
-  transactionId?: string;
-
-  amount?: number;
-
-  totalAmount?: number;
-
-  paidAt?: string | null;
-
-  expiredAt?: string | null;
-
-  [key: string]: unknown;
-}
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 // ============================================================================
 // HELPERS
@@ -126,400 +20,35 @@ interface CasakuResponse {
 
 function cleanText(
   value: unknown,
-  maxLength = 500
+  maxLength = 300
 ): string {
-  return String(
-    value ?? ""
-  )
+  return String(value ?? "")
     .trim()
-    .slice(
-      0,
-      maxLength
-    );
+    .slice(0, maxLength);
 }
 
-function normalizeCasakuStatus(
-  value: unknown
-): CasakuStatus {
-  const status =
-    cleanText(
-      value,
-      50
-    ).toLowerCase();
-
-  if (
-    status === "paid" ||
-    status === "success"
-  ) {
-    return "paid";
-  }
-
-  if (
-    status === "expired"
-  ) {
-    return "expired";
-  }
-
-  if (
-    status === "cancel" ||
-    status === "cancelled" ||
-    status === "canceled"
-  ) {
-    return "cancel";
-  }
-
-  return "pending";
-}
-
-function mapToInternalStatus(
-  status: CasakuStatus
-): InternalStatus {
-  if (
-    status === "paid"
-  ) {
-    return "success";
-  }
-
-  if (
-    status === "expired" ||
-    status === "cancel"
-  ) {
-    return "failed";
-  }
-
-  return "pending";
-}
-
-// ============================================================================
-// SANITY
-// ============================================================================
-
-function getSanityClient() {
-  const projectId =
-    process.env
-      .NEXT_PUBLIC_SANITY_PROJECT_ID
-      ?.trim();
-
-  const dataset =
-    process.env
-      .NEXT_PUBLIC_SANITY_DATASET
-      ?.trim() ||
-    "production";
-
-  const token =
-    process.env
-      .SANITY_API_TOKEN
-      ?.trim();
-
-  if (!projectId) {
-    throw new Error(
-      "NEXT_PUBLIC_SANITY_PROJECT_ID belum dikonfigurasi."
-    );
-  }
-
-  if (!token) {
-    throw new Error(
-      "SANITY_API_TOKEN belum dikonfigurasi."
-    );
-  }
-
-  return createClient({
-    projectId,
-
-    dataset,
-
-    apiVersion:
-      "2026-08-31",
-
-    useCdn: false,
-
-    token,
-  });
-}
-
-// ============================================================================
-// SUPABASE MIRROR
-// ============================================================================
-
-async function syncSupabaseStatus({
-  orderId,
-  status,
+function isCasakuTransaction({
+  paymentProvider,
+  transactionId,
 }: {
-  orderId?: string;
+  paymentProvider?: string;
+  transactionId?: string;
+}): boolean {
+  const provider = cleanText(
+    paymentProvider,
+    50
+  ).toLowerCase();
 
-  status: InternalStatus;
-}) {
-  if (!orderId) {
-    return;
-  }
+  const trxId = cleanText(
+    transactionId,
+    250
+  );
 
-  const url =
-    process.env
-      .NEXT_PUBLIC_SUPABASE_URL
-      ?.trim();
-
-  const key =
-    process.env
-      .SUPABASE_SERVICE_ROLE_KEY
-      ?.trim();
-
-  if (
-    !url ||
-    !key
-  ) {
-    return;
-  }
-
-  try {
-    const supabase =
-      createSupabaseClient(
-        url,
-        key,
-        {
-          auth: {
-            persistSession:
-              false,
-
-            autoRefreshToken:
-              false,
-          },
-        }
-      );
-
-    const {
-      error,
-    } =
-      await supabase
-        .from(
-          "donations"
-        )
-        .update({
-          status,
-        })
-        .eq(
-          "invoice_id",
-          orderId
-        );
-
-    if (error) {
-      console.warn(
-        "Supabase status sync gagal:",
-        error.message
-      );
-    }
-  } catch (
-    error
-  ) {
-    console.warn(
-      "Supabase status sync error:",
-      error
-    );
-  }
-}
-
-// ============================================================================
-// CASAKU CHECK STATUS
-// ============================================================================
-
-async function checkCasaku(
-  transactionId: string
-): Promise<{
-  status: CasakuStatus;
-
-  amount: number;
-
-  paidAt: string | null;
-
-  expiredAt: string | null;
-
-  packageName: string;
-
-  appName: string;
-}> {
-  const licenseKey =
-    process.env
-      .CASAKU_LICENSE_KEY
-      ?.trim();
-
-  if (!licenseKey) {
-    throw new Error(
-      "CASAKU_LICENSE_KEY belum dikonfigurasi."
-    );
-  }
-
-  const controller =
-    new AbortController();
-
-  const timeout =
-    setTimeout(
-      () =>
-        controller.abort(),
-      12_000
-    );
-
-  try {
-    const response =
-      await fetch(
-        CASAKU_STATUS_URL,
-        {
-          method:
-            "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Accept:
-              "application/json",
-
-            "x-license-key":
-              licenseKey,
-          },
-
-          body:
-            JSON.stringify({
-              transactionId,
-            }),
-
-          cache:
-            "no-store",
-
-          signal:
-            controller.signal,
-        }
-      );
-
-    const contentType =
-      response.headers.get(
-        "content-type"
-      ) || "";
-
-    const raw =
-      await response.text();
-
-    if (
-      !contentType.includes(
-        "application/json"
-      )
-    ) {
-      console.error(
-        "Casaku mengembalikan non-JSON:",
-        {
-          status:
-            response.status,
-
-          contentType,
-
-          preview:
-            raw.slice(
-              0,
-              150
-            ),
-        }
-      );
-
-      throw new Error(
-        "Respons status Casaku tidak valid."
-      );
-    }
-
-    let json:
-      | CasakuResponse
-      | null = null;
-
-    try {
-      json =
-        JSON.parse(
-          raw
-        ) as CasakuResponse;
-    } catch {
-      throw new Error(
-        "Respons JSON Casaku tidak dapat dibaca."
-      );
-    }
-
-    if (
-      !response.ok
-    ) {
-      throw new Error(
-        cleanText(
-          json?.message
-        ) ||
-          `Casaku HTTP ${response.status}`
-      );
-    }
-
-    const data =
-      json?.data &&
-      typeof json.data ===
-        "object"
-        ? json.data
-        : (json as CasakuResponseData);
-
-    const returnedTransactionId =
-      cleanText(
-        data?.transactionId
-      );
-
-    if (
-      returnedTransactionId &&
-      returnedTransactionId !==
-        transactionId
-    ) {
-      throw new Error(
-        "Transaction ID Casaku tidak cocok."
-      );
-    }
-
-    const amount =
-      Number(
-        data?.totalAmount ??
-          data?.amount ??
-          0
-      );
-
-    return {
-      status:
-        normalizeCasakuStatus(
-          data?.status
-        ),
-
-      amount:
-        Number.isFinite(
-          amount
-        )
-          ? amount
-          : 0,
-
-      paidAt:
-        cleanText(
-          data?.paidAt,
-          100
-        ) || null,
-
-      expiredAt:
-        cleanText(
-          data?.expiredAt,
-          100
-        ) || null,
-
-      packageName:
-        cleanText(
-          data?.packageName,
-          200
-        ),
-
-      appName:
-        cleanText(
-          data?.appName,
-          200
-        ),
-    };
-  } finally {
-    clearTimeout(
-      timeout
-    );
-  }
+  return (
+    provider === "casaku" ||
+    trxId.startsWith("ISLAMI-") ||
+    trxId.startsWith("CSK-")
+  );
 }
 
 // ============================================================================
@@ -530,18 +59,20 @@ export async function GET(
   request: Request
 ) {
   try {
-    const url =
-      new URL(
-        request.url
-      );
+    // =========================================================================
+    // 1. AMBIL ORDER ID
+    // =========================================================================
 
-    const orderId =
-      cleanText(
-        url.searchParams.get(
-          "orderId"
-        ),
-        250
-      );
+    const url = new URL(
+      request.url
+    );
+
+    const orderId = cleanText(
+      url.searchParams.get(
+        "orderId"
+      ),
+      250
+    );
 
     if (!orderId) {
       return NextResponse.json(
@@ -550,47 +81,27 @@ export async function GET(
 
           message:
             "orderId wajib diisi.",
+
+          transaction: null,
         },
         {
           status: 400,
+
+          headers: {
+            "Cache-Control":
+              "no-store, no-cache, must-revalidate, max-age=0",
+          },
         }
       );
     }
 
-    const sanity =
-      getSanityClient();
+    // =========================================================================
+    // 2. CARI TRANSAKSI DI SANITY
+    // =========================================================================
 
-    // ------------------------------------------------------------------------
-    // 1. AMBIL TRANSAKSI DARI SANITY
-    // ------------------------------------------------------------------------
-
-    let transaction =
-      await sanity.fetch<DonationTransaction | null>(
-        `*[
-          _type == "donationTransaction" &&
-          orderId == $orderId
-        ][0]{
-          _id,
-          orderId,
-          transactionId,
-          donorName,
-          donorPhone,
-          donorEmail,
-          amount,
-          paymentAmount,
-          paidAmount,
-          status,
-          paymentProvider,
-          paymentMethod,
-          paidAt,
-          expiresAt,
-          paymentVerified,
-          campaignSlug,
-          "programTitle": programName->title
-        }`,
-        {
-          orderId,
-        }
+    const transaction =
+      await getDonationByOrderId(
+        orderId
       );
 
     if (!transaction) {
@@ -601,290 +112,247 @@ export async function GET(
           message:
             "Transaksi tidak ditemukan.",
 
-          transaction:
-            null,
+          transaction: null,
         },
         {
           status: 404,
+
+          headers: {
+            "Cache-Control":
+              "no-store, no-cache, must-revalidate, max-age=0",
+          },
         }
       );
     }
 
-    // ------------------------------------------------------------------------
-    // 2. JIKA SUDAH SUCCESS, TIDAK PERLU HUBUNGI CASAKU
-    // ------------------------------------------------------------------------
+    // =========================================================================
+    // 3. TRANSAKSI NON-CASAKU / LEGACY
+    //
+    // Jika masih ada transaksi lama dari gateway sebelumnya,
+    // jangan paksa diproses melalui Casaku.
+    // =========================================================================
 
-    if (
-      transaction.status ===
-      "success"
-    ) {
+    const casakuTransaction =
+      isCasakuTransaction({
+        paymentProvider:
+          transaction.paymentProvider,
+
+        transactionId:
+          transaction.transactionId,
+      });
+
+    if (!casakuTransaction) {
       return NextResponse.json(
         {
           success: true,
 
           transaction,
+
+          reconciliation: {
+            provider:
+              transaction.paymentProvider ||
+              "legacy",
+
+            processed: false,
+
+            message:
+              "Transaksi bukan Casaku.",
+          },
         },
         {
           status: 200,
+
+          headers: {
+            "Cache-Control":
+              "no-store, no-cache, must-revalidate, max-age=0",
+          },
         }
       );
     }
 
-    // ------------------------------------------------------------------------
-    // 3. JIKA TRANSAKSI CASAKU MASIH PENDING, CEK CASAKU
-    // ------------------------------------------------------------------------
+    // =========================================================================
+    // 4. REKONSILIASI
+    //
+    // reconcileDonation() akan menangani:
+    //
+    // PENDING
+    //   ↓
+    // cek status Casaku
+    //
+    // PAID
+    //   ↓
+    // donationTransaction → success
+    //   ↓
+    // program.collectedAmount
+    //   ↓
+    // program.donors[]
+    //   ↓
+    // fundraiser
+    //   ↓
+    // Supabase mirror
+    //
+    //
+    // Jika transaction sudah SUCCESS tetapi programCreditedAt belum ada,
+    // helper tetap akan memperbaiki kredit program/fundraiser.
+    // =========================================================================
 
-    const transactionId =
-      cleanText(
-        transaction.transactionId,
-        250
-      );
+    try {
+      const result =
+        await reconcileDonation(
+          transaction
+        );
 
-    const provider =
-      cleanText(
-        transaction.paymentProvider,
-        50
-      ).toLowerCase();
+      const latestTransaction =
+        result.transaction ||
+        transaction;
 
-    if (
-      transactionId &&
-      (
-        provider ===
-          "casaku" ||
-        transactionId.startsWith(
-          "ISLAMI-"
-        ) ||
-        transactionId.startsWith(
-          "CSK-"
-        )
-      )
-    ) {
-      try {
-        const casaku =
-          await checkCasaku(
-            transactionId
-          );
+      return NextResponse.json(
+        {
+          success: true,
 
-        const internalStatus =
-          mapToInternalStatus(
-            casaku.status
-          );
+          transaction:
+            latestTransaction,
 
-        const expectedAmount =
-          Number(
-            transaction.paymentAmount ??
-              transaction.amount ??
-              0
-          );
+          reconciliation: {
+            processed: true,
 
-        // --------------------------------------------------------------------
-        // 4. JIKA CASAKU MEMBERIKAN NOMINAL, WAJIB COCOK
-        // --------------------------------------------------------------------
-
-        if (
-          casaku.amount >
-            0 &&
-          expectedAmount >
-            0 &&
-          casaku.amount !==
-            expectedAmount
-        ) {
-          console.error(
-            "Nominal Casaku tidak cocok:",
-            {
-              orderId,
-
-              transactionId,
-
-              expectedAmount,
-
-              casakuAmount:
-                casaku.amount,
-            }
-          );
-
-          return NextResponse.json(
-            {
-              success: false,
-
-              message:
-                "Nominal pembayaran tidak cocok.",
-
-              transaction,
-            },
-            {
-              status: 409,
-            }
-          );
-        }
-
-        // --------------------------------------------------------------------
-        // 5. UPDATE SANITY JIKA STATUS BERUBAH
-        // --------------------------------------------------------------------
-
-        if (
-          internalStatus !==
-          transaction.status
-        ) {
-          const patch: Record<
-            string,
-            unknown
-          > = {
-            status:
-              internalStatus,
-
-            paymentProvider:
+            provider:
               "casaku",
 
-            paymentMethod:
-              "qris",
-
-            updatedAt:
-              new Date().toISOString(),
-          };
-
-          if (
-            internalStatus ===
-            "success"
-          ) {
-            patch.paymentVerified =
-              true;
-
-            patch.paidAt =
-              casaku.paidAt ||
-              new Date().toISOString();
-
-            patch.paidAmount =
-              expectedAmount;
-
-            if (
-              casaku.packageName
-            ) {
-              patch.paymentPackageName =
-                casaku.packageName;
-            }
-
-            if (
-              casaku.appName
-            ) {
-              patch.paymentAppName =
-                casaku.appName;
-            }
-          }
-
-          if (
-            casaku.expiredAt
-          ) {
-            patch.expiresAt =
-              casaku.expiredAt;
-          }
-
-          await sanity
-            .patch(
-              transaction._id
-            )
-            .set(
-              patch
-            )
-            .commit();
-
-          await syncSupabaseStatus({
-            orderId,
-
             status:
-              internalStatus,
-          });
+              result.status,
 
-          // Ambil ulang agar response berisi data terbaru.
-          transaction =
-            await sanity.fetch<DonationTransaction | null>(
-              `*[
-                _type == "donationTransaction" &&
-                orderId == $orderId
-              ][0]{
-                _id,
-                orderId,
-                transactionId,
-                donorName,
-                donorPhone,
-                donorEmail,
-                amount,
-                paymentAmount,
-                paidAmount,
-                status,
-                paymentProvider,
-                paymentMethod,
-                paidAt,
-                expiresAt,
-                paymentVerified,
-                campaignSlug,
-                "programTitle": programName->title
-              }`,
-              {
-                orderId,
-              }
-            );
-        }
-      } catch (
-        casakuError
-      ) {
-        // Jangan membuat seluruh halaman error jika Casaku
-        // sedang timeout. Kita masih bisa mengembalikan
-        // status terakhir dari Sanity.
-        console.warn(
-          "Casaku status check gagal:",
-          casakuError
-        );
-      }
-    }
+            casakuStatus:
+              result.casakuStatus,
 
-    // ------------------------------------------------------------------------
-    // 6. RESPONSE SELALU JSON
-    // ------------------------------------------------------------------------
+            program:
+              result.credits
+                ?.program ||
+              null,
 
-    return NextResponse.json(
-      {
-        success: true,
-
-        transaction,
-      },
-      {
-        status: 200,
-
-        headers: {
-          "Cache-Control":
-            "no-store, no-cache, must-revalidate, max-age=0",
+            fundraiser:
+              result.credits
+                ?.fundraiser ||
+              null,
+          },
         },
-      }
-    );
-  } catch (
-    error
-  ) {
+        {
+          status: 200,
+
+          headers: {
+            "Cache-Control":
+              "no-store, no-cache, must-revalidate, max-age=0",
+
+            Pragma:
+              "no-cache",
+
+            Expires:
+              "0",
+          },
+        }
+      );
+    } catch (reconcileError) {
+      // =======================================================================
+      // 5. CASAKU TIMEOUT / GANGGUAN SEMENTARA
+      //
+      // Jangan membuat halaman success/error rusak.
+      //
+      // Kita tetap kirim status terakhir dari Sanity.
+      // =======================================================================
+
+      console.warn(
+        "[DONATION STATUS] Rekonsiliasi Casaku gagal:",
+        {
+          orderId,
+
+          transactionId:
+            transaction.transactionId,
+
+          error:
+            reconcileError,
+        }
+      );
+
+      return NextResponse.json(
+        {
+          success: true,
+
+          transaction,
+
+          reconciliation: {
+            processed: false,
+
+            provider:
+              "casaku",
+
+            warning:
+              reconcileError instanceof
+              Error
+                ? reconcileError.message
+                : "Rekonsiliasi pembayaran belum berhasil.",
+          },
+        },
+        {
+          status: 200,
+
+          headers: {
+            "Cache-Control":
+              "no-store, no-cache, must-revalidate, max-age=0",
+
+            Pragma:
+              "no-cache",
+
+            Expires:
+              "0",
+          },
+        }
+      );
+    }
+  } catch (error) {
+    // =========================================================================
+    // 6. FATAL ERROR
+    // =========================================================================
+
     console.error(
-      "Donation status route error:",
+      "[DONATION STATUS] Fatal error:",
       error
     );
 
     const message =
-      error instanceof
-      Error
+      error instanceof Error
         ? error.message
         : "Terjadi kesalahan sistem.";
 
-    // PENTING:
-    // route API harus tetap mengembalikan JSON,
-    // jangan sampai halaman HTML error Next.js bocor ke frontend.
+    // -------------------------------------------------------------------------
+    // Route API SELALU mengembalikan JSON.
+    //
+    // Ini mencegah error frontend:
+    //
+    // Unexpected token '<'
+    // "<!DOCTYPE html>" is not valid JSON
+    // -------------------------------------------------------------------------
+
     return NextResponse.json(
       {
         success: false,
 
         message,
 
-        transaction:
-          null,
+        transaction: null,
       },
       {
         status: 500,
+
+        headers: {
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate, max-age=0",
+
+          Pragma:
+            "no-cache",
+
+          Expires:
+            "0",
+        },
       }
     );
   }

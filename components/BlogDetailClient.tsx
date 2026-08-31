@@ -1,44 +1,41 @@
-// app/blog/[slug]/BlogDetailClient.tsx
+// components/BlogDetailClient.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { PortableText } from "@portabletext/react";
+import {
+  PortableText,
+  type PortableTextComponents,
+} from "@portabletext/react";
 import RelatedNews from "@/components/RelatedNews";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-interface PortableImageValue {
-  asset?: {
-    url?: string;
-  };
-  alt?: string;
-  caption?: string;
-}
-
-interface PortableLinkValue {
-  href?: string;
-}
-
 interface ArticleData {
   title?: string | { current?: string };
   category?: string | { current?: string };
+
   publishedAt?: string;
   timeAgo?: string;
+
   imageUrl?: string;
+
   alt?: string | { current?: string };
   caption?: string | { current?: string };
+
   content?: any;
+}
+
+interface BlogApiData {
+  article?: ArticleData;
+  allNews?: any[];
 }
 
 interface ApiResponse {
   success?: boolean;
-  data?: {
-    article?: ArticleData;
-    allNews?: any[];
-  };
+  data?: BlogApiData;
 }
 
 interface BlogDetailClientProps {
@@ -66,7 +63,11 @@ function renderSafeString(
     value !== null &&
     "current" in value
   ) {
-    const current = (value as { current?: unknown }).current;
+    const current = (
+      value as {
+        current?: unknown;
+      }
+    ).current;
 
     if (typeof current === "string") {
       return current;
@@ -101,33 +102,42 @@ function formatArticleDate(
 // PORTABLE TEXT COMPONENTS
 // ============================================================================
 //
-// Catatan SEO penting:
+// PENTING:
+// Kita memakai tipe resmi PortableTextComponents.
 //
-// H1 utama artikel hanya boleh berasal dari title artikel.
-//
-// Karena itu heading "h1" yang mungkin tersimpan di PortableText
-// kita render sebagai H2 agar struktur heading tetap sehat.
+// Dengan cara ini TypeScript memahami bahwa:
+// - children dapat optional
+// - value memiliki struktur Portable Text
+// - block, marks, list, dan listItem memakai signature resmi library
 //
 // ============================================================================
 
-const portableTextComponents = {
+const portableTextComponents: PortableTextComponents = {
+  // ==========================================================================
+  // CUSTOM TYPES
+  // ==========================================================================
+
   types: {
-    image: ({
-      value,
-    }: {
-      value: PortableImageValue;
-    }) => {
-      const imageUrl = value?.asset?.url;
+    image: ({ value }) => {
+      const imageValue = value as any;
+
+      const imageUrl =
+        imageValue?.asset?.url;
 
       if (!imageUrl) {
         return null;
       }
 
       const altText =
-        typeof value.alt === "string" &&
-        value.alt.trim()
-          ? value.alt.trim()
+        typeof imageValue?.alt === "string" &&
+        imageValue.alt.trim()
+          ? imageValue.alt.trim()
           : "Gambar artikel islami.or.id";
+
+      const caption =
+        typeof imageValue?.caption === "string"
+          ? imageValue.caption.trim()
+          : "";
 
       return (
         <figure className="my-6 w-full space-y-2 text-left">
@@ -143,29 +153,33 @@ const portableTextComponents = {
             />
           </div>
 
-          {typeof value.caption === "string" &&
-            value.caption.trim() && (
-              <figcaption className="text-center text-xs font-medium italic text-slate-500 sm:text-sm">
-                {value.caption.trim()}
-              </figcaption>
-            )}
+          {caption && (
+            <figcaption className="text-center text-xs font-medium italic text-slate-500 sm:text-sm">
+              {caption}
+            </figcaption>
+          )}
         </figure>
       );
     },
   },
 
+  // ==========================================================================
+  // MARKS
+  // ==========================================================================
+
   marks: {
-    link: ({
-      children,
-      value,
-    }: {
-      children: React.ReactNode;
-      value?: PortableLinkValue;
-    }) => {
+    link: ({ children, value }) => {
+      const markValue =
+        value as
+          | {
+              href?: string;
+            }
+          | undefined;
+
       const href =
-        typeof value?.href === "string" &&
-        value.href.trim()
-          ? value.href.trim()
+        typeof markValue?.href === "string" &&
+        markValue.href.trim()
+          ? markValue.href.trim()
           : "#";
 
       const isInternal =
@@ -196,104 +210,112 @@ const portableTextComponents = {
         </a>
       );
     },
+
+    strong: ({ children }) => (
+      <strong className="font-bold text-slate-900">
+        {children}
+      </strong>
+    ),
+
+    em: ({ children }) => (
+      <em className="italic">
+        {children}
+      </em>
+    ),
   },
 
+  // ==========================================================================
+  // BLOCKS
+  // ==========================================================================
+
   block: {
-    normal: ({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) => (
+    normal: ({ children }) => (
       <p className="mb-5 text-base leading-relaxed text-slate-800 sm:text-lg">
         {children}
       </p>
     ),
 
-    // H1 dari CMS diturunkan menjadi H2.
-    h1: ({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) => (
+    // Jangan menghasilkan H1 kedua.
+    //
+    // H1 halaman sudah berasal dari judul artikel.
+    // Jika editor memasukkan heading H1 di Sanity,
+    // kita tampilkan sebagai H2.
+    h1: ({ children }) => (
       <h2 className="mb-4 mt-8 text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
         {children}
       </h2>
     ),
 
-    h2: ({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) => (
+    h2: ({ children }) => (
       <h2 className="mb-3 mt-7 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
         {children}
       </h2>
     ),
 
-    h3: ({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) => (
+    h3: ({ children }) => (
       <h3 className="mb-2.5 mt-6 text-base font-bold text-slate-800 sm:text-lg">
         {children}
       </h3>
     ),
 
-    blockquote: ({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) => (
-      <blockquote className="my-5 border-l-4 border-[#0d5c91] bg-sky-50/60 py-3 pl-4 italic text-slate-700">
+    h4: ({ children }) => (
+      <h4 className="mb-2 mt-5 text-base font-bold text-slate-800">
+        {children}
+      </h4>
+    ),
+
+    blockquote: ({ children }) => (
+      <blockquote className="my-5 border-l-4 border-[#0d5c91] bg-sky-50/60 py-3 pl-4 pr-3 italic text-slate-700">
         {children}
       </blockquote>
     ),
   },
 
+  // ==========================================================================
+  // LIST
+  // ==========================================================================
+
   list: {
-    bullet: ({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) => (
+    bullet: ({ children }) => (
       <ul className="mb-5 list-disc space-y-2 pl-6 text-base text-slate-800 sm:text-lg">
         {children}
       </ul>
     ),
 
-    number: ({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) => (
+    number: ({ children }) => (
       <ol className="mb-5 list-decimal space-y-2 pl-6 text-base text-slate-800 sm:text-lg">
         {children}
       </ol>
     ),
   },
 
+  // ==========================================================================
+  // LIST ITEM
+  // ==========================================================================
+
   listItem: {
-    bullet: ({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) => (
+    bullet: ({ children }) => (
       <li className="pl-1">
         {children}
       </li>
     ),
 
-    number: ({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) => (
+    number: ({ children }) => (
       <li className="pl-1">
         {children}
       </li>
     ),
   },
+
+  // ==========================================================================
+  // UNKNOWN BLOCK FALLBACK
+  // ==========================================================================
+
+  unknownBlockStyle: ({ children }) => (
+    <p className="mb-5 text-base leading-relaxed text-slate-800 sm:text-lg">
+      {children}
+    </p>
+  ),
 };
 
 // ============================================================================
@@ -304,9 +326,7 @@ export default function BlogDetailClient({
   slug,
 }: BlogDetailClientProps) {
   const [data, setData] =
-    useState<ApiResponse["data"] | null>(
-      null
-    );
+    useState<BlogApiData | null>(null);
 
   const [loading, setLoading] =
     useState(true);
@@ -352,9 +372,11 @@ export default function BlogDetailClient({
           !json?.data?.article
         ) {
           setData(null);
+
           setError(
             "Artikel tidak ditemukan."
           );
+
           return;
         }
 
@@ -401,6 +423,7 @@ export default function BlogDetailClient({
     return (
       <div className="min-h-screen bg-gray-50 pb-24 pt-6">
         <div className="mx-auto w-full max-w-md space-y-4 px-3 animate-pulse">
+
           <div className="mx-auto h-5 w-2/3 bg-gray-200" />
 
           <div className="h-8 w-full bg-gray-200" />
@@ -415,6 +438,7 @@ export default function BlogDetailClient({
             <div className="h-4 w-5/6 bg-gray-200" />
             <div className="h-4 w-2/3 bg-gray-200" />
           </div>
+
         </div>
       </div>
     );
@@ -428,6 +452,7 @@ export default function BlogDetailClient({
     return (
       <main className="min-h-screen bg-gray-50 px-4 pb-24 pt-16 text-center">
         <div className="mx-auto max-w-md">
+
           <h1 className="text-xl font-extrabold text-slate-900">
             Artikel tidak ditemukan
           </h1>
@@ -439,10 +464,11 @@ export default function BlogDetailClient({
 
           <Link
             href="/news"
-            className="mt-5 inline-block border border-sky-100 bg-sky-50 px-4 py-2.5 text-xs font-bold text-[#0d5c91] hover:bg-sky-100"
+            className="mt-5 inline-block border border-sky-100 bg-sky-50 px-4 py-2.5 text-xs font-bold text-[#0d5c91] transition hover:bg-sky-100"
           >
             ← Kembali ke Artikel
           </Link>
+
         </div>
       </main>
     );
@@ -488,8 +514,7 @@ export default function BlogDetailClient({
     );
 
   const mainImage =
-    typeof article.imageUrl ===
-      "string" &&
+    typeof article.imageUrl === "string" &&
     article.imageUrl.trim()
       ? article.imageUrl.trim()
       : "/images/placeholder.jpg";
@@ -500,8 +525,7 @@ export default function BlogDetailClient({
 
   async function handleShare() {
     if (
-      typeof window ===
-      "undefined"
+      typeof window === "undefined"
     ) {
       return;
     }
@@ -513,9 +537,7 @@ export default function BlogDetailClient({
     };
 
     try {
-      if (
-        navigator.share
-      ) {
+      if (navigator.share) {
         await navigator.share(
           shareData
         );
@@ -529,12 +551,9 @@ export default function BlogDetailClient({
 
       setCopied(true);
 
-      window.setTimeout(
-        () => {
-          setCopied(false);
-        },
-        2000
-      );
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 2000);
     } catch (err) {
       if (
         err instanceof DOMException &&
@@ -574,7 +593,7 @@ export default function BlogDetailClient({
           >
             <Link
               href="/"
-              className="hover:text-[#0d5c91]"
+              className="transition hover:text-[#0d5c91]"
             >
               Beranda
             </Link>
@@ -585,7 +604,7 @@ export default function BlogDetailClient({
 
             <Link
               href="/news"
-              className="hover:text-[#0d5c91]"
+              className="transition hover:text-[#0d5c91]"
             >
               Artikel
             </Link>
@@ -604,15 +623,17 @@ export default function BlogDetailClient({
           </nav>
 
           {/* ================================================================ */}
-          {/* HEADER ARTICLE */}
+          {/* ARTICLE HEADER */}
           {/* ================================================================ */}
 
           <header className="space-y-3">
+
             <h1 className="text-xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-2xl">
               {titleString}
             </h1>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-gray-100 pb-3 text-xs font-semibold text-slate-500 sm:text-sm">
+
               <time
                 dateTime={
                   article.publishedAt ||
@@ -636,15 +657,18 @@ export default function BlogDetailClient({
                   </span>
                 </>
               )}
+
             </div>
           </header>
 
           {/* ================================================================ */}
-          {/* HERO IMAGE */}
+          {/* MAIN IMAGE */}
           {/* ================================================================ */}
 
           <figure className="w-full space-y-2 pt-1">
+
             <div className="aspect-[16/9] w-full overflow-hidden border border-gray-200/80 bg-gray-100 shadow-inner">
+
               <img
                 src={mainImage}
                 alt={altString}
@@ -655,6 +679,7 @@ export default function BlogDetailClient({
                 decoding="async"
                 className="h-full w-full object-cover"
               />
+
             </div>
 
             {captionString && (
@@ -662,6 +687,7 @@ export default function BlogDetailClient({
                 Foto: {captionString}
               </figcaption>
             )}
+
           </figure>
 
           {/* ================================================================ */}
@@ -672,6 +698,7 @@ export default function BlogDetailClient({
             aria-label="Isi artikel"
             className="border-b border-gray-100 pb-6 pt-2"
           >
+
             {article.content ? (
               <PortableText
                 value={article.content}
@@ -681,10 +708,10 @@ export default function BlogDetailClient({
               />
             ) : (
               <p className="text-base italic text-slate-400">
-                Isi artikel belum
-                tersedia.
+                Isi artikel belum tersedia.
               </p>
             )}
+
           </section>
 
           {/* ================================================================ */}
@@ -692,6 +719,7 @@ export default function BlogDetailClient({
           {/* ================================================================ */}
 
           <footer className="flex items-center justify-between gap-3 pt-1">
+
             <span className="text-xs font-bold text-slate-600 sm:text-sm">
               Bagikan artikel ini:
             </span>
@@ -707,7 +735,9 @@ export default function BlogDetailClient({
                 ? "✓ Tautan Tersalin"
                 : "🔗 Bagikan"}
             </button>
+
           </footer>
+
         </article>
 
         {/* ================================================================== */}
@@ -720,18 +750,15 @@ export default function BlogDetailClient({
         >
           <RelatedNews
             currentSlug={slug}
-            category={
-              categoryString
-            }
+            category={categoryString}
             allNews={
-              Array.isArray(
-                allNews
-              )
+              Array.isArray(allNews)
                 ? allNews
                 : []
             }
           />
         </section>
+
       </div>
     </main>
   );

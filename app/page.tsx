@@ -1,5 +1,4 @@
 // app/page.tsx
-
 import React from "react";
 import type { Metadata } from "next";
 import { createClient } from "@sanity/client";
@@ -9,6 +8,7 @@ import TotalAccumulationWidget from "@/components/TotalAccumulationWidget";
 import Campaign from "@/components/Campaign";
 import News from "@/components/News";
 import Footer from "@/components/Footer";
+import ReferralTracker from "@/components/ReferralTracker"; // 🚀 Komponen penangkap ref otomatis
 
 // ============================================================================
 // KONFIGURASI SITUS
@@ -34,6 +34,7 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+
     googleBot: {
       index: true,
       follow: true,
@@ -96,31 +97,15 @@ const serverClient = createClient({
 });
 
 // ============================================================================
-// RENDERING
+// RENDERING STRATEGY
 // ============================================================================
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // ============================================================================
-// TYPES
+// TYPES UNTUK DATA HERO
 // ============================================================================
-
-interface ProgramItem {
-  id: string;
-  title?: string;
-  slug?: string;
-  image?: string;
-
-  collectedAmount?: number;
-  collectedRaw?: number;
-  targetAmount?: number;
-
-  daysLeft?: number;
-
-  donors?: unknown[];
-  donorsCount?: number;
-}
 
 interface SanityHeroBanner {
   id?: string;
@@ -131,9 +116,9 @@ interface SanityHeroBanner {
 
 interface HomePageData {
   heroBanners?: SanityHeroBanner[];
-  mendesak?: ProgramItem[];
-  unggulan?: ProgramItem[];
-  pilihan?: ProgramItem[];
+  mendesak?: any[];
+  unggulan?: any[];
+  pilihan?: any[];
 }
 
 // ============================================================================
@@ -142,9 +127,9 @@ interface HomePageData {
 
 export default async function HomePage() {
   let heroBanners: HeroBanner[] = [];
-  let mendesakPrograms: ProgramItem[] = [];
-  let unggulanPrograms: ProgramItem[] = [];
-  let pilihanPrograms: ProgramItem[] = [];
+  let mendesakPrograms: any[] = [];
+  let unggulanPrograms: any[] = [];
+  let pilihanPrograms: any[] = [];
 
   try {
     const query = `
@@ -154,7 +139,7 @@ export default async function HomePage() {
           active != false
         ] | order(order asc, _createdAt desc)[0...10] {
           "id": _id,
-          "title": coalesce(title, name),
+          "title": coalesce(title, name, "islami.or.id"),
           "imageUrl": coalesce(
             image.asset->url,
             banner.asset->url
@@ -168,24 +153,13 @@ export default async function HomePage() {
           defined(slug.current)
         ] | order(_createdAt desc)[0...5] {
           "id": _id,
-          "title": title,
+          "title": coalesce(title, "Program Kebaikan"),
           "slug": slug.current,
-          "image": image.asset->url,
-          "collectedAmount": coalesce(
-            collectedAmount,
-            collectedRaw,
-            0
-          ),
-          "collectedRaw": coalesce(
-            collectedAmount,
-            collectedRaw,
-            0
-          ),
-          "targetAmount": coalesce(
-            targetAmount,
-            50000000
-          ),
-          "daysLeft": daysLeft,
+          "image": coalesce(image.asset->url, ""),
+          "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
+          "collectedRaw": coalesce(collectedAmount, collectedRaw, 0),
+          "targetAmount": coalesce(targetAmount, 50000000),
+          "daysLeft": coalesce(daysLeft, 0),
           "donors": coalesce(donors, [])
         },
 
@@ -195,23 +169,13 @@ export default async function HomePage() {
           defined(slug.current)
         ] | order(_createdAt desc)[0...5] {
           "id": _id,
-          "title": title,
+          "title": coalesce(title, "Program Kebaikan"),
           "slug": slug.current,
-          "image": image.asset->url,
-          "collectedAmount": coalesce(
-            collectedAmount,
-            collectedRaw,
-            0
-          ),
-          "collectedRaw": coalesce(
-            collectedAmount,
-            collectedRaw,
-            0
-          ),
-          "targetAmount": coalesce(
-            targetAmount,
-            50000000
-          ),
+          "image": coalesce(image.asset->url, ""),
+          "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
+          "collectedRaw": coalesce(collectedAmount, collectedRaw, 0),
+          "targetAmount": coalesce(targetAmount, 50000000),
+          "daysLeft": coalesce(daysLeft, 0),
           "donors": coalesce(donors, [])
         },
 
@@ -224,36 +188,20 @@ export default async function HomePage() {
           defined(slug.current)
         ] | order(_createdAt desc)[0...5] {
           "id": _id,
-          "title": title,
+          "title": coalesce(title, "Program Kebaikan"),
           "slug": slug.current,
-          "image": image.asset->url,
-          "collectedAmount": coalesce(
-            collectedAmount,
-            collectedRaw,
-            0
-          ),
-          "collectedRaw": coalesce(
-            collectedAmount,
-            collectedRaw,
-            0
-          ),
-          "targetAmount": coalesce(
-            targetAmount,
-            50000000
-          ),
+          "image": coalesce(image.asset->url, ""),
+          "collectedAmount": coalesce(collectedAmount, collectedRaw, 0),
+          "collectedRaw": coalesce(collectedAmount, collectedRaw, 0),
+          "targetAmount": coalesce(targetAmount, 50000000),
+          "daysLeft": coalesce(daysLeft, 0),
           "donors": coalesce(donors, []),
-          "donorsCount": count(
-            coalesce(donors, [])
-          )
+          "donorsCount": count(coalesce(donors, []))
         }
       }
     `;
 
     const data = await serverClient.fetch<HomePageData>(query);
-
-    // ========================================================================
-    // HERO BANNERS
-    // ========================================================================
 
     if (Array.isArray(data?.heroBanners)) {
       heroBanners = data.heroBanners
@@ -277,21 +225,9 @@ export default async function HomePage() {
         }));
     }
 
-    // ========================================================================
-    // CAMPAIGN
-    // ========================================================================
-
-    mendesakPrograms = Array.isArray(data?.mendesak)
-      ? data.mendesak
-      : [];
-
-    unggulanPrograms = Array.isArray(data?.unggulan)
-      ? data.unggulan
-      : [];
-
-    pilihanPrograms = Array.isArray(data?.pilihan)
-      ? data.pilihan
-      : [];
+    mendesakPrograms = Array.isArray(data?.mendesak) ? data.mendesak : [];
+    unggulanPrograms = Array.isArray(data?.unggulan) ? data.unggulan : [];
+    pilihanPrograms = Array.isArray(data?.pilihan) ? data.pilihan : [];
   } catch (error) {
     console.error(
       "[HOMEPAGE] Gagal mengambil data homepage dari Sanity:",
@@ -299,13 +235,8 @@ export default async function HomePage() {
     );
   }
 
-  // ==========================================================================
-  // STRUCTURED DATA
-  // ==========================================================================
-
   const structuredData = {
     "@context": "https://schema.org",
-
     "@graph": [
       {
         "@type": "WebSite",
@@ -314,21 +245,17 @@ export default async function HomePage() {
         name: SITE_NAME,
         alternateName: "Islami",
         inLanguage: "id-ID",
-
         description:
-          "Portal Islam Indonesia yang menyajikan artikel keislaman dan berbagai program kebaikan.",
-
+          "Portal Islam Indonesia yang menyajikan artikel keislaman, informasi Muslim, dan berbagai program kebaikan.",
         publisher: {
           "@id": `${SITE_URL}/#organization`,
         },
       },
-
       {
         "@type": "Organization",
         "@id": `${SITE_URL}/#organization`,
         name: SITE_NAME,
         url: SITE_URL,
-
         logo: {
           "@type": "ImageObject",
           url: `${SITE_URL}/images/banner.png`,
@@ -337,13 +264,8 @@ export default async function HomePage() {
     ],
   };
 
-  // ==========================================================================
-  // OUTPUT
-  // ==========================================================================
-
   return (
     <>
-      {/* STRUCTURED DATA */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -351,25 +273,19 @@ export default async function HomePage() {
         }}
       />
 
+      {/* 🚀 Komponen Client untuk Menangkap & Menyimpan Parameter Referral (?ref=...) */}
+      <ReferralTracker />
+
       <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-start w-full overflow-x-hidden pb-24">
         <div className="w-full max-w-md mx-auto px-3 py-4 space-y-4">
-          {/* HERO */}
           <Hero initialBanners={heroBanners} />
-
-          {/* TOTAL AKUMULASI DONASI */}
           <TotalAccumulationWidget />
-
-          {/* CAMPAIGN */}
           <Campaign
             mendesak={mendesakPrograms}
             unggulan={unggulanPrograms}
             pilihan={pilihanPrograms}
           />
-
-          {/* ARTIKEL / BERITA */}
           <News />
-
-          {/* FOOTER */}
           <Footer />
         </div>
       </main>

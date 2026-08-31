@@ -1,141 +1,573 @@
 // app/kontak/page.tsx
-import React from 'react';
-import type { Metadata } from 'next';
-import Link from 'next/link';
 
-// 🚀 MASTER SEO METADATA
+import type { Metadata } from "next";
+import Link from "next/link";
+
+import {
+  MapPin,
+  Mail,
+  MessageCircle,
+  Clock3,
+  Home,
+  CircleHelp,
+  ExternalLink,
+} from "lucide-react";
+
+// ============================================================================
+// SITE CONFIG
+// ============================================================================
+
+const SITE_URL = "https://www.islami.or.id";
+const SITE_NAME = "islami.or.id";
+
+const PAGE_URL = `${SITE_URL}/kontak`;
+
+const PAGE_TITLE = "Hubungi Kami";
+
+const PAGE_DESCRIPTION =
+  "Hubungi tim islami.or.id melalui WhatsApp, email, atau informasi kontak resmi untuk pertanyaan seputar akun, transaksi, program kebaikan, dan layanan platform.";
+
+// ============================================================================
+// OFFICIAL CONTACT
+// ============================================================================
+
+const CONTACT = {
+  address: "Purwokerto, Banyumas, Indonesia",
+
+  whatsappDisplay: "0895-3243-83400",
+
+  whatsappInternational: "+62 895-3243-83400",
+
+  whatsappNumber: "62895324383400",
+
+  email: "ibnusuparmin@gmail.com",
+};
+
+const whatsappMessage =
+  "Assalamualaikum Admin islami.or.id, saya ingin bertanya mengenai layanan islami.or.id.";
+
+const whatsappUrl =
+  `https://wa.me/${CONTACT.whatsappNumber}?text=${encodeURIComponent(
+    whatsappMessage
+  )}`;
+
+const emailUrl =
+  `mailto:${CONTACT.email}`;
+
+// ============================================================================
+// METADATA
+// ============================================================================
+
 export const metadata: Metadata = {
-  title: 'Hubungi Kami | Layanan Donatur islami.or.id',
-  description: 'Memiliki pertanyaan mengenai program infak, sedekah subuh, atau cara pembayaran QRIS? Hubungi tim admin resmi islami.or.id sekarang.',
-  keywords: ['kontak islami.or.id', 'nomor whatsapp islami', 'alamat islami.or.id', 'layanan donatur'],
+  title: PAGE_TITLE,
+
+  description: PAGE_DESCRIPTION,
+
   alternates: {
-    canonical: '/kontak',
+    canonical: PAGE_URL,
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+
+  openGraph: {
+    type: "website",
+
+    locale: "id_ID",
+
+    siteName: SITE_NAME,
+
+    url: PAGE_URL,
+
+    title: `${PAGE_TITLE} | ${SITE_NAME}`,
+
+    description: PAGE_DESCRIPTION,
+
+    images: [
+      {
+        url: `${SITE_URL}/images/banner.png`,
+        width: 1200,
+        height: 630,
+        alt: `Kontak resmi ${SITE_NAME}`,
+      },
+    ],
+  },
+
+  twitter: {
+    card: "summary_large_image",
+
+    title: `${PAGE_TITLE} | ${SITE_NAME}`,
+
+    description: PAGE_DESCRIPTION,
+
+    images: [
+      `${SITE_URL}/images/banner.png`,
+    ],
   },
 };
 
+// ============================================================================
+// PAGE
+// ============================================================================
+
 export default function KontakPage() {
-  // Nomor WA resmi tanpa spasi/minus untuk integrasi API chat langsung
-  const officialWa = '6281225147373';
-  const defaultText = encodeURIComponent('Assalamualaikum Admin islami.or.id, saya ingin bertanya mengenai...');
-  const waChatUrl = `https://api.whatsapp.com/send?phone=${officialWa}&text=${defaultText}`;
+  // ==========================================================================
+  // STRUCTURED DATA
+  // ==========================================================================
+
+  const contactPageSchema = {
+    "@context": "https://schema.org",
+
+    "@type": "ContactPage",
+
+    "@id": `${PAGE_URL}#webpage`,
+
+    url: PAGE_URL,
+
+    name: PAGE_TITLE,
+
+    description: PAGE_DESCRIPTION,
+
+    inLanguage: "id-ID",
+
+    isPartOf: {
+      "@id": `${SITE_URL}/#website`,
+    },
+
+    about: {
+      "@id": `${SITE_URL}/#organization`,
+    },
+  };
+
+  const organizationSchema = {
+    "@context": "https://schema.org",
+
+    "@type": "Organization",
+
+    "@id": `${SITE_URL}/#organization`,
+
+    name: SITE_NAME,
+
+    url: SITE_URL,
+
+    email: CONTACT.email,
+
+    telephone: CONTACT.whatsappInternational,
+
+    address: {
+      "@type": "PostalAddress",
+
+      addressLocality: "Purwokerto",
+
+      addressRegion: "Banyumas",
+
+      addressCountry: "ID",
+    },
+
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+
+        contactType: "customer service",
+
+        telephone: CONTACT.whatsappInternational,
+
+        email: CONTACT.email,
+
+        availableLanguage: [
+          "Indonesian",
+        ],
+      },
+    ],
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+
+    "@type": "BreadcrumbList",
+
+    "@id": `${PAGE_URL}#breadcrumb`,
+
+    itemListElement: [
+      {
+        "@type": "ListItem",
+
+        position: 1,
+
+        name: "Beranda",
+
+        item: SITE_URL,
+      },
+
+      {
+        "@type": "ListItem",
+
+        position: 2,
+
+        name: "Kontak",
+
+        item: PAGE_URL,
+      },
+    ],
+  };
+
+  const jsonLd =
+    JSON.stringify([
+      contactPageSchema,
+      organizationSchema,
+      breadcrumbSchema,
+    ]).replace(
+      /</g,
+      "\\u003c"
+    );
+
+  // ==========================================================================
+  // OUTPUT
+  // ==========================================================================
 
   return (
-    <div className="min-h-screen bg-slate-50 py-4 px-3 pb-28">
-      {/* 🚀 MODEL MOBILE FIRST: Disesuaikan dengan lebar card mobile yang ringkas, rapi, tanpa sudut lengkung */}
-      <div className="w-full max-w-md mx-auto bg-white border border-slate-200 shadow-sm p-4 sm:p-6 space-y-6">
-        
-        {/* HEADER KONTAK */}
-        <div className="border-b border-sky-600 pb-3 space-y-1.5">
-          <span className="text-[10px] sm:text-xs font-bold text-sky-600 uppercase tracking-widest block">
-            LAYANAN PUSAT INFORMASI
-          </span>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-[#333333] tracking-tight">
-            Hubungi Tim Kantor Kami
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
-            Pintu komunikasi kami selalu terbuka lebar. Jangan ragu untuk mendiskusikan kebutuhan konsultasi zakat maal maupun kerja sama program kebaikan bersama kami.
-          </p>
-        </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd,
+        }}
+      />
 
-        {/* 2. AREA KARTU INFORMASI UTAMA */}
-        <div className="space-y-4">
-          
-          {/* KARTU KIRI: DETAIL KONTAK FISIK */}
-          <div className="border border-slate-200 bg-gray-50/50 p-4 sm:p-5 space-y-4">
-            <h2 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-gray-200 pb-2 w-full">
-              Saluran Informasi Resmi
-            </h2>
-            
-            <div className="space-y-3.5 text-left">
-              <div className="flex items-start space-x-3">
-                <span className="text-lg shrink-0">📍</span>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">Alamat Pusat</h4>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-0.5 leading-relaxed">
-                    Kantor Pelayanan islami.or.id <br />
-                    Indonesia
-                  </p>
-                </div>
+      <main className="min-h-screen w-full bg-slate-50 pb-28 text-slate-900">
+
+        {/* ================================================================== */}
+        {/* MOBILE FIRST WRAPPER */}
+        {/* ================================================================== */}
+
+        <div className="mx-auto w-full max-w-md px-3 pt-3">
+
+          {/* ================================================================ */}
+          {/* MAIN PANEL */}
+          {/* ================================================================ */}
+
+          <section className="w-full border border-slate-200/80 bg-white shadow-sm">
+
+            {/* ============================================================== */}
+            {/* HEADER */}
+            {/* ============================================================== */}
+
+            <header className="border-b border-slate-200 px-4 pb-5 pt-5 sm:px-5">
+
+              <nav
+                aria-label="Breadcrumb"
+                className="mb-4 flex items-center gap-2 text-[10px] font-medium text-slate-400"
+              >
+                <Link
+                  href="/"
+                  className="transition-colors hover:text-[#0d5c91]"
+                >
+                  Beranda
+                </Link>
+
+                <span
+                  aria-hidden="true"
+                  className="text-slate-300"
+                >
+                  /
+                </span>
+
+                <span
+                  aria-current="page"
+                  className="text-slate-500"
+                >
+                  Kontak
+                </span>
+              </nav>
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-50">
+
+                <MessageCircle className="h-5 w-5 text-[#0d5c91]" />
+
               </div>
 
-              <div className="flex items-start space-x-3">
-                <span className="text-lg shrink-0">✉️</span>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">Email Korespondensi</h4>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                    support@islami.or.id
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-3">
-                <span className="text-lg shrink-0">⏰</span>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">Waktu Operasional</h4>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                    Senin – Sabtu | 08.00 - 16.00 WIB
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-1">
-              <p className="text-[11px] text-slate-400 font-medium italic">
-                *Konfirmasi data donasi manual/kendala sistem pembayaran akan diproses secara instan pada jam operasional kerja.
+              <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.2em] text-[#0d5c91]">
+                Pusat Informasi
               </p>
-            </div>
-          </div>
 
-          {/* KARTU KANAN: CHAT ACTION BOX */}
-          <div className="border border-emerald-200 bg-emerald-50/30 p-4 sm:p-5 space-y-4 text-left">
-            <h2 className="text-xs sm:text-sm font-bold text-emerald-900 uppercase tracking-wider border-b border-emerald-200 pb-2 w-full">
-              Konsultasi Instan WhatsApp
-            </h2>
-            <p className="text-xs sm:text-sm text-emerald-800/80 leading-relaxed font-medium">
-              Lebih menyukai obrolan cepat melalui aplikasi ponsel? Hubungi nomor WhatsApp resmi penanganan layanan donatur kami untuk mendapatkan panduan cepat dari tim Customer Support islami.or.id.
-            </p>
-            
-            <div className="bg-white border border-emerald-200 p-3.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Hotline Care</span>
-              <span className="text-sm sm:text-base font-extrabold text-slate-800 tracking-wide block mt-0.5">+62 812-2514-7373</span>
-            </div>
+              <h1 className="mt-1.5 text-[24px] font-extrabold leading-tight tracking-tight text-slate-950 sm:text-[27px]">
+                Hubungi Kami
+              </h1>
 
-            <div className="pt-1">
+              <p className="mt-2 text-[11px] leading-[1.75] text-slate-500 sm:text-xs">
+                Hubungi tim islami.or.id apabila Anda
+                membutuhkan bantuan seputar akun,
+                transaksi, program kebaikan,
+                pembayaran, atau layanan platform.
+              </p>
+
+            </header>
+
+            {/* ============================================================== */}
+            {/* CONTACT INFO */}
+            {/* ============================================================== */}
+
+            <section className="divide-y divide-slate-100">
+
+              {/* ============================================================ */}
+              {/* ADDRESS */}
+              {/* ============================================================ */}
+
+              <div className="flex items-start gap-3 px-4 py-5 sm:px-5">
+
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50">
+
+                  <MapPin className="h-4 w-4 text-[#0d5c91]" />
+
+                </div>
+
+                <div className="min-w-0 flex-1">
+
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">
+                    Alamat
+                  </p>
+
+                  <h2 className="mt-1 text-[13px] font-bold text-slate-900 sm:text-[14px]">
+                    Purwokerto, Banyumas
+                  </h2>
+
+                  <p className="mt-1 text-[11px] leading-[1.7] text-slate-600 sm:text-[12px]">
+                    {CONTACT.address}
+                  </p>
+
+                </div>
+
+              </div>
+
+              {/* ============================================================ */}
+              {/* WHATSAPP */}
+              {/* ============================================================ */}
+
+              <div className="flex items-start gap-3 px-4 py-5 sm:px-5">
+
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+
+                  <MessageCircle className="h-4 w-4 text-emerald-700" />
+
+                </div>
+
+                <div className="min-w-0 flex-1">
+
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">
+                    WhatsApp
+                  </p>
+
+                  <h2 className="mt-1 text-[13px] font-bold text-slate-900 sm:text-[14px]">
+                    {CONTACT.whatsappDisplay}
+                  </h2>
+
+                  <p className="mt-1 text-[11px] leading-[1.7] text-slate-600 sm:text-[12px]">
+                    Gunakan WhatsApp untuk menghubungi tim
+                    layanan secara langsung.
+                  </p>
+
+                </div>
+
+              </div>
+
+              {/* ============================================================ */}
+              {/* EMAIL */}
+              {/* ============================================================ */}
+
+              <div className="flex items-start gap-3 px-4 py-5 sm:px-5">
+
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50">
+
+                  <Mail className="h-4 w-4 text-[#0d5c91]" />
+
+                </div>
+
+                <div className="min-w-0 flex-1">
+
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">
+                    Email
+                  </p>
+
+                  <h2 className="mt-1 break-all text-[13px] font-bold text-slate-900 sm:text-[14px]">
+                    {CONTACT.email}
+                  </h2>
+
+                  <p className="mt-1 text-[11px] leading-[1.7] text-slate-600 sm:text-[12px]">
+                    Untuk pertanyaan atau korespondensi yang
+                    membutuhkan penjelasan lebih rinci.
+                  </p>
+
+                </div>
+
+              </div>
+
+            </section>
+
+            {/* ============================================================== */}
+            {/* DIRECT CONTACT ACTIONS */}
+            {/* ============================================================== */}
+
+            <section className="border-t border-slate-200 bg-[#102a43] px-4 py-5 text-white sm:px-5">
+
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#d7b66a]">
+                Layanan Langsung
+              </p>
+
+              <h2 className="mt-1 text-[16px] font-bold text-white">
+                Butuh bantuan?
+              </h2>
+
+              <p className="mt-2 text-[11px] leading-[1.75] text-slate-300">
+                Pilih saluran komunikasi yang paling
+                nyaman. Untuk pertanyaan singkat,
+                WhatsApp biasanya menjadi pilihan
+                paling praktis.
+              </p>
+
+              <div className="mt-5 space-y-2">
+
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 bg-[#25D366] py-3 text-[10px] font-bold uppercase tracking-wider text-white transition hover:bg-[#20ba56]"
+                >
+                  <MessageCircle className="h-4 w-4" />
+
+                  Chat WhatsApp
+
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+
+                <a
+                  href={emailUrl}
+                  className="flex w-full items-center justify-center gap-2 border border-white/15 bg-white/10 py-3 text-[10px] font-bold uppercase tracking-wider text-white transition hover:bg-white/15"
+                >
+                  <Mail className="h-4 w-4" />
+
+                  Kirim Email
+                </a>
+
+              </div>
+
+            </section>
+
+            {/* ============================================================== */}
+            {/* SERVICE INFO */}
+            {/* ============================================================== */}
+
+            <section className="border-t border-slate-200 px-4 py-5 sm:px-5">
+
+              <div className="flex items-start gap-3">
+
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100">
+
+                  <Clock3 className="h-4 w-4 text-slate-500" />
+
+                </div>
+
+                <div className="min-w-0 flex-1">
+
+                  <h2 className="text-[13px] font-bold text-slate-900">
+                    Waktu Respons
+                  </h2>
+
+                  <p className="mt-1.5 text-[11px] leading-[1.75] text-slate-600 sm:text-[12px]">
+                    Pesan akan ditanggapi sesuai
+                    ketersediaan tim layanan.
+                    Beberapa pertanyaan yang
+                    membutuhkan pemeriksaan data
+                    transaksi dapat memerlukan waktu
+                    verifikasi lebih lanjut.
+                  </p>
+
+                </div>
+
+              </div>
+
+            </section>
+
+            {/* ============================================================== */}
+            {/* LOCATION INFO */}
+            {/* ============================================================== */}
+
+            <section className="border-t border-slate-200 bg-slate-50 px-4 py-5 sm:px-5">
+
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#0d5c91]">
+                Lokasi
+              </p>
+
+              <h2 className="mt-1 text-[14px] font-bold text-slate-900">
+                Purwokerto, Banyumas, Indonesia
+              </h2>
+
+              <p className="mt-2 text-[11px] leading-[1.75] text-slate-600">
+                Informasi lokasi pada halaman ini
+                menggunakan tingkat kota/kabupaten.
+                Peta spesifik tidak ditampilkan agar
+                tidak menunjukkan lokasi yang keliru.
+              </p>
+
               <a
-                href={waChatUrl}
+                href="https://www.google.com/maps/search/?api=1&query=Purwokerto%2C+Banyumas%2C+Indonesia"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block w-full text-center bg-[#25D366] hover:bg-[#20ba56] text-white font-bold text-xs sm:text-sm uppercase tracking-wider py-3.5 transition shadow-sm"
+                className="mt-4 flex w-full items-center justify-center gap-2 border border-slate-300 bg-white py-3 text-[10px] font-bold uppercase tracking-wider text-slate-700 transition hover:bg-slate-100"
               >
-                Mulai Chat Sekarang 💬
+                <MapPin className="h-3.5 w-3.5" />
+
+                Buka Purwokerto di Maps
+
+                <ExternalLink className="h-3.5 w-3.5" />
               </a>
-            </div>
-          </div>
+
+            </section>
+
+            {/* ============================================================== */}
+            {/* FOOTER NAVIGATION */}
+            {/* ============================================================== */}
+
+            <footer className="border-t border-slate-200 px-4 py-5 sm:px-5">
+
+              <div className="grid grid-cols-1 gap-2">
+
+                <Link
+                  href="/bantuan"
+                  className="flex w-full items-center justify-center gap-2 border border-slate-300 bg-white py-3 text-[10px] font-bold uppercase tracking-wider text-slate-700 transition hover:bg-slate-100"
+                >
+                  <CircleHelp className="h-3.5 w-3.5" />
+
+                  Pusat Bantuan
+                </Link>
+
+                <Link
+                  href="/"
+                  className="flex w-full items-center justify-center gap-2 bg-[#0d5c91] py-3 text-[10px] font-bold uppercase tracking-wider text-white transition hover:bg-sky-900"
+                >
+                  <Home className="h-3.5 w-3.5" />
+
+                  Kembali ke Beranda
+                </Link>
+
+              </div>
+
+            </footer>
+
+          </section>
 
         </div>
 
-        {/* 3. GOOGLE MAPS EMBED SECTION */}
-        <div className="w-full bg-slate-100 h-56 border border-slate-200 overflow-hidden">
-          <iframe
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3958.764011972125!2d108.80878867454426!3d-7.153261370176541!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6f9d8bcc713919%3A0x7304909c6d3d6f48!2sPondok%20Pesantren%20Khoiro%20Ummah!5e0!3m2!1sid!2sid!4v1783431371414!5m2!1sid!2sid"
-            className="w-full h-full border-0"
-            allowFullScreen={true}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          ></iframe>
-        </div>
-
-        {/* TOMBOL KEMBALI */}
-        <div className="pt-2">
-          <Link 
-            href="/"
-            className="w-full block text-center border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm uppercase tracking-wider py-3 transition"
-          >
-            Kembali ke Beranda 🚀
-          </Link>
-        </div>
-
-      </div>
-    </div>
+      </main>
+    </>
   );
 }

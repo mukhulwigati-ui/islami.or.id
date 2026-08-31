@@ -1,42 +1,33 @@
 // components/CampaignDetailClient.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { useRouter } from "next/navigation";
+
 import { PortableText } from "@portabletext/react";
+
+import { QRCodeSVG } from "qrcode.react";
+
 import {
   ArrowLeft,
   Check,
+  CheckCircle2,
+  Clock3,
   Copy,
+  Loader2,
   MessageCircle,
+  RefreshCw,
   Share2,
+  ShieldCheck,
+  XCircle,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase/client";
-
-// ============================================================================
-// MIDTRANS TYPES
-// ============================================================================
-
-interface MidtransSnapOptions {
-  onSuccess?: (result: unknown) => void;
-  onPending?: (result: unknown) => void;
-  onError?: (result: unknown) => void;
-  onClose?: () => void;
-}
-
-interface MidtransSnap {
-  pay: (
-    token: string,
-    options?: MidtransSnapOptions
-  ) => void;
-}
-
-declare global {
-  interface Window {
-    snap?: MidtransSnap;
-  }
-}
 
 // ============================================================================
 // TYPES
@@ -86,12 +77,71 @@ interface CampaignDetailClientProps {
   referral: string | null;
 }
 
+type PaymentStatus =
+  | "pending"
+  | "paid"
+  | "success"
+  | "expired"
+  | "cancel"
+  | "failed";
+
+interface CasakuPayment {
+  orderId: string;
+  transactionId: string;
+
+  amount: number;
+  totalAmount: number;
+
+  qrString: string;
+
+  status: PaymentStatus;
+
+  expiredAt?: string | null;
+  expiredInMinutes?: number;
+}
+
+interface DonateApiResponse {
+  success?: boolean;
+  message?: string;
+
+  provider?: string;
+
+  orderId?: string;
+  transactionId?: string;
+
+  amount?: number;
+  totalAmount?: number;
+
+  qrString?: string;
+
+  status?: PaymentStatus;
+
+  expiredAt?: string | null;
+  expiredInMinutes?: number;
+}
+
+interface StatusApiResponse {
+  success?: boolean;
+  message?: string;
+
+  status?: PaymentStatus;
+
+  transactionId?: string;
+
+  paidAt?: string | null;
+  expiredAt?: string | null;
+
+  data?: {
+    status?: PaymentStatus;
+    transactionId?: string;
+    paidAt?: string | null;
+    expiredAt?: string | null;
+  };
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-
-const BRAND_COLOR = "#0d5c91";
-const CTA_COLOR = "#e91e63";
 
 const PRESET_AMOUNTS = [
   10_000,
@@ -102,42 +152,189 @@ const PRESET_AMOUNTS = [
   250_000,
 ];
 
+const STATUS_POLL_INTERVAL = 3000;
+
 // ============================================================================
 // HELPERS
 // ============================================================================
 
-function cleanNumber(value: unknown): number {
+function cleanNumber(
+  value: unknown
+): number {
   return (
     Number(
-      String(value ?? "").replace(/[^0-9]/g, "")
+      String(value ?? "").replace(
+        /[^0-9]/g,
+        ""
+      )
     ) || 0
   );
 }
 
-function formatRupiahInput(value: string): string {
-  const raw = value.replace(/[^0-9]/g, "");
+function formatRupiahInput(
+  value: string
+): string {
+  const raw =
+    value.replace(
+      /[^0-9]/g,
+      ""
+    );
 
   if (!raw) {
     return "";
   }
 
-  return Number(raw).toLocaleString("id-ID");
+  return Number(
+    raw
+  ).toLocaleString(
+    "id-ID"
+  );
 }
 
-function normalizePhone(value: unknown): string {
-  return String(value ?? "").replace(/[^0-9]/g, "");
+function formatRupiah(
+  value: number
+): string {
+  return `Rp ${Number(
+    value || 0
+  ).toLocaleString(
+    "id-ID"
+  )}`;
 }
 
-function normalizeSlug(value: string): string {
+function normalizePhone(
+  value: unknown
+): string {
+  return String(
+    value ?? ""
+  ).replace(
+    /[^0-9]/g,
+    ""
+  );
+}
+
+function normalizeSlug(
+  value: string
+): string {
   try {
-    return decodeURIComponent(value)
+    return decodeURIComponent(
+      value
+    )
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
+      .replace(
+        /[^a-z0-9]/g,
+        ""
+      );
   } catch {
     return value
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
+      .replace(
+        /[^a-z0-9]/g,
+        ""
+      );
   }
+}
+
+function formatCountdown(
+  totalSeconds: number
+): string {
+  const safe =
+    Math.max(
+      0,
+      totalSeconds
+    );
+
+  const minutes =
+    Math.floor(
+      safe / 60
+    );
+
+  const seconds =
+    safe % 60;
+
+  return `${String(
+    minutes
+  ).padStart(
+    2,
+    "0"
+  )}:${String(
+    seconds
+  ).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+function getPaymentExpiryTimestamp(
+  payment: CasakuPayment
+): number {
+  if (
+    payment.expiredAt
+  ) {
+    const parsed =
+      new Date(
+        payment.expiredAt
+      ).getTime();
+
+    if (
+      Number.isFinite(
+        parsed
+      )
+    ) {
+      return parsed;
+    }
+  }
+
+  const minutes =
+    payment.expiredInMinutes ||
+    15;
+
+  return (
+    Date.now() +
+    minutes *
+      60 *
+      1000
+  );
+}
+
+function normalizePaymentStatus(
+  value: unknown
+): PaymentStatus {
+  const status =
+    String(
+      value || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    status === "paid" ||
+    status === "success"
+  ) {
+    return "paid";
+  }
+
+  if (
+    status === "expired"
+  ) {
+    return "expired";
+  }
+
+  if (
+    status === "cancel" ||
+    status === "canceled" ||
+    status === "cancelled"
+  ) {
+    return "cancel";
+  }
+
+  if (
+    status === "failed" ||
+    status === "error"
+  ) {
+    return "failed";
+  }
+
+  return "pending";
 }
 
 // ============================================================================
@@ -153,31 +350,32 @@ function DetailHeader({
   title = "Program Donasi",
   onOpenShare,
 }: DetailHeaderProps) {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   return (
     <header className="sticky top-0 z-50 w-full bg-[#0d5c91] text-white shadow-sm">
       <div className="mx-auto flex h-14 w-full max-w-md items-center justify-between px-4">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() =>
+            router.back()
+          }
           className="flex cursor-pointer items-center justify-center rounded-lg border border-white/30 p-2 transition-colors hover:bg-white/10"
           aria-label="Kembali ke halaman sebelumnya"
         >
           <ArrowLeft className="h-5 w-5 text-white" />
         </button>
 
-        {/*
-          Jangan gunakan H1 di header.
-          H1 utama halaman berada pada judul program di konten.
-        */}
         <div className="max-w-[220px] truncate text-sm font-bold tracking-tight text-white sm:max-w-[280px] sm:text-base">
           {title}
         </div>
 
         <button
           type="button"
-          onClick={onOpenShare}
+          onClick={
+            onOpenShare
+          }
           className="flex cursor-pointer items-center justify-center rounded-lg border border-white/30 p-2 transition-colors hover:bg-white/10"
           aria-label="Bagikan program"
         >
@@ -193,80 +391,129 @@ function DetailHeader({
 // ============================================================================
 
 interface EmbeddedZakatCalculatorProps {
-  onApplyAmount: (value: string) => void;
+  onApplyAmount: (
+    value: string
+  ) => void;
 }
 
 function EmbeddedZakatCalculator({
   onApplyAmount,
 }: EmbeddedZakatCalculatorProps) {
-  const [activeTab, setActiveTab] =
-    useState<"penghasilan" | "maal" | "emas">(
+  const [
+    activeTab,
+    setActiveTab,
+  ] =
+    useState<
+      | "penghasilan"
+      | "maal"
+      | "emas"
+    >(
       "penghasilan"
     );
 
-  const [input1, setInput1] = useState("");
-  const [input2, setInput2] = useState("");
+  const [
+    input1,
+    setInput1,
+  ] = useState("");
 
-  // Catatan:
-  // Nilai ini adalah estimasi internal.
-  // Idealnya nanti harga emas diambil dari sumber yang dapat diperbarui.
-  const HARGA_EMAS = 1_400_000;
+  const [
+    input2,
+    setInput2,
+  ] = useState("");
+
+  const HARGA_EMAS =
+    1_400_000;
 
   const NISHAB_TAHUNAN =
-    85 * HARGA_EMAS;
+    85 *
+    HARGA_EMAS;
 
   const NISHAB_BULANAN =
-    Math.round(NISHAB_TAHUNAN / 12);
+    Math.round(
+      NISHAB_TAHUNAN /
+        12
+    );
 
   let totalZakat = 0;
   let isWajib = false;
 
-  if (activeTab === "penghasilan") {
+  if (
+    activeTab ===
+    "penghasilan"
+  ) {
     const total =
-      cleanNumber(input1) +
-      cleanNumber(input2);
+      cleanNumber(
+        input1
+      ) +
+      cleanNumber(
+        input2
+      );
 
     isWajib =
-      total >= NISHAB_BULANAN;
+      total >=
+      NISHAB_BULANAN;
 
-    totalZakat = isWajib
-      ? Math.round(total * 0.025)
-      : 0;
+    totalZakat =
+      isWajib
+        ? Math.round(
+            total *
+              0.025
+          )
+        : 0;
   }
 
-  if (activeTab === "maal") {
+  if (
+    activeTab ===
+    "maal"
+  ) {
     const total =
-      cleanNumber(input1) +
-      cleanNumber(input2);
+      cleanNumber(
+        input1
+      ) +
+      cleanNumber(
+        input2
+      );
 
     isWajib =
-      total >= NISHAB_TAHUNAN;
+      total >=
+      NISHAB_TAHUNAN;
 
-    totalZakat = isWajib
-      ? Math.round(total * 0.025)
-      : 0;
+    totalZakat =
+      isWajib
+        ? Math.round(
+            total *
+              0.025
+          )
+        : 0;
   }
 
-  if (activeTab === "emas") {
+  if (
+    activeTab ===
+    "emas"
+  ) {
     const berat =
-      Number(input1) || 0;
+      Number(
+        input1
+      ) || 0;
 
     isWajib =
       berat >= 85;
 
-    totalZakat = isWajib
-      ? Math.round(
-          berat *
-            HARGA_EMAS *
-            0.025
-        )
-      : 0;
+    totalZakat =
+      isWajib
+        ? Math.round(
+            berat *
+              HARGA_EMAS *
+              0.025
+          )
+        : 0;
   }
 
-  const resetInputs = () => {
-    setInput1("");
-    setInput2("");
-  };
+  const resetInputs =
+    () => {
+      setInput1("");
+      setInput2("");
+    };
 
   return (
     <div className="my-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -274,11 +521,15 @@ function EmbeddedZakatCalculator({
         <button
           type="button"
           onClick={() => {
-            setActiveTab("penghasilan");
+            setActiveTab(
+              "penghasilan"
+            );
+
             resetInputs();
           }}
           className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
-            activeTab === "penghasilan"
+            activeTab ===
+            "penghasilan"
               ? "border-[#0d5c91] bg-white text-[#0d5c91]"
               : "border-transparent text-slate-500"
           }`}
@@ -289,11 +540,15 @@ function EmbeddedZakatCalculator({
         <button
           type="button"
           onClick={() => {
-            setActiveTab("maal");
+            setActiveTab(
+              "maal"
+            );
+
             resetInputs();
           }}
           className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
-            activeTab === "maal"
+            activeTab ===
+            "maal"
               ? "border-[#0d5c91] bg-white text-[#0d5c91]"
               : "border-transparent text-slate-500"
           }`}
@@ -304,11 +559,15 @@ function EmbeddedZakatCalculator({
         <button
           type="button"
           onClick={() => {
-            setActiveTab("emas");
+            setActiveTab(
+              "emas"
+            );
+
             resetInputs();
           }}
           className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
-            activeTab === "emas"
+            activeTab ===
+            "emas"
               ? "border-[#0d5c91] bg-white text-[#0d5c91]"
               : "border-transparent text-slate-500"
           }`}
@@ -318,11 +577,13 @@ function EmbeddedZakatCalculator({
       </div>
 
       <div className="space-y-4 p-4 text-left">
-        {activeTab !== "emas" ? (
+        {activeTab !==
+        "emas" ? (
           <>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-600 sm:text-sm">
-                {activeTab === "penghasilan"
+                {activeTab ===
+                "penghasilan"
                   ? "Pendapatan Utama Per Bulan (Rp)"
                   : "Total Harta / Tabungan (Rp)"}
               </label>
@@ -332,11 +593,16 @@ function EmbeddedZakatCalculator({
                 inputMode="numeric"
                 className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91] sm:text-base"
                 placeholder="0"
-                value={input1}
-                onChange={(e) =>
+                value={
+                  input1
+                }
+                onChange={(
+                  e
+                ) =>
                   setInput1(
                     formatRupiahInput(
-                      e.target.value
+                      e.target
+                        .value
                     )
                   )
                 }
@@ -345,7 +611,8 @@ function EmbeddedZakatCalculator({
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-600 sm:text-sm">
-                {activeTab === "penghasilan"
+                {activeTab ===
+                "penghasilan"
                   ? "Tunjangan / Bonus / THR (Rp)"
                   : "Harta Lain yang Dihitung (Rp)"}
               </label>
@@ -355,11 +622,16 @@ function EmbeddedZakatCalculator({
                 inputMode="numeric"
                 className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91] sm:text-base"
                 placeholder="0"
-                value={input2}
-                onChange={(e) =>
+                value={
+                  input2
+                }
+                onChange={(
+                  e
+                ) =>
                   setInput2(
                     formatRupiahInput(
-                      e.target.value
+                      e.target
+                        .value
                     )
                   )
                 }
@@ -369,7 +641,8 @@ function EmbeddedZakatCalculator({
         ) : (
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-600 sm:text-sm">
-              Total Berat Emas (Gram)
+              Total Berat
+              Emas (Gram)
             </label>
 
             <input
@@ -378,9 +651,16 @@ function EmbeddedZakatCalculator({
               step="0.01"
               className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91] sm:text-base"
               placeholder="Contoh: 90"
-              value={input1}
-              onChange={(e) =>
-                setInput1(e.target.value)
+              value={
+                input1
+              }
+              onChange={(
+                e
+              ) =>
+                setInput1(
+                  e.target
+                    .value
+                )
               }
             />
           </div>
@@ -392,9 +672,8 @@ function EmbeddedZakatCalculator({
           </span>
 
           <span className="block text-xl font-extrabold text-[#0d5c91] sm:text-2xl">
-            Rp{" "}
-            {totalZakat.toLocaleString(
-              "id-ID"
+            {formatRupiah(
+              totalZakat
             )}
           </span>
 
@@ -414,7 +693,10 @@ function EmbeddedZakatCalculator({
 
           <button
             type="button"
-            disabled={totalZakat <= 0}
+            disabled={
+              totalZakat <=
+              0
+            }
             onClick={() =>
               onApplyAmount(
                 totalZakat.toLocaleString(
@@ -424,14 +706,20 @@ function EmbeddedZakatCalculator({
             }
             className="w-full cursor-pointer rounded-lg bg-[#0d5c91] py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition hover:bg-sky-900 disabled:cursor-not-allowed disabled:bg-gray-300 sm:text-sm"
           >
-            Masukkan ke Form Nominal
+            Masukkan ke
+            Form Nominal
           </button>
         </div>
 
         <p className="text-center text-[11px] leading-relaxed text-slate-400 sm:text-xs">
-          Kalkulator ini hanya memberikan estimasi awal.
-          Ketentuan zakat dapat berbeda sesuai jenis harta,
-          nishab, dan haul.
+          Kalkulator ini
+          hanya memberikan
+          estimasi awal.
+          Ketentuan zakat
+          dapat berbeda
+          sesuai jenis
+          harta, nishab,
+          dan haul.
         </p>
       </div>
     </div>
@@ -443,10 +731,14 @@ function EmbeddedZakatCalculator({
 // ============================================================================
 
 interface DonationFormFieldsProps {
-  profile: Profile | null;
+  profile:
+    | Profile
+    | null;
 
   setProfile: React.Dispatch<
-    React.SetStateAction<Profile | null>
+    React.SetStateAction<
+      Profile | null
+    >
   >;
 
   amount: string;
@@ -456,9 +748,11 @@ interface DonationFormFieldsProps {
   >;
 
   handleDonate: () => Promise<void>;
+
   handleInlineSavePhone: () => Promise<void>;
 
   submitting: boolean;
+
   isLoggedIn: boolean;
 
   inlinePhone: string;
@@ -484,26 +778,35 @@ function DonationFormFields({
   savingPhone,
 }: DonationFormFieldsProps) {
   const cleanAmountNum =
-    cleanNumber(amount);
+    cleanNumber(
+      amount
+    );
 
   const hasPhone =
     Boolean(
       profile?.phone &&
-        profile.phone.trim().length >= 9
+        profile.phone
+          .trim()
+          .length >= 9
     );
 
   return (
     <div className="space-y-4 text-left">
       <div>
         <label className="mb-2 block text-xs font-extrabold text-slate-900 sm:text-sm">
-          Pilih Nominal Donasi
+          Pilih Nominal
+          Donasi
         </label>
 
         <div className="grid grid-cols-3 gap-2">
           {PRESET_AMOUNTS.map(
-            (value) => (
+            (
+              value
+            ) => (
               <button
-                key={value}
+                key={
+                  value
+                }
                 type="button"
                 onClick={() =>
                   setAmount(
@@ -513,15 +816,23 @@ function DonationFormFields({
                   )
                 }
                 className={`rounded-xl border px-2 py-3 text-xs font-bold transition ${
-                  cleanAmountNum === value
+                  cleanAmountNum ===
+                  value
                     ? "border-[#0d5c91] bg-sky-50 text-[#0d5c91] shadow-sm ring-1 ring-[#0d5c91]"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 Rp{" "}
-                {value >= 1_000_000
-                  ? `${value / 1_000_000}jt`
-                  : `${value / 1_000}rb`}
+                {value >=
+                1_000_000
+                  ? `${
+                      value /
+                      1_000_000
+                    }jt`
+                  : `${
+                      value /
+                      1_000
+                    }rb`}
               </button>
             )
           )}
@@ -530,7 +841,8 @@ function DonationFormFields({
 
       <div>
         <label className="mb-1 block text-xs font-semibold text-slate-600">
-          Masukkan Donasi Lainnya
+          Masukkan Donasi
+          Lainnya
         </label>
 
         <div className="relative flex items-center">
@@ -543,11 +855,16 @@ function DonationFormFields({
             inputMode="numeric"
             placeholder="Min. 1.000"
             className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-10 pr-3.5 text-sm font-bold text-slate-900 outline-none focus:border-[#0d5c91] sm:text-base"
-            value={amount}
-            onChange={(e) =>
+            value={
+              amount
+            }
+            onChange={(
+              e
+            ) =>
               setAmount(
                 formatRupiahInput(
-                  e.target.value
+                  e.target
+                    .value
                 )
               )
             }
@@ -570,7 +887,9 @@ function DonationFormFields({
 
               <p className="truncate text-xs font-extrabold text-slate-900">
                 WhatsApp:{" "}
-                {profile?.phone}
+                {
+                  profile?.phone
+                }
               </p>
             </div>
 
@@ -589,8 +908,13 @@ function DonationFormFields({
               </span>
 
               <p className="text-[11px] leading-relaxed text-amber-700">
-                Lengkapi nomor WhatsApp untuk
-                pengiriman kuitansi dan informasi
+                Lengkapi
+                nomor
+                WhatsApp
+                untuk
+                pengiriman
+                kuitansi dan
+                informasi
                 donasi.
               </p>
             </div>
@@ -601,10 +925,15 @@ function DonationFormFields({
                 inputMode="tel"
                 placeholder="Contoh: 081234567890"
                 className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 outline-none focus:border-[#0d5c91]"
-                value={inlinePhone}
-                onChange={(e) =>
+                value={
+                  inlinePhone
+                }
+                onChange={(
+                  e
+                ) =>
                   setInlinePhone(
-                    e.target.value
+                    e.target
+                      .value
                   )
                 }
               />
@@ -614,7 +943,9 @@ function DonationFormFields({
                 onClick={
                   handleInlineSavePhone
                 }
-                disabled={savingPhone}
+                disabled={
+                  savingPhone
+                }
                 className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700 disabled:opacity-50"
               >
                 {savingPhone
@@ -636,14 +967,24 @@ function DonationFormFields({
               placeholder="Hamba Allah (boleh kosong)"
               className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
               value={
-                profile?.name || ""
+                profile?.name ||
+                ""
               }
-              onChange={(e) =>
+              onChange={(
+                e
+              ) =>
                 setProfile(
-                  (prev) => ({
-                    ...(prev || {}),
+                  (
+                    prev
+                  ) => ({
+                    ...(
+                      prev ||
+                      {}
+                    ),
                     name:
-                      e.target.value,
+                      e
+                        .target
+                        .value,
                   })
                 )
               }
@@ -652,7 +993,8 @@ function DonationFormFields({
 
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-700">
-              Nomor WhatsApp *
+              Nomor
+              WhatsApp *
             </label>
 
             <input
@@ -661,14 +1003,24 @@ function DonationFormFields({
               placeholder="Contoh: 081234567890"
               className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
               value={
-                profile?.phone || ""
+                profile?.phone ||
+                ""
               }
-              onChange={(e) =>
+              onChange={(
+                e
+              ) =>
                 setProfile(
-                  (prev) => ({
-                    ...(prev || {}),
+                  (
+                    prev
+                  ) => ({
+                    ...(
+                      prev ||
+                      {}
+                    ),
                     phone:
-                      e.target.value,
+                      e
+                        .target
+                        .value,
                   })
                 )
               }
@@ -676,6 +1028,24 @@ function DonationFormFields({
           </div>
         </div>
       )}
+
+      <div className="rounded-xl border border-sky-100 bg-sky-50 px-3.5 py-3">
+        <div className="flex items-start gap-2">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0d5c91]" />
+
+          <p className="text-[11px] leading-relaxed text-slate-600">
+            Pembayaran
+            menggunakan
+            QRIS. Setelah
+            transaksi dibuat,
+            scan QR yang
+            tampil menggunakan
+            aplikasi bank atau
+            dompet digital
+            Anda.
+          </p>
+        </div>
+      </div>
 
       <button
         type="button"
@@ -689,10 +1059,350 @@ function DonationFormFields({
         }
         className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#e91e63] py-4 text-sm font-extrabold uppercase tracking-wider text-white shadow-md transition hover:bg-pink-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-300 sm:text-base"
       >
-        {submitting
-          ? "Memproses..."
-          : "Lanjut pembayaran"}
+        {submitting ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Membuat QRIS...
+          </>
+        ) : (
+          "Lanjut pembayaran"
+        )}
       </button>
+    </div>
+  );
+}
+
+// ============================================================================
+// QRIS PAYMENT MODAL
+// ============================================================================
+
+interface QrisPaymentModalProps {
+  payment: CasakuPayment;
+
+  countdown: number;
+
+  checkingStatus: boolean;
+
+  onClose: () => void;
+
+  onCheckStatus: () => Promise<void>;
+}
+
+function QrisPaymentModal({
+  payment,
+  countdown,
+  checkingStatus,
+  onClose,
+  onCheckStatus,
+}: QrisPaymentModalProps) {
+  const isPaid =
+    payment.status ===
+      "paid" ||
+    payment.status ===
+      "success";
+
+  const isExpired =
+    payment.status ===
+      "expired" ||
+    countdown <= 0;
+
+  const isFailed =
+    payment.status ===
+      "failed" ||
+    payment.status ===
+      "cancel";
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:p-3"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Pembayaran QRIS"
+    >
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label="Tutup pembayaran"
+        onClick={
+          onClose
+        }
+      />
+
+      <div className="relative z-10 max-h-[94vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#0d5c91]">
+              Pembayaran QRIS
+            </p>
+
+            <h2 className="mt-0.5 text-base font-extrabold text-slate-900">
+              Selesaikan
+              Donasi
+            </h2>
+          </div>
+
+          {!isPaid && (
+            <button
+              type="button"
+              onClick={
+                onClose
+              }
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-500 transition hover:bg-slate-200"
+              aria-label="Tutup pembayaran"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-5 p-5">
+          {isPaid ? (
+            <div className="space-y-4 py-8 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
+                <CheckCircle2 className="h-11 w-11 text-emerald-600" />
+              </div>
+
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-900">
+                  Pembayaran
+                  Berhasil
+                </h3>
+
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                  Terima kasih.
+                  Donasi Anda
+                  telah
+                  terverifikasi.
+                </p>
+              </div>
+
+              <div className="border-y border-slate-100 py-4">
+                <p className="text-xs font-medium text-slate-500">
+                  Total
+                  Pembayaran
+                </p>
+
+                <p className="mt-1 text-2xl font-extrabold text-emerald-600">
+                  {formatRupiah(
+                    payment.totalAmount
+                  )}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Mengalihkan
+                ke halaman
+                konfirmasi...
+              </div>
+            </div>
+          ) : isExpired ? (
+            <div className="space-y-4 py-8 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-50">
+                <Clock3 className="h-10 w-10 text-amber-600" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900">
+                  QRIS
+                  Kedaluwarsa
+                </h3>
+
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                  Waktu
+                  pembayaran
+                  telah habis.
+                  Tutup halaman
+                  ini lalu buat
+                  transaksi baru.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  onClose
+                }
+                className="w-full rounded-xl bg-[#0d5c91] py-3.5 text-sm font-extrabold text-white"
+              >
+                Buat
+                Pembayaran Baru
+              </button>
+            </div>
+          ) : isFailed ? (
+            <div className="space-y-4 py-8 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-50">
+                <XCircle className="h-10 w-10 text-red-600" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900">
+                  Transaksi
+                  Dibatalkan
+                </h3>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Silakan buat
+                  transaksi QRIS
+                  baru untuk
+                  melanjutkan.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  onClose
+                }
+                className="w-full rounded-xl bg-[#0d5c91] py-3.5 text-sm font-extrabold text-white"
+              >
+                Kembali
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="text-center">
+                <p className="text-xs font-medium text-slate-500">
+                  Total yang
+                  harus dibayar
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-[#0d5c91]">
+                  {formatRupiah(
+                    payment.totalAmount
+                  )}
+                </p>
+
+                {payment.totalAmount !==
+                  payment.amount && (
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                    Nominal
+                    termasuk
+                    kode unik
+                    untuk
+                    verifikasi
+                    pembayaran
+                    otomatis.
+                  </p>
+                )}
+              </div>
+
+              <div className="mx-auto flex w-fit items-center justify-center border border-slate-200 bg-white p-4 shadow-sm">
+                <QRCodeSVG
+                  value={
+                    payment.qrString
+                  }
+                  size={
+                    250
+                  }
+                  level="M"
+                  includeMargin
+                  bgColor="#ffffff"
+                  fgColor="#111827"
+                />
+              </div>
+
+              <div className="text-center">
+                <p className="text-xs font-bold text-slate-700">
+                  Scan QRIS
+                  menggunakan
+                  aplikasi
+                  pembayaran
+                  Anda
+                </p>
+
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                  DANA, GoPay,
+                  ShopeePay,
+                  mobile
+                  banking,
+                  atau aplikasi
+                  lain yang
+                  mendukung
+                  QRIS.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between border-y border-slate-100 py-3">
+                <div className="flex items-center gap-2">
+                  <Clock3 className="h-4 w-4 text-amber-600" />
+
+                  <span className="text-xs font-semibold text-slate-600">
+                    Berlaku
+                    selama
+                  </span>
+                </div>
+
+                <span className="font-mono text-sm font-extrabold text-amber-700">
+                  {formatCountdown(
+                    countdown
+                  )}
+                </span>
+              </div>
+
+              <div className="rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3">
+                <div className="flex gap-2.5">
+                  <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-[#0d5c91]" />
+
+                  <div>
+                    <p className="text-xs font-bold text-[#0d5c91]">
+                      Menunggu
+                      pembayaran
+                    </p>
+
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                      Status akan
+                      diperiksa
+                      otomatis.
+                      Jangan
+                      tutup
+                      halaman
+                      sebelum
+                      pembayaran
+                      selesai.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  void onCheckStatus();
+                }}
+                disabled={
+                  checkingStatus
+                }
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${
+                    checkingStatus
+                      ? "animate-spin"
+                      : ""
+                  }`}
+                />
+
+                {checkingStatus
+                  ? "Memeriksa..."
+                  : "Cek Status Pembayaran"}
+              </button>
+
+              <div className="space-y-1 border-t border-slate-100 pt-3 text-center">
+                <p className="text-[10px] font-medium text-slate-400">
+                  ID Transaksi
+                </p>
+
+                <p className="break-all font-mono text-[10px] text-slate-500">
+                  {
+                    payment.transactionId
+                  }
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -705,59 +1415,130 @@ export default function CampaignDetailClient({
   slug,
   referral,
 }: CampaignDetailClientProps) {
-  const [program, setProgram] =
-    useState<Program | null>(null);
+  const router =
+    useRouter();
 
-  const [loading, setLoading] =
+  const [
+    program,
+    setProgram,
+  ] =
+    useState<
+      Program | null
+    >(null);
+
+  const [
+    loading,
+    setLoading,
+  ] =
     useState(true);
 
-  const [amount, setAmount] =
-    useState("10.000");
-
-  const [profile, setProfile] =
-    useState<Profile | null>(
-      null
+  const [
+    amount,
+    setAmount,
+  ] =
+    useState(
+      "10.000"
     );
+
+  const [
+    profile,
+    setProfile,
+  ] =
+    useState<
+      Profile | null
+    >(null);
 
   const [
     isLoggedIn,
     setIsLoggedIn,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     inlinePhone,
     setInlinePhone,
-  ] = useState("");
+  ] =
+    useState("");
 
   const [
     savingPhone,
     setSavingPhone,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     submitting,
     setSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     isMobileFormOpen,
     setIsMobileFormOpen,
-  ] = useState(false);
+  ] =
+    useState(false);
 
   const [
     isShareModalOpen,
     setIsShareModalOpen,
-  ] = useState(false);
+  ] =
+    useState(false);
 
-  const [copied, setCopied] =
+  const [
+    copied,
+    setCopied,
+  ] =
     useState(false);
 
   const [
     activeTab,
     setActiveTab,
-  ] = useState<
-    "cerita" | "donatur" | "laporan"
-  >("cerita");
+  ] =
+    useState<
+      | "cerita"
+      | "donatur"
+      | "laporan"
+    >(
+      "cerita"
+    );
+
+  // ==========================================================================
+  // CASAKU PAYMENT STATE
+  // ==========================================================================
+
+  const [
+    payment,
+    setPayment,
+  ] =
+    useState<
+      CasakuPayment | null
+    >(null);
+
+  const [
+    isPaymentOpen,
+    setIsPaymentOpen,
+  ] =
+    useState(false);
+
+  const [
+    checkingStatus,
+    setCheckingStatus,
+  ] =
+    useState(false);
+
+  const [
+    expiryTimestamp,
+    setExpiryTimestamp,
+  ] =
+    useState<number | null>(
+      null
+    );
+
+  const [
+    countdown,
+    setCountdown,
+  ] =
+    useState(0);
 
   // ==========================================================================
   // PROFILE / AUTH
@@ -769,7 +1550,9 @@ export default function CampaignDetailClient({
     async function loadProfileFromDatabase() {
       try {
         const {
-          data: { session },
+          data: {
+            session,
+          },
         } =
           await supabase.auth.getSession();
 
@@ -778,23 +1561,40 @@ export default function CampaignDetailClient({
         }
 
         if (!session) {
-          setIsLoggedIn(false);
-          setProfile(null);
+          setIsLoggedIn(
+            false
+          );
+
+          setProfile(
+            null
+          );
+
           return;
         }
 
-        const user = session.user;
+        const user =
+          session.user;
 
-        setIsLoggedIn(true);
+        setIsLoggedIn(
+          true
+        );
 
         const meta =
-          user.user_metadata || {};
+          user.user_metadata ||
+          {};
 
-        const { data: prof } =
+        const {
+          data: prof,
+        } =
           await supabase
-            .from("profiles")
+            .from(
+              "profiles"
+            )
             .select("*")
-            .eq("id", user.id)
+            .eq(
+              "id",
+              user.id
+            )
             .maybeSingle();
 
         if (!mounted) {
@@ -802,21 +1602,28 @@ export default function CampaignDetailClient({
         }
 
         if (prof) {
-          setProfile(prof);
+          setProfile(
+            prof
+          );
+
           return;
         }
 
         setProfile({
-          id: user.id,
+          id:
+            user.id,
 
           name:
             meta.full_name ||
             meta.name ||
-            user.email?.split("@")[0] ||
+            user.email?.split(
+              "@"
+            )[0] ||
             "Dermawan",
 
           email:
-            user.email || "",
+            user.email ||
+            "",
 
           avatar:
             meta.avatar_url ||
@@ -825,14 +1632,18 @@ export default function CampaignDetailClient({
 
           phone: "",
         });
-      } catch (error) {
+      } catch (
+        error
+      ) {
         console.error(
           "Gagal memuat profil:",
           error
         );
 
         if (mounted) {
-          setIsLoggedIn(false);
+          setIsLoggedIn(
+            false
+          );
         }
       }
     }
@@ -840,7 +1651,9 @@ export default function CampaignDetailClient({
     void loadProfileFromDatabase();
 
     const {
-      data: { subscription },
+      data: {
+        subscription,
+      },
     } =
       supabase.auth.onAuthStateChange(
         () => {
@@ -850,6 +1663,7 @@ export default function CampaignDetailClient({
 
     return () => {
       mounted = false;
+
       subscription.unsubscribe();
     };
   }, []);
@@ -863,20 +1677,26 @@ export default function CampaignDetailClient({
       new AbortController();
 
     async function loadProgram() {
-      setLoading(true);
+      setLoading(
+        true
+      );
 
       try {
         const response =
           await fetch(
             "/api/programs",
             {
-              cache: "no-store",
+              cache:
+                "no-store",
+
               signal:
                 controller.signal,
             }
           );
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
             `HTTP ${response.status}`
           );
@@ -891,19 +1711,27 @@ export default function CampaignDetailClient({
             json?.data
           )
         ) {
-          setProgram(null);
+          setProgram(
+            null
+          );
+
           return;
         }
 
         const cleanParamSlug =
-          normalizeSlug(slug);
+          normalizeSlug(
+            slug
+          );
 
         const found =
           json.data.find(
-            (item: Program) => {
+            (
+              item: Program
+            ) => {
               const dbSlug =
                 String(
-                  item.slug || ""
+                  item.slug ||
+                    ""
                 );
 
               const cleanDbSlug =
@@ -914,15 +1742,23 @@ export default function CampaignDetailClient({
               return (
                 cleanDbSlug ===
                   cleanParamSlug ||
-                dbSlug === slug ||
-                item._id === slug ||
-                item.id === slug
+                dbSlug ===
+                  slug ||
+                item._id ===
+                  slug ||
+                item.id ===
+                  slug
               );
             }
-          ) || null;
+          ) ||
+          null;
 
-        setProgram(found);
-      } catch (error) {
+        setProgram(
+          found
+        );
+      } catch (
+        error
+      ) {
         if (
           error instanceof
             DOMException &&
@@ -937,12 +1773,16 @@ export default function CampaignDetailClient({
           error
         );
 
-        setProgram(null);
+        setProgram(
+          null
+        );
       } finally {
         if (
           !controller.signal.aborted
         ) {
-          setLoading(false);
+          setLoading(
+            false
+          );
         }
       }
     }
@@ -955,6 +1795,256 @@ export default function CampaignDetailClient({
   }, [slug]);
 
   // ==========================================================================
+  // COUNTDOWN QRIS
+  // ==========================================================================
+
+  useEffect(() => {
+    if (
+      !isPaymentOpen ||
+      !payment ||
+      !expiryTimestamp
+    ) {
+      return;
+    }
+
+    const updateCountdown =
+      () => {
+        const remaining =
+          Math.max(
+            0,
+            Math.floor(
+              (
+                expiryTimestamp -
+                Date.now()
+              ) /
+                1000
+            )
+          );
+
+        setCountdown(
+          remaining
+        );
+
+        if (
+          remaining <=
+            0 &&
+          payment.status ===
+            "pending"
+        ) {
+          setPayment(
+            (
+              prev
+            ) =>
+              prev
+                ? {
+                    ...prev,
+                    status:
+                      "expired",
+                  }
+                : prev
+          );
+        }
+      };
+
+    updateCountdown();
+
+    const interval =
+      window.setInterval(
+        updateCountdown,
+        1000
+      );
+
+    return () => {
+      window.clearInterval(
+        interval
+      );
+    };
+  }, [
+    isPaymentOpen,
+    payment?.transactionId,
+    payment?.status,
+    expiryTimestamp,
+  ]);
+
+  // ==========================================================================
+  // CHECK CASAKU STATUS
+  // ==========================================================================
+
+  const checkPaymentStatus =
+    async (
+      silent = false
+    ) => {
+      if (
+        !payment?.transactionId
+      ) {
+        return;
+      }
+
+      if (
+        payment.status ===
+          "paid" ||
+        payment.status ===
+          "success" ||
+        payment.status ===
+          "expired" ||
+        payment.status ===
+          "cancel"
+      ) {
+        return;
+      }
+
+      if (!silent) {
+        setCheckingStatus(
+          true
+        );
+      }
+
+      try {
+        const response =
+          await fetch(
+            "/api/payments/casaku/status",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  transactionId:
+                    payment.transactionId,
+                }),
+
+              cache:
+                "no-store",
+            }
+          );
+
+        const json =
+          (await response.json()) as StatusApiResponse;
+
+        if (
+          !response.ok
+        ) {
+          if (!silent) {
+            throw new Error(
+              json?.message ||
+                "Gagal memeriksa status pembayaran."
+            );
+          }
+
+          return;
+        }
+
+        const newStatus =
+          normalizePaymentStatus(
+            json.status ||
+              json.data
+                ?.status
+          );
+
+        setPayment(
+          (
+            prev
+          ) =>
+            prev
+              ? {
+                  ...prev,
+                  status:
+                    newStatus,
+
+                  expiredAt:
+                    json.expiredAt ||
+                    json.data
+                      ?.expiredAt ||
+                    prev.expiredAt,
+                }
+              : prev
+        );
+
+        if (
+          newStatus ===
+          "paid"
+        ) {
+          window.setTimeout(
+            () => {
+              router.push(
+                `/donation/success?orderId=${encodeURIComponent(
+                  payment.orderId
+                )}`
+              );
+            },
+            1500
+          );
+        }
+      } catch (
+        error
+      ) {
+        console.error(
+          "Cek status Casaku error:",
+          error
+        );
+
+        if (!silent) {
+          const message =
+            error instanceof
+            Error
+              ? error.message
+              : "Gagal memeriksa pembayaran.";
+
+          alert(
+            message
+          );
+        }
+      } finally {
+        if (!silent) {
+          setCheckingStatus(
+            false
+          );
+        }
+      }
+    };
+
+  // ==========================================================================
+  // AUTO POLLING
+  // ==========================================================================
+
+  useEffect(() => {
+    if (
+      !isPaymentOpen ||
+      !payment ||
+      payment.status !==
+        "pending"
+    ) {
+      return;
+    }
+
+    const interval =
+      window.setInterval(
+        () => {
+          void checkPaymentStatus(
+            true
+          );
+        },
+        STATUS_POLL_INTERVAL
+      );
+
+    return () => {
+      window.clearInterval(
+        interval
+      );
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isPaymentOpen,
+    payment?.transactionId,
+    payment?.status,
+  ]);
+
+  // ==========================================================================
   // SAVE PHONE
   // ==========================================================================
 
@@ -965,32 +2055,48 @@ export default function CampaignDetailClient({
           inlinePhone
         );
 
-      if (clean.length < 9) {
+      if (
+        clean.length <
+        9
+      ) {
         alert(
           "Masukkan nomor WhatsApp yang valid."
         );
+
         return;
       }
 
-      setSavingPhone(true);
+      setSavingPhone(
+        true
+      );
 
       try {
         const {
-          data: { session },
+          data: {
+            session,
+          },
         } =
           await supabase.auth.getSession();
 
-        if (!session?.user) {
+        if (
+          !session?.user
+        ) {
           throw new Error(
             "Sesi habis, silakan login ulang."
           );
         }
 
-        const { error } =
+        const {
+          error,
+        } =
           await supabase
-            .from("profiles")
+            .from(
+              "profiles"
+            )
             .update({
-              phone: clean,
+              phone:
+                clean,
+
               updated_at:
                 new Date().toISOString(),
             })
@@ -1004,20 +2110,32 @@ export default function CampaignDetailClient({
         }
 
         setProfile(
-          (prev) => ({
-            ...(prev || {}),
-            phone: clean,
+          (
+            prev
+          ) => ({
+            ...(
+              prev ||
+              {}
+            ),
+
+            phone:
+              clean,
           })
         );
 
-        setInlinePhone("");
+        setInlinePhone(
+          ""
+        );
 
         alert(
           "Nomor WhatsApp berhasil disimpan. Silakan lanjutkan donasi."
         );
-      } catch (error) {
+      } catch (
+        error
+      ) {
         const message =
-          error instanceof Error
+          error instanceof
+          Error
             ? error.message
             : "Terjadi kesalahan.";
 
@@ -1025,30 +2143,49 @@ export default function CampaignDetailClient({
           `Gagal menyimpan: ${message}`
         );
       } finally {
-        setSavingPhone(false);
+        setSavingPhone(
+          false
+        );
       }
     };
 
   // ==========================================================================
-  // DONATE
+  // DONATE VIA CASAKU
   // ==========================================================================
 
   const handleDonate =
     async () => {
-      if (submitting) {
+      if (
+        submitting
+      ) {
         return;
       }
 
       const cleanAmount =
-        cleanNumber(amount);
+        cleanNumber(
+          amount
+        );
 
       if (
         !cleanAmount ||
-        cleanAmount < 1000
+        cleanAmount <
+          1000
       ) {
         alert(
           "Masukkan nominal minimal Rp 1.000."
         );
+
+        return;
+      }
+
+      if (
+        cleanAmount >
+        10_000_000
+      ) {
+        alert(
+          "Nominal QRIS maksimal Rp 10.000.000 per transaksi."
+        );
+
         return;
       }
 
@@ -1062,11 +2199,13 @@ export default function CampaignDetailClient({
         );
 
       if (
-        cleanPhone.length < 9
+        cleanPhone.length <
+        9
       ) {
         alert(
           "Nomor WhatsApp wajib diisi dengan benar."
         );
+
         return;
       }
 
@@ -1074,29 +2213,35 @@ export default function CampaignDetailClient({
         program?._id ||
         program?.id;
 
-      if (!resolvedProgramId) {
+      if (
+        !resolvedProgramId
+      ) {
         alert(
           "ID program tidak ditemukan."
         );
+
         return;
       }
 
-      setSubmitting(true);
+      setSubmitting(
+        true
+      );
 
       try {
         const response =
           await fetch(
             "/api/donate",
             {
-              method: "POST",
+              method:
+                "POST",
 
               headers: {
                 "Content-Type":
                   "application/json",
               },
 
-              body: JSON.stringify(
-                {
+              body:
+                JSON.stringify({
                   programId:
                     resolvedProgramId,
 
@@ -1107,6 +2252,10 @@ export default function CampaignDetailClient({
                   slug:
                     program?.slug ||
                     slug,
+
+                  category:
+                    program?.category ||
+                    "Kemanusiaan",
 
                   amount:
                     cleanAmount,
@@ -1124,122 +2273,179 @@ export default function CampaignDetailClient({
 
                   fundraiserPhone:
                     referral,
-                }
-              ),
+                }),
             }
           );
 
         const json =
-          await response.json();
+          (await response.json()) as DonateApiResponse;
 
-        if (!response.ok) {
+        if (
+          !response.ok ||
+          !json.success
+        ) {
           throw new Error(
             json?.message ||
-              "Gagal membuat transaksi."
+              "Gagal membuat transaksi QRIS."
           );
         }
 
         if (
-          json.success &&
-          json.token
+          !json.orderId ||
+          !json.transactionId ||
+          !json.qrString
         ) {
-          if (
-            typeof window !==
-              "undefined" &&
-            window.snap
-          ) {
-            window.snap.pay(
-              json.token,
-              {
-                onSuccess: () => {
-                  window.location.href =
-                    `/donation/success?orderId=${encodeURIComponent(
-                      json.orderId
-                    )}`;
-                },
-
-                onPending: () => {
-                  window.location.href =
-                    `/donation/success?orderId=${encodeURIComponent(
-                      json.orderId
-                    )}`;
-                },
-
-                onError: () => {
-                  alert(
-                    "Pembayaran gagal. Silakan coba lagi."
-                  );
-
-                  setSubmitting(
-                    false
-                  );
-                },
-
-                onClose: () => {
-                  setSubmitting(
-                    false
-                  );
-                },
-              }
-            );
-
-            return;
-          }
-
-          if (
-            json.paymentUrl &&
-            typeof window !==
-              "undefined"
-          ) {
-            window.location.href =
-              json.paymentUrl;
-
-            return;
-          }
-
           throw new Error(
-            "Midtrans Snap belum tersedia."
+            "Data QRIS dari server tidak lengkap."
           );
         }
 
-        throw new Error(
-          json?.message ||
-            "Gagal memproses transaksi."
+        const newPayment: CasakuPayment =
+          {
+            orderId:
+              json.orderId,
+
+            transactionId:
+              json.transactionId,
+
+            amount:
+              Number(
+                json.amount ||
+                  cleanAmount
+              ),
+
+            totalAmount:
+              Number(
+                json.totalAmount ||
+                  json.amount ||
+                  cleanAmount
+              ),
+
+            qrString:
+              json.qrString,
+
+            status:
+              normalizePaymentStatus(
+                json.status
+              ),
+
+            expiredAt:
+              json.expiredAt ||
+              null,
+
+            expiredInMinutes:
+              json.expiredInMinutes ||
+              15,
+          };
+
+        setPayment(
+          newPayment
         );
-      } catch (error) {
+
+        const expiry =
+          getPaymentExpiryTimestamp(
+            newPayment
+          );
+
+        setExpiryTimestamp(
+          expiry
+        );
+
+        setCountdown(
+          Math.max(
+            0,
+            Math.floor(
+              (
+                expiry -
+                Date.now()
+              ) /
+                1000
+            )
+          )
+        );
+
+        setIsMobileFormOpen(
+          false
+        );
+
+        setIsPaymentOpen(
+          true
+        );
+      } catch (
+        error
+      ) {
         console.error(
-          "Donation error:",
+          "Donation Casaku error:",
           error
         );
 
         const message =
-          error instanceof Error
+          error instanceof
+          Error
             ? error.message
             : "Terjadi kesalahan koneksi.";
 
-        alert(message);
-
-        setSubmitting(false);
+        alert(
+          message
+        );
+      } finally {
+        setSubmitting(
+          false
+        );
       }
+    };
+
+  // ==========================================================================
+  // CLOSE PAYMENT
+  // ==========================================================================
+
+  const closePayment =
+    () => {
+      if (
+        payment?.status ===
+          "paid" ||
+        payment?.status ===
+          "success"
+      ) {
+        return;
+      }
+
+      setIsPaymentOpen(
+        false
+      );
+
+      setPayment(
+        null
+      );
+
+      setExpiryTimestamp(
+        null
+      );
+
+      setCountdown(
+        0
+      );
     };
 
   // ==========================================================================
   // SHARE
   // ==========================================================================
 
-  const shareUrl = useMemo(() => {
-    if (
-      typeof window ===
-      "undefined"
-    ) {
-      return "";
-    }
+  const shareUrl =
+    useMemo(() => {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return "";
+      }
 
-    return window.location.href;
-  }, [
-    isShareModalOpen,
-    program,
-  ]);
+      return window
+        .location.href;
+    }, [
+      isShareModalOpen,
+      program,
+    ]);
 
   const handleCopyLink =
     async () => {
@@ -1255,11 +2461,15 @@ export default function CampaignDetailClient({
           window.location.href
         );
 
-        setCopied(true);
+        setCopied(
+          true
+        );
 
         window.setTimeout(
           () =>
-            setCopied(false),
+            setCopied(
+              false
+            ),
           2000
         );
       } catch {
@@ -1289,7 +2499,8 @@ export default function CampaignDetailClient({
           className="py-20 text-center text-sm font-medium text-slate-500 sm:text-base"
           role="status"
         >
-          Memuat detail program...
+          Memuat detail
+          program...
         </div>
       </div>
     );
@@ -1313,13 +2524,17 @@ export default function CampaignDetailClient({
 
         <div className="px-4 py-20 text-center">
           <h1 className="text-lg font-bold text-slate-900">
-            Program tidak ditemukan
+            Program tidak
+            ditemukan
           </h1>
 
           <p className="mt-2 text-sm text-slate-500">
-            Program yang Anda cari
-            mungkin sudah tidak tersedia
-            atau alamatnya tidak tepat.
+            Program yang
+            Anda cari
+            mungkin sudah
+            tidak tersedia
+            atau alamatnya
+            tidak tepat.
           </p>
         </div>
       </div>
@@ -1333,7 +2548,8 @@ export default function CampaignDetailClient({
   const rawTarget =
     Number(
       program.targetAmount
-    ) || 50_000_000;
+    ) ||
+    50_000_000;
 
   const currentCollected =
     Number(
@@ -1344,8 +2560,10 @@ export default function CampaignDetailClient({
     rawTarget > 0
       ? Math.min(
           Math.round(
-            (currentCollected /
-              rawTarget) *
+            (
+              currentCollected /
+              rawTarget
+            ) *
               100
           ),
           100
@@ -1386,26 +2604,33 @@ export default function CampaignDetailClient({
           <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-gray-100 bg-gray-100 shadow-inner">
             {program.image ? (
               <img
-                src={program.image}
+                src={
+                  program.image
+                }
                 alt={
                   program.title ||
                   "Program kebaikan islami.or.id"
                 }
-                width={800}
-                height={500}
+                width={
+                  800
+                }
+                height={
+                  500
+                }
                 loading="eager"
                 fetchPriority="high"
                 className="h-full w-full object-cover"
               />
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                Gambar program
-                belum tersedia
+                Gambar
+                program
+                belum
+                tersedia
               </div>
             )}
           </div>
 
-          {/* H1 UTAMA HALAMAN */}
           <h1 className="text-base font-bold leading-snug tracking-tight text-slate-900 sm:text-xl">
             {program.title ||
               "Program Kebaikan"}
@@ -1413,19 +2638,18 @@ export default function CampaignDetailClient({
 
           <div className="space-y-2 pt-1">
             <p className="text-lg font-extrabold text-[#0d5c91] sm:text-xl">
-              Rp{" "}
-              {currentCollected.toLocaleString(
-                "id-ID"
+              {formatRupiah(
+                currentCollected
               )}
             </p>
 
             <div className="flex items-center justify-between text-xs font-medium text-slate-500 sm:text-sm">
               <span>
-                Terkumpul dari{" "}
+                Terkumpul
+                dari{" "}
                 <strong className="text-slate-800">
-                  Rp{" "}
-                  {rawTarget.toLocaleString(
-                    "id-ID"
+                  {formatRupiah(
+                    rawTarget
                   )}
                 </strong>
               </span>
@@ -1449,10 +2673,6 @@ export default function CampaignDetailClient({
               />
             </div>
           </div>
-
-          {/* ================================================================ */}
-          {/* TABS */}
-          {/* ================================================================ */}
 
           <div
             className="flex space-x-6 border-b border-gray-200 pt-2 text-xs font-bold text-slate-500 sm:text-sm"
@@ -1501,7 +2721,10 @@ export default function CampaignDetailClient({
               }`}
             >
               Donatur (
-              {donors.length})
+              {
+                donors.length
+              }
+              )
             </button>
 
             <button
@@ -1524,13 +2747,12 @@ export default function CampaignDetailClient({
               }`}
             >
               Laporan (
-              {reports.length})
+              {
+                reports.length
+              }
+              )
             </button>
           </div>
-
-          {/* ================================================================ */}
-          {/* TAB CONTENT */}
-          {/* ================================================================ */}
 
           <div className="py-2 text-left">
             {activeTab ===
@@ -1566,7 +2788,8 @@ export default function CampaignDetailClient({
                   ) : (
                     <p className="italic text-slate-400">
                       Belum ada
-                      cerita detail.
+                      cerita
+                      detail.
                     </p>
                   )}
                 </div>
@@ -1616,12 +2839,12 @@ export default function CampaignDetailClient({
                           </div>
 
                           <p className="shrink-0 text-sm font-bold text-[#0d5c91] sm:text-base">
-                            +Rp{" "}
-                            {Number(
-                              donor.amount ||
-                                0
-                            ).toLocaleString(
-                              "id-ID"
+                            +
+                            {formatRupiah(
+                              Number(
+                                donor.amount ||
+                                  0
+                              )
                             )}
                           </p>
                         </div>
@@ -1717,7 +2940,7 @@ export default function CampaignDetailClient({
       </div>
 
       {/* ==================================================================== */}
-      {/* DONATION MODAL */}
+      {/* DONATION FORM MODAL */}
       {/* ==================================================================== */}
 
       {isMobileFormOpen && (
@@ -1731,11 +2954,15 @@ export default function CampaignDetailClient({
             type="button"
             className="absolute inset-0 cursor-default"
             aria-label="Tutup form donasi"
-            onClick={() =>
-              setIsMobileFormOpen(
-                false
-              )
-            }
+            onClick={() => {
+              if (
+                !submitting
+              ) {
+                setIsMobileFormOpen(
+                  false
+                );
+              }
+            }}
           />
 
           <div className="relative z-10 max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-5 shadow-2xl sm:rounded-2xl">
@@ -1747,12 +2974,15 @@ export default function CampaignDetailClient({
 
               <button
                 type="button"
+                disabled={
+                  submitting
+                }
                 onClick={() =>
                   setIsMobileFormOpen(
                     false
                   )
                 }
-                className="cursor-pointer p-1 text-lg font-bold text-slate-400 hover:text-slate-600"
+                className="cursor-pointer p-1 text-lg font-bold text-slate-400 hover:text-slate-600 disabled:opacity-40"
                 aria-label="Tutup"
               >
                 ✕
@@ -1760,11 +2990,15 @@ export default function CampaignDetailClient({
             </div>
 
             <DonationFormFields
-              profile={profile}
+              profile={
+                profile
+              }
               setProfile={
                 setProfile
               }
-              amount={amount}
+              amount={
+                amount
+              }
               setAmount={
                 setAmount
               }
@@ -1793,6 +3027,33 @@ export default function CampaignDetailClient({
           </div>
         </div>
       )}
+
+      {/* ==================================================================== */}
+      {/* QRIS PAYMENT MODAL */}
+      {/* ==================================================================== */}
+
+      {isPaymentOpen &&
+        payment && (
+          <QrisPaymentModal
+            payment={
+              payment
+            }
+            countdown={
+              countdown
+            }
+            checkingStatus={
+              checkingStatus
+            }
+            onClose={
+              closePayment
+            }
+            onCheckStatus={() =>
+              checkPaymentStatus(
+                false
+              )
+            }
+          />
+        )}
 
       {/* ==================================================================== */}
       {/* SHARE MODAL */}

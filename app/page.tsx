@@ -1,4 +1,3 @@
-```tsx
 // app/page.tsx
 
 import React from "react";
@@ -21,21 +20,6 @@ const SITE_NAME = "islami.or.id";
 // ============================================================================
 // SEO METADATA HOMEPAGE
 // ============================================================================
-//
-// Catatan:
-// Root layout menggunakan:
-//
-// title: {
-//   default: "...",
-//   template: "%s | islami.or.id",
-// }
-//
-// Karena itu title di halaman ini TIDAK perlu menulis "islami.or.id" lagi.
-// Hasil akhir otomatis menjadi:
-//
-// Portal Islam & Inspirasi Muslim Indonesia | islami.or.id
-//
-// ============================================================================
 
 export const metadata: Metadata = {
   title: "Portal Islam & Inspirasi Muslim Indonesia",
@@ -50,7 +34,6 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
-
     googleBot: {
       index: true,
       follow: true,
@@ -68,7 +51,6 @@ export const metadata: Metadata = {
 
     url: SITE_URL,
     siteName: SITE_NAME,
-
     locale: "id_ID",
     type: "website",
 
@@ -105,34 +87,16 @@ const projectId =
 const dataset =
   process.env.NEXT_PUBLIC_SANITY_DATASET || "production";
 
-if (!projectId) {
-  throw new Error(
-    "NEXT_PUBLIC_SANITY_PROJECT_ID belum disetel di environment variables."
-  );
-}
-
 const serverClient = createClient({
   projectId,
   dataset,
-
-  // Gunakan versi API yang konsisten dan modern.
   apiVersion: "2026-06-20",
-
-  // Homepage menampilkan nominal donasi yang perlu relatif aktual.
   useCdn: false,
-
-  // Token hanya digunakan di server.
   token: process.env.SANITY_API_TOKEN,
 });
 
 // ============================================================================
-// RENDERING STRATEGY
-// ============================================================================
-//
-// Data campaign dan nominal donasi bersifat dinamis.
-//
-// force-dynamic memastikan halaman dirender menggunakan data terbaru.
-//
+// RENDERING
 // ============================================================================
 
 export const dynamic = "force-dynamic";
@@ -158,14 +122,15 @@ interface ProgramItem {
   donorsCount?: number;
 }
 
-interface HomePageData {
-  heroBanners?: Array<{
-    id?: string;
-    title?: string;
-    imageUrl?: string;
-    linkUrl?: string;
-  }>;
+interface SanityHeroBanner {
+  id?: string;
+  title?: string;
+  imageUrl?: string;
+  linkUrl?: string;
+}
 
+interface HomePageData {
+  heroBanners?: SanityHeroBanner[];
   mendesak?: ProgramItem[];
   unggulan?: ProgramItem[];
   pilihan?: ProgramItem[];
@@ -177,137 +142,117 @@ interface HomePageData {
 
 export default async function HomePage() {
   let heroBanners: HeroBanner[] = [];
-
   let mendesakPrograms: ProgramItem[] = [];
   let unggulanPrograms: ProgramItem[] = [];
   let pilihanPrograms: ProgramItem[] = [];
 
   try {
-    // ========================================================================
-    // GROQ QUERY
-    // ========================================================================
-    //
-    // Semua data homepage diambil dalam satu request agar lebih efisien.
-    //
-    // coalesce() digunakan untuk menjaga kompatibilitas dengan field lama
-    // seperti collectedRaw.
-    //
-    // ========================================================================
-
     const query = `
       {
-        "heroBanners":
-          *[
-            _type in ["heroBanner", "banner"] &&
-            active != false
-          ]
-          | order(order asc, _createdAt desc)
-          [0...10]
-          {
-            "id": _id,
-            "title": coalesce(title, name),
-            "imageUrl": coalesce(
-              image.asset->url,
-              banner.asset->url
-            ),
-            "linkUrl": link
-          },
+        "heroBanners": *[
+          _type in ["heroBanner", "banner"] &&
+          active != false
+        ] | order(order asc, _createdAt desc)[0...10] {
+          "id": _id,
+          "title": coalesce(title, name),
+          "imageUrl": coalesce(
+            image.asset->url,
+            banner.asset->url
+          ),
+          "linkUrl": link
+        },
 
-        "mendesak":
-          *[
-            _type == "program" &&
-            sectionType == "mendesak" &&
-            defined(slug.current)
-          ]
-          | order(_createdAt desc)
-          [0...5]
-          {
-            "id": _id,
-            "title": title,
-            "slug": slug.current,
+        "mendesak": *[
+          _type == "program" &&
+          sectionType == "mendesak" &&
+          defined(slug.current)
+        ] | order(_createdAt desc)[0...5] {
+          "id": _id,
+          "title": title,
+          "slug": slug.current,
+          "image": image.asset->url,
+          "collectedAmount": coalesce(
+            collectedAmount,
+            collectedRaw,
+            0
+          ),
+          "collectedRaw": coalesce(
+            collectedAmount,
+            collectedRaw,
+            0
+          ),
+          "targetAmount": coalesce(
+            targetAmount,
+            50000000
+          ),
+          "daysLeft": daysLeft,
+          "donors": coalesce(donors, [])
+        },
 
-            "image": image.asset->url,
+        "unggulan": *[
+          _type == "program" &&
+          sectionType == "unggulan" &&
+          defined(slug.current)
+        ] | order(_createdAt desc)[0...5] {
+          "id": _id,
+          "title": title,
+          "slug": slug.current,
+          "image": image.asset->url,
+          "collectedAmount": coalesce(
+            collectedAmount,
+            collectedRaw,
+            0
+          ),
+          "collectedRaw": coalesce(
+            collectedAmount,
+            collectedRaw,
+            0
+          ),
+          "targetAmount": coalesce(
+            targetAmount,
+            50000000
+          ),
+          "donors": coalesce(donors, [])
+        },
 
-            "collectedAmount":
-              coalesce(collectedAmount, collectedRaw, 0),
-
-            "collectedRaw":
-              coalesce(collectedAmount, collectedRaw, 0),
-
-            "targetAmount":
-              coalesce(targetAmount, 50000000),
-
-            "daysLeft": daysLeft,
-
-            "donors": coalesce(donors, [])
-          },
-
-        "unggulan":
-          *[
-            _type == "program" &&
-            sectionType == "unggulan" &&
-            defined(slug.current)
-          ]
-          | order(_createdAt desc)
-          [0...5]
-          {
-            "id": _id,
-            "title": title,
-            "slug": slug.current,
-
-            "image": image.asset->url,
-
-            "collectedAmount":
-              coalesce(collectedAmount, collectedRaw, 0),
-
-            "collectedRaw":
-              coalesce(collectedAmount, collectedRaw, 0),
-
-            "targetAmount":
-              coalesce(targetAmount, 50000000),
-
-            "donors": coalesce(donors, [])
-          },
-
-        "pilihan":
-          *[
-            _type == "program" &&
-            (
-              sectionType == "pilihan" ||
-              !defined(sectionType)
-            ) &&
-            defined(slug.current)
-          ]
-          | order(_createdAt desc)
-          [0...5]
-          {
-            "id": _id,
-            "title": title,
-            "slug": slug.current,
-
-            "image": image.asset->url,
-
-            "collectedAmount":
-              coalesce(collectedAmount, collectedRaw, 0),
-
-            "collectedRaw":
-              coalesce(collectedAmount, collectedRaw, 0),
-
-            "targetAmount":
-              coalesce(targetAmount, 50000000),
-
-            "donors": coalesce(donors, []),
-
-            "donorsCount":
-              count(coalesce(donors, []))
-          }
+        "pilihan": *[
+          _type == "program" &&
+          (
+            sectionType == "pilihan" ||
+            !defined(sectionType)
+          ) &&
+          defined(slug.current)
+        ] | order(_createdAt desc)[0...5] {
+          "id": _id,
+          "title": title,
+          "slug": slug.current,
+          "image": image.asset->url,
+          "collectedAmount": coalesce(
+            collectedAmount,
+            collectedRaw,
+            0
+          ),
+          "collectedRaw": coalesce(
+            collectedAmount,
+            collectedRaw,
+            0
+          ),
+          "targetAmount": coalesce(
+            targetAmount,
+            50000000
+          ),
+          "donors": coalesce(donors, []),
+          "donorsCount": count(
+            coalesce(donors, [])
+          )
+        }
       }
     `;
 
     const data = await serverClient.fetch<HomePageData>(query);
 
     // ========================================================================
-    // HERO BANNER
+    // HERO BANNERS
     // ========================================================================
 
     if (Array.isArray(data?.heroBanners)) {
@@ -315,11 +260,8 @@ export default async function HomePage() {
         .filter(
           (
             item
-          ): item is {
-            id?: string;
-            title?: string;
+          ): item is SanityHeroBanner & {
             imageUrl: string;
-            linkUrl?: string;
           } =>
             Boolean(
               item &&
@@ -328,56 +270,37 @@ export default async function HomePage() {
             )
         )
         .map((item, index) => ({
-          _id:
-            item.id ||
-            `homepage-hero-${index}`,
-
-          title:
-            item.title ||
-            "islami.or.id",
-
-          imageUrl:
-            item.imageUrl,
-
-          linkUrl:
-            item.linkUrl || undefined,
+          _id: item.id || `homepage-hero-${index}`,
+          title: item.title || "islami.or.id",
+          imageUrl: item.imageUrl,
+          linkUrl: item.linkUrl || undefined,
         }));
     }
 
     // ========================================================================
-    // CAMPAIGN SECTIONS
+    // CAMPAIGN
     // ========================================================================
 
-    mendesakPrograms =
-      Array.isArray(data?.mendesak)
-        ? data.mendesak
-        : [];
+    mendesakPrograms = Array.isArray(data?.mendesak)
+      ? data.mendesak
+      : [];
 
-    unggulanPrograms =
-      Array.isArray(data?.unggulan)
-        ? data.unggulan
-        : [];
+    unggulanPrograms = Array.isArray(data?.unggulan)
+      ? data.unggulan
+      : [];
 
-    pilihanPrograms =
-      Array.isArray(data?.pilihan)
-        ? data.pilihan
-        : [];
+    pilihanPrograms = Array.isArray(data?.pilihan)
+      ? data.pilihan
+      : [];
   } catch (error) {
-    // Jangan membuat homepage crash jika Sanity sedang bermasalah.
     console.error(
-      "[HOMEPAGE] Gagal mengambil data dari Sanity:",
+      "[HOMEPAGE] Gagal mengambil data homepage dari Sanity:",
       error
     );
   }
 
   // ==========================================================================
   // STRUCTURED DATA
-  // ==========================================================================
-  //
-  // WebSite + Organization memberikan sinyal entity dasar kepada search engine.
-  //
-  // Jangan memasukkan rating/review palsu.
-  //
   // ==========================================================================
 
   const structuredData = {
@@ -386,28 +309,24 @@ export default async function HomePage() {
     "@graph": [
       {
         "@type": "WebSite",
-
         "@id": `${SITE_URL}/#website`,
-
         url: SITE_URL,
-
         name: SITE_NAME,
-
         alternateName: "Islami",
-
         inLanguage: "id-ID",
 
         description:
           "Portal Islam Indonesia yang menyajikan artikel keislaman dan berbagai program kebaikan.",
+
+        publisher: {
+          "@id": `${SITE_URL}/#organization`,
+        },
       },
 
       {
         "@type": "Organization",
-
         "@id": `${SITE_URL}/#organization`,
-
         name: SITE_NAME,
-
         url: SITE_URL,
 
         logo: {
@@ -419,15 +338,12 @@ export default async function HomePage() {
   };
 
   // ==========================================================================
-  // PAGE OUTPUT
+  // OUTPUT
   // ==========================================================================
 
   return (
     <>
-      {/* ==================================================================== */}
       {/* STRUCTURED DATA */}
-      {/* ==================================================================== */}
-
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -435,49 +351,28 @@ export default async function HomePage() {
         }}
       />
 
-      {/* ==================================================================== */}
-      {/* HOMEPAGE CONTENT */}
-      {/* ==================================================================== */}
-
       <main className="min-h-screen bg-gray-50 flex flex-col items-center justify-start w-full overflow-x-hidden pb-24">
         <div className="w-full max-w-md mx-auto px-3 py-4 space-y-4">
-
-          {/* ================================================================ */}
           {/* HERO */}
-          {/* ================================================================ */}
-
           <Hero initialBanners={heroBanners} />
 
-          {/* ================================================================ */}
-          {/* TOTAL DONATION ACCUMULATION */}
-          {/* ================================================================ */}
-
+          {/* TOTAL AKUMULASI DONASI */}
           <TotalAccumulationWidget />
 
-          {/* ================================================================ */}
-          {/* CAMPAIGNS */}
-          {/* ================================================================ */}
-
+          {/* CAMPAIGN */}
           <Campaign
             mendesak={mendesakPrograms}
             unggulan={unggulanPrograms}
             pilihan={pilihanPrograms}
           />
 
-          {/* ================================================================ */}
-          {/* ISLAMIC ARTICLES / NEWS */}
-          {/* ================================================================ */}
-
+          {/* ARTIKEL / BERITA */}
           <News />
 
-          {/* ================================================================ */}
           {/* FOOTER */}
-          {/* ================================================================ */}
-
           <Footer />
         </div>
       </main>
     </>
   );
 }
-```

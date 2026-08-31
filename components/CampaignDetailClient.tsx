@@ -1,166 +1,476 @@
 // components/CampaignDetailClient.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { PortableText } from '@portabletext/react';
-import { ArrowLeft, Share2, Copy, Check, MessageCircle, ShieldCheck } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client'; // 🚀 Menggunakan instance tunggal yang konsisten
+import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { PortableText } from "@portabletext/react";
+import {
+  ArrowLeft,
+  Check,
+  Copy,
+  MessageCircle,
+  Share2,
+} from "lucide-react";
 
-// Deklarasi global agar TypeScript mengenali window.snap dari Midtrans
+import { supabase } from "@/lib/supabase/client";
+
+// ============================================================================
+// MIDTRANS TYPES
+// ============================================================================
+
+interface MidtransSnapOptions {
+  onSuccess?: (result: unknown) => void;
+  onPending?: (result: unknown) => void;
+  onError?: (result: unknown) => void;
+  onClose?: () => void;
+}
+
+interface MidtransSnap {
+  pay: (
+    token: string,
+    options?: MidtransSnapOptions
+  ) => void;
+}
+
 declare global {
   interface Window {
-    snap: any;
+    snap?: MidtransSnap;
   }
 }
 
-// ===================================================================
-// 1. HEADER KHUSUS DETAIL PROGRAM
-// ===================================================================
-function DetailHeader({ title = 'Program Donasi', onOpenShare }: { title?: string; onOpenShare: () => void }) {
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface Donor {
+  name?: string;
+  date?: string;
+  amount?: number | string;
+}
+
+interface ReportItem {
+  title?: string;
+  date?: string;
+  content?: any;
+}
+
+interface Program {
+  _id?: string;
+  id?: string;
+
+  title?: string;
+  slug?: string;
+  image?: string;
+
+  category?: string;
+  description?: any;
+
+  collectedAmount?: number | string;
+  targetAmount?: number | string;
+  daysLeft?: number;
+
+  donors?: Donor[];
+  reports?: ReportItem[];
+}
+
+interface Profile {
+  id?: string;
+  name?: string;
+  email?: string;
+  avatar?: string;
+  phone?: string;
+}
+
+interface CampaignDetailClientProps {
+  slug: string;
+  referral: string | null;
+}
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const BRAND_COLOR = "#0d5c91";
+const CTA_COLOR = "#e91e63";
+
+const PRESET_AMOUNTS = [
+  10_000,
+  15_000,
+  25_000,
+  50_000,
+  100_000,
+  250_000,
+];
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function cleanNumber(value: unknown): number {
+  return (
+    Number(
+      String(value ?? "").replace(/[^0-9]/g, "")
+    ) || 0
+  );
+}
+
+function formatRupiahInput(value: string): string {
+  const raw = value.replace(/[^0-9]/g, "");
+
+  if (!raw) {
+    return "";
+  }
+
+  return Number(raw).toLocaleString("id-ID");
+}
+
+function normalizePhone(value: unknown): string {
+  return String(value ?? "").replace(/[^0-9]/g, "");
+}
+
+function normalizeSlug(value: string): string {
+  try {
+    return decodeURIComponent(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  } catch {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  }
+}
+
+// ============================================================================
+// HEADER
+// ============================================================================
+
+interface DetailHeaderProps {
+  title?: string;
+  onOpenShare: () => void;
+}
+
+function DetailHeader({
+  title = "Program Donasi",
+  onOpenShare,
+}: DetailHeaderProps) {
   const router = useRouter();
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0d5c91] text-white w-full shadow-sm">
-      <div className="w-full max-w-md mx-auto px-4 h-14 flex items-center justify-between">
+    <header className="sticky top-0 z-50 w-full bg-[#0d5c91] text-white shadow-sm">
+      <div className="mx-auto flex h-14 w-full max-w-md items-center justify-between px-4">
         <button
+          type="button"
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors cursor-pointer"
-          aria-label="Kembali"
+          className="flex cursor-pointer items-center justify-center rounded-lg border border-white/30 p-2 transition-colors hover:bg-white/10"
+          aria-label="Kembali ke halaman sebelumnya"
         >
-          <ArrowLeft className="w-5 h-5 text-white" />
+          <ArrowLeft className="h-5 w-5 text-white" />
         </button>
 
-        <h1 className="text-sm sm:text-base font-bold text-white tracking-tight truncate max-w-[220px] sm:max-w-[280px]">
+        {/*
+          Jangan gunakan H1 di header.
+          H1 utama halaman berada pada judul program di konten.
+        */}
+        <div className="max-w-[220px] truncate text-sm font-bold tracking-tight text-white sm:max-w-[280px] sm:text-base">
           {title}
-        </h1>
+        </div>
 
         <button
+          type="button"
           onClick={onOpenShare}
-          className="flex items-center justify-center p-2 border border-white/30 hover:bg-white/10 transition-colors cursor-pointer"
-          aria-label="Bagikan"
+          className="flex cursor-pointer items-center justify-center rounded-lg border border-white/30 p-2 transition-colors hover:bg-white/10"
+          aria-label="Bagikan program"
         >
-          <Share2 className="w-5 h-5 text-white" />
+          <Share2 className="h-5 w-5 text-white" />
         </button>
       </div>
     </header>
   );
 }
 
-// ===================================================================
-// 2. IN-LINE WIDGET KALKULATOR ZAKAT
-// ===================================================================
-function EmbeddedZakatCalculator({ onApplyAmount }: { onApplyAmount: (val: string) => void }) {
-  const [activeTab, setActiveTab] = useState<'penghasilan' | 'maal' | 'emas'>('penghasilan');
-  const [input1, setInput1] = useState('');
-  const [input2, setInput2] = useState('');
+// ============================================================================
+// KALKULATOR ZAKAT
+// ============================================================================
 
-  const HARGA_EMAS = 1400000; 
-  const NISHAB_TAHUNAN = 85 * HARGA_EMAS;
-  const NISHAB_BULANAN = Math.round(NISHAB_TAHUNAN / 12);
+interface EmbeddedZakatCalculatorProps {
+  onApplyAmount: (value: string) => void;
+}
 
-  const formatRupiah = (val: string) => {
-    const raw = val.replace(/[^0-9]/g, '');
-    return raw ? Number(raw).toLocaleString('id-ID') : '';
-  };
-  const getNum = (val: string) => Number(val.replace(/\./g, '')) || 0;
+function EmbeddedZakatCalculator({
+  onApplyAmount,
+}: EmbeddedZakatCalculatorProps) {
+  const [activeTab, setActiveTab] =
+    useState<"penghasilan" | "maal" | "emas">(
+      "penghasilan"
+    );
+
+  const [input1, setInput1] = useState("");
+  const [input2, setInput2] = useState("");
+
+  // Catatan:
+  // Nilai ini adalah estimasi internal.
+  // Idealnya nanti harga emas diambil dari sumber yang dapat diperbarui.
+  const HARGA_EMAS = 1_400_000;
+
+  const NISHAB_TAHUNAN =
+    85 * HARGA_EMAS;
+
+  const NISHAB_BULANAN =
+    Math.round(NISHAB_TAHUNAN / 12);
 
   let totalZakat = 0;
   let isWajib = false;
 
-  if (activeTab === 'penghasilan') {
-    const total = getNum(input1) + getNum(input2);
-    isWajib = total >= NISHAB_BULANAN;
-    totalZakat = isWajib ? Math.round(total * 0.025) : 0;
-  } else if (activeTab === 'maal') {
-    const total = getNum(input1) + getNum(input2);
-    isWajib = total >= NISHAB_TAHUNAN;
-    totalZakat = isWajib ? Math.round(total * 0.025) : 0;
-  } else if (activeTab === 'emas') {
-    const berat = Number(input1) || 0;
-    isWajib = berat >= 85;
-    totalZakat = isWajib ? Math.round((berat * HARGA_EMAS) * 0.025) : 0;
+  if (activeTab === "penghasilan") {
+    const total =
+      cleanNumber(input1) +
+      cleanNumber(input2);
+
+    isWajib =
+      total >= NISHAB_BULANAN;
+
+    totalZakat = isWajib
+      ? Math.round(total * 0.025)
+      : 0;
   }
 
+  if (activeTab === "maal") {
+    const total =
+      cleanNumber(input1) +
+      cleanNumber(input2);
+
+    isWajib =
+      total >= NISHAB_TAHUNAN;
+
+    totalZakat = isWajib
+      ? Math.round(total * 0.025)
+      : 0;
+  }
+
+  if (activeTab === "emas") {
+    const berat =
+      Number(input1) || 0;
+
+    isWajib =
+      berat >= 85;
+
+    totalZakat = isWajib
+      ? Math.round(
+          berat *
+            HARGA_EMAS *
+            0.025
+        )
+      : 0;
+  }
+
+  const resetInputs = () => {
+    setInput1("");
+    setInput2("");
+  };
+
   return (
-    <div className="border border-gray-200 bg-white overflow-hidden my-4 shadow-sm rounded-xl">
-      <div className="flex border-b border-gray-200 text-xs font-bold bg-gray-50">
+    <div className="my-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex border-b border-gray-200 bg-gray-50 text-xs font-bold">
         <button
-          onClick={() => { setActiveTab('penghasilan'); setInput1(''); setInput2(''); }}
-          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'penghasilan' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
+          type="button"
+          onClick={() => {
+            setActiveTab("penghasilan");
+            resetInputs();
+          }}
+          className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
+            activeTab === "penghasilan"
+              ? "border-[#0d5c91] bg-white text-[#0d5c91]"
+              : "border-transparent text-slate-500"
+          }`}
         >
           PENGHASILAN
         </button>
+
         <button
-          onClick={() => { setActiveTab('maal'); setInput1(''); setInput2(''); }}
-          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'maal' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
+          type="button"
+          onClick={() => {
+            setActiveTab("maal");
+            resetInputs();
+          }}
+          className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
+            activeTab === "maal"
+              ? "border-[#0d5c91] bg-white text-[#0d5c91]"
+              : "border-transparent text-slate-500"
+          }`}
         >
           MAAL
         </button>
+
         <button
-          onClick={() => { setActiveTab('emas'); setInput1(''); setInput2(''); }}
-          className={`flex-1 py-3 text-center border-b-2 transition cursor-pointer ${activeTab === 'emas' ? 'text-[#0d5c91] border-[#0d5c91] bg-white' : 'text-slate-500 border-transparent'}`}
+          type="button"
+          onClick={() => {
+            setActiveTab("emas");
+            resetInputs();
+          }}
+          className={`flex-1 cursor-pointer border-b-2 py-3 text-center transition ${
+            activeTab === "emas"
+              ? "border-[#0d5c91] bg-white text-[#0d5c91]"
+              : "border-transparent text-slate-500"
+          }`}
         >
           EMAS
         </button>
       </div>
-      <div className="p-4 space-y-4 text-left">
-        {activeTab !== 'emas' ? (
+
+      <div className="space-y-4 p-4 text-left">
+        {activeTab !== "emas" ? (
           <>
             <div>
-              <label className="text-xs sm:text-sm font-medium text-slate-600 block mb-1.5">Pendapatan Utama / Tabungan Per Bulan (Rp)</label>
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 sm:text-sm">
+                {activeTab === "penghasilan"
+                  ? "Pendapatan Utama Per Bulan (Rp)"
+                  : "Total Harta / Tabungan (Rp)"}
+              </label>
+
               <input
                 type="text"
-                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91] rounded-lg"
+                inputMode="numeric"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91] sm:text-base"
                 placeholder="0"
                 value={input1}
-                onChange={(e) => setInput1(formatRupiah(e.target.value))}
+                onChange={(e) =>
+                  setInput1(
+                    formatRupiahInput(
+                      e.target.value
+                    )
+                  )
+                }
               />
             </div>
+
             <div>
-              <label className="text-xs sm:text-sm font-medium text-slate-600 block mb-1.5">Tunjangan / Bonus / THR (Rp)</label>
+              <label className="mb-1.5 block text-xs font-medium text-slate-600 sm:text-sm">
+                {activeTab === "penghasilan"
+                  ? "Tunjangan / Bonus / THR (Rp)"
+                  : "Harta Lain yang Dihitung (Rp)"}
+              </label>
+
               <input
                 type="text"
-                className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91] rounded-lg"
+                inputMode="numeric"
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91] sm:text-base"
                 placeholder="0"
                 value={input2}
-                onChange={(e) => setInput2(formatRupiah(e.target.value))}
+                onChange={(e) =>
+                  setInput2(
+                    formatRupiahInput(
+                      e.target.value
+                    )
+                  )
+                }
               />
             </div>
           </>
         ) : (
           <div>
-            <label className="text-xs sm:text-sm font-medium text-slate-600 block mb-1.5">Total Berat Emas (Gram)</label>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600 sm:text-sm">
+              Total Berat Emas (Gram)
+            </label>
+
             <input
               type="number"
-              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm sm:text-base font-semibold text-slate-800 focus:outline-[#0d5c91] rounded-lg"
+              min="0"
+              step="0.01"
+              className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#0d5c91] sm:text-base"
               placeholder="Contoh: 90"
               value={input1}
-              onChange={(e) => setInput1(e.target.value)}
+              onChange={(e) =>
+                setInput1(e.target.value)
+              }
             />
           </div>
         )}
-        <div className="bg-sky-50/60 border border-sky-100 p-4 text-center space-y-2 rounded-xl">
-          <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wide block">Estimasi Wajib Zakat Anda</span>
-          <span className="text-xl sm:text-2xl font-extrabold text-[#0d5c91] block">Rp {totalZakat.toLocaleString('id-ID')}</span>
+
+        <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50/60 p-4 text-center">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 sm:text-sm">
+            Estimasi Zakat
+          </span>
+
+          <span className="block text-xl font-extrabold text-[#0d5c91] sm:text-2xl">
+            Rp{" "}
+            {totalZakat.toLocaleString(
+              "id-ID"
+            )}
+          </span>
+
+          {input1 && (
+            <p
+              className={`text-xs font-semibold ${
+                isWajib
+                  ? "text-emerald-700"
+                  : "text-slate-500"
+              }`}
+            >
+              {isWajib
+                ? "Berdasarkan estimasi, telah mencapai nishab."
+                : "Berdasarkan estimasi, belum mencapai nishab."}
+            </p>
+          )}
+
           <button
+            type="button"
             disabled={totalZakat <= 0}
-            onClick={() => onApplyAmount(totalZakat.toLocaleString('id-ID'))}
-            className="w-full bg-[#0d5c91] hover:bg-sky-900 text-white text-xs sm:text-sm font-bold py-2.5 uppercase tracking-wider disabled:bg-gray-300 transition shadow-sm cursor-pointer rounded-lg"
+            onClick={() =>
+              onApplyAmount(
+                totalZakat.toLocaleString(
+                  "id-ID"
+                )
+              )
+            }
+            className="w-full cursor-pointer rounded-lg bg-[#0d5c91] py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm transition hover:bg-sky-900 disabled:cursor-not-allowed disabled:bg-gray-300 sm:text-sm"
           >
-            Masukkan ke Form Nominal 📥
+            Masukkan ke Form Nominal
           </button>
         </div>
-        <p className="text-[11px] sm:text-xs text-slate-400 text-center">Nilai di atas adalah estimasi. Zakat wajib ditunaikan jika harta mencapai nishab dan haul.</p>
+
+        <p className="text-center text-[11px] leading-relaxed text-slate-400 sm:text-xs">
+          Kalkulator ini hanya memberikan estimasi awal.
+          Ketentuan zakat dapat berbeda sesuai jenis harta,
+          nishab, dan haul.
+        </p>
       </div>
     </div>
   );
 }
 
-// ===================================================================
-// 3. FORM DONASI PROFESIONAL (SISTEM PROFILES TABEL)
-// ===================================================================
-const DonationFormFields = ({
+// ============================================================================
+// DONATION FORM
+// ============================================================================
+
+interface DonationFormFieldsProps {
+  profile: Profile | null;
+
+  setProfile: React.Dispatch<
+    React.SetStateAction<Profile | null>
+  >;
+
+  amount: string;
+
+  setAmount: React.Dispatch<
+    React.SetStateAction<string>
+  >;
+
+  handleDonate: () => Promise<void>;
+  handleInlineSavePhone: () => Promise<void>;
+
+  submitting: boolean;
+  isLoggedIn: boolean;
+
+  inlinePhone: string;
+
+  setInlinePhone: React.Dispatch<
+    React.SetStateAction<string>
+  >;
+
+  savingPhone: boolean;
+}
+
+function DonationFormFields({
   profile,
   setProfile,
   amount,
@@ -172,590 +482,1460 @@ const DonationFormFields = ({
   inlinePhone,
   setInlinePhone,
   savingPhone,
-}: any) => {
-  const PRESET_AMOUNTS = [10000, 15000, 25000, 50000, 100000, 250000];
-  const cleanAmountNum = Number(String(amount || '').replace(/[^0-9]/g, '')) || 0;
+}: DonationFormFieldsProps) {
+  const cleanAmountNum =
+    cleanNumber(amount);
 
-  const hasPhone = Boolean(profile?.phone && profile.phone.trim().length >= 9);
+  const hasPhone =
+    Boolean(
+      profile?.phone &&
+        profile.phone.trim().length >= 9
+    );
 
   return (
     <div className="space-y-4 text-left">
-      {/* Pilihan Nominal Kotak-Kotak */}
       <div>
-        <label className="text-xs sm:text-sm font-extrabold text-slate-900 block mb-2">Pilih Nominal Donasi</label>
+        <label className="mb-2 block text-xs font-extrabold text-slate-900 sm:text-sm">
+          Pilih Nominal Donasi
+        </label>
+
         <div className="grid grid-cols-3 gap-2">
-          {PRESET_AMOUNTS.map((val) => (
-            <button
-              key={val}
-              type="button"
-              onClick={() => setAmount(val.toLocaleString('id-ID'))}
-              className={`py-3 px-2 text-xs font-bold rounded-xl border transition cursor-pointer ${
-                cleanAmountNum === val
-                  ? 'bg-sky-50 text-[#0d5c91] border-[#0d5c91] shadow-2xs ring-1 ring-[#0d5c91]'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              Rp {val >= 1000000 ? `${val / 1000000}jt` : `${val / 1000}rb`}
-            </button>
-          ))}
+          {PRESET_AMOUNTS.map(
+            (value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() =>
+                  setAmount(
+                    value.toLocaleString(
+                      "id-ID"
+                    )
+                  )
+                }
+                className={`rounded-xl border px-2 py-3 text-xs font-bold transition ${
+                  cleanAmountNum === value
+                    ? "border-[#0d5c91] bg-sky-50 text-[#0d5c91] shadow-sm ring-1 ring-[#0d5c91]"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Rp{" "}
+                {value >= 1_000_000
+                  ? `${value / 1_000_000}jt`
+                  : `${value / 1_000}rb`}
+              </button>
+            )
+          )}
         </div>
       </div>
 
-      {/* Input Nominal Lainnya */}
       <div>
-        <label className="text-xs font-semibold text-slate-600 block mb-1">Masukkan Donasi Lainnya</label>
+        <label className="mb-1 block text-xs font-semibold text-slate-600">
+          Masukkan Donasi Lainnya
+        </label>
+
         <div className="relative flex items-center">
-          <span className="absolute left-3.5 text-sm font-bold text-slate-400">Rp</span>
+          <span className="absolute left-3.5 text-sm font-bold text-slate-400">
+            Rp
+          </span>
+
           <input
             type="text"
+            inputMode="numeric"
             placeholder="Min. 1.000"
-            className="w-full border border-gray-300 pl-10 pr-3.5 py-2.5 text-sm sm:text-base font-bold text-slate-900 focus:outline-[#0d5c91] rounded-xl bg-white"
+            className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-10 pr-3.5 text-sm font-bold text-slate-900 outline-none focus:border-[#0d5c91] sm:text-base"
             value={amount}
-            onChange={(e) => {
-              const raw = e.target.value.replace(/[^0-9]/g, '');
-              setAmount(raw ? Number(raw).toLocaleString('id-ID') : '');
-            }}
+            onChange={(e) =>
+              setAmount(
+                formatRupiahInput(
+                  e.target.value
+                )
+              )
+            }
           />
         </div>
       </div>
 
-      <hr className="border-slate-100 my-2" />
+      <hr className="my-2 border-slate-100" />
 
-      {/* 🚀 LOGIKA ALUR PROFIL & WHATSAPP BERDASARKAN KONSISTENSI SESSION */}
       {isLoggedIn ? (
         hasPhone ? (
-          /* KONDISI 1: SUDAH LOGIN & NOMOR WA ADA -> BERSIH TANPA FORM APA PUN */
-          <div className="bg-emerald-50 border border-emerald-200/80 p-3.5 rounded-xl flex items-center justify-between">
-            <div className="space-y-0.5 overflow-hidden">
-              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide block">Login ✓ • {profile?.name}</span>
-              <p className="text-xs font-extrabold text-slate-900 truncate">WhatsApp: {profile?.phone}</p>
+          <div className="flex items-center justify-between rounded-xl border border-emerald-200/80 bg-emerald-50 p-3.5">
+            <div className="min-w-0 space-y-0.5">
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                Login ✓
+                {profile?.name
+                  ? ` • ${profile.name}`
+                  : ""}
+              </span>
+
+              <p className="truncate text-xs font-extrabold text-slate-900">
+                WhatsApp:{" "}
+                {profile?.phone}
+              </p>
             </div>
-            <span className="text-[11px] bg-emerald-600 text-white font-bold px-2.5 py-1 rounded-full shrink-0">Siap Donasi</span>
+
+            <span className="shrink-0 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white">
+              Siap Donasi
+            </span>
           </div>
         ) : (
-          /* KONDISI 2: SUDAH LOGIN TAPI NOMOR WA BELUM ADA -> MINTA ISI SEKALI SAJA */
-          <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
+          <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
             <div>
-              <span className="text-xs font-bold text-amber-900 block mb-0.5">Halo, {profile?.name || 'Dermawan'}!</span>
-              <p className="text-[11px] text-amber-700">Lengkapi nomor WhatsApp Anda sekali ini saja untuk pengiriman kuitansi dan laporan donasi.</p>
+              <span className="mb-0.5 block text-xs font-bold text-amber-900">
+                Halo,{" "}
+                {profile?.name ||
+                  "Dermawan"}
+                !
+              </span>
+
+              <p className="text-[11px] leading-relaxed text-amber-700">
+                Lengkapi nomor WhatsApp untuk
+                pengiriman kuitansi dan informasi
+                donasi.
+              </p>
             </div>
+
             <div className="flex gap-2">
               <input
                 type="tel"
+                inputMode="tel"
                 placeholder="Contoh: 081234567890"
-                className="flex-1 border border-amber-300 px-3 py-2 text-xs font-semibold text-slate-900 rounded-lg bg-white focus:outline-[#0d5c91]"
+                className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 outline-none focus:border-[#0d5c91]"
                 value={inlinePhone}
-                onChange={(e) => setInlinePhone(e.target.value)}
+                onChange={(e) =>
+                  setInlinePhone(
+                    e.target.value
+                  )
+                }
               />
+
               <button
                 type="button"
-                onClick={handleInlineSavePhone}
+                onClick={
+                  handleInlineSavePhone
+                }
                 disabled={savingPhone}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 text-xs rounded-lg transition shrink-0 cursor-pointer disabled:opacity-50"
+                className="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700 disabled:opacity-50"
               >
-                {savingPhone ? 'Menyimpan...' : 'Simpan'}
+                {savingPhone
+                  ? "Menyimpan..."
+                  : "Simpan"}
               </button>
             </div>
           </div>
         )
       ) : (
-        /* KONDISI 3: BELUM LOGIN (GUEST) -> TAMPILKAN INPUT MANUAL */
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">Nama Donatur</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-700">
+              Nama Donatur
+            </label>
+
             <input
               type="text"
-              placeholder="Hamba Allah (Boleh Kosong)"
-              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm text-slate-800 rounded-xl bg-white"
-              value={profile?.name || ''}
-              onChange={(e) => setProfile((prev: any) => ({ ...prev, name: e.target.value }))}
+              placeholder="Hamba Allah (boleh kosong)"
+              className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
+              value={
+                profile?.name || ""
+              }
+              onChange={(e) =>
+                setProfile(
+                  (prev) => ({
+                    ...(prev || {}),
+                    name:
+                      e.target.value,
+                  })
+                )
+              }
             />
           </div>
+
           <div>
-            <label className="text-xs font-semibold text-slate-700 block mb-1">Nomor WhatsApp *</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-700">
+              Nomor WhatsApp *
+            </label>
+
             <input
               type="tel"
+              inputMode="tel"
               placeholder="Contoh: 081234567890"
-              className="w-full border border-gray-300 px-3.5 py-2.5 text-sm text-slate-800 rounded-xl bg-white"
-              value={profile?.phone || ''}
-              onChange={(e) => setProfile((prev: any) => ({ ...prev, phone: e.target.value }))}
+              className="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0d5c91]"
+              value={
+                profile?.phone || ""
+              }
+              onChange={(e) =>
+                setProfile(
+                  (prev) => ({
+                    ...(prev || {}),
+                    phone:
+                      e.target.value,
+                  })
+                )
+              }
             />
           </div>
         </div>
       )}
 
-      {/* Tombol Pembayaran */}
       <button
         type="button"
-        onClick={handleDonate}
-        disabled={submitting || (isLoggedIn && !hasPhone)}
-        className="w-full bg-[#e91e63] hover:bg-pink-700 active:scale-[0.99] text-white font-extrabold py-4 transition text-sm sm:text-base uppercase tracking-wider disabled:bg-gray-300 shadow-md flex items-center justify-center gap-2 cursor-pointer rounded-xl mt-3"
+        onClick={() => {
+          void handleDonate();
+        }}
+        disabled={
+          submitting ||
+          (isLoggedIn &&
+            !hasPhone)
+        }
+        className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#e91e63] py-4 text-sm font-extrabold uppercase tracking-wider text-white shadow-md transition hover:bg-pink-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-300 sm:text-base"
       >
-        {submitting ? 'Memproses...' : 'Lanjut pembayaran'}
+        {submitting
+          ? "Memproses..."
+          : "Lanjut pembayaran"}
       </button>
     </div>
   );
-};
-
-// ===================================================================
-// 4. MAIN DETAIL CLIENT COMPONENT (MOBILE-FIRST)
-// ===================================================================
-interface CampaignDetailClientProps {
-  slug: string;
-  referral: string | null;
 }
 
-export default function CampaignDetailClient({ slug, referral }: CampaignDetailClientProps) {
-  const [program, setProgram] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [amount, setAmount] = useState('10.000'); 
-  
-  // State Profile Database & Auth Session
-  const [profile, setProfile] = useState<any>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [inlinePhone, setInlinePhone] = useState('');
-  const [savingPhone, setSavingPhone] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  
-  const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'cerita' | 'donatur' | 'laporan'>('cerita');
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
-  // 🚀 Menggunakan loadProfileFromDatabase dengan getSession() & onAuthStateChange()
+export default function CampaignDetailClient({
+  slug,
+  referral,
+}: CampaignDetailClientProps) {
+  const [program, setProgram] =
+    useState<Program | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [amount, setAmount] =
+    useState("10.000");
+
+  const [profile, setProfile] =
+    useState<Profile | null>(
+      null
+    );
+
+  const [
+    isLoggedIn,
+    setIsLoggedIn,
+  ] = useState(false);
+
+  const [
+    inlinePhone,
+    setInlinePhone,
+  ] = useState("");
+
+  const [
+    savingPhone,
+    setSavingPhone,
+  ] = useState(false);
+
+  const [
+    submitting,
+    setSubmitting,
+  ] = useState(false);
+
+  const [
+    isMobileFormOpen,
+    setIsMobileFormOpen,
+  ] = useState(false);
+
+  const [
+    isShareModalOpen,
+    setIsShareModalOpen,
+  ] = useState(false);
+
+  const [copied, setCopied] =
+    useState(false);
+
+  const [
+    activeTab,
+    setActiveTab,
+  ] = useState<
+    "cerita" | "donatur" | "laporan"
+  >("cerita");
+
+  // ==========================================================================
+  // PROFILE / AUTH
+  // ==========================================================================
+
   useEffect(() => {
+    let mounted = true;
+
     async function loadProfileFromDatabase() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } =
+          await supabase.auth.getSession();
+
+        if (!mounted) {
+          return;
+        }
 
         if (!session) {
           setIsLoggedIn(false);
+          setProfile(null);
           return;
         }
 
         const user = session.user;
+
         setIsLoggedIn(true);
 
-        const meta = user.user_metadata || {};
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
+        const meta =
+          user.user_metadata || {};
+
+        const { data: prof } =
+          await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .maybeSingle();
+
+        if (!mounted) {
+          return;
+        }
 
         if (prof) {
           setProfile(prof);
-        } else {
-          setProfile({
-            id: user.id,
-            name: meta.full_name || meta.name || user.email?.split('@')[0] || 'Dermawan',
-            email: user.email,
-            avatar: meta.avatar_url || meta.picture || '',
-            phone: '',
-          });
+          return;
         }
-      } catch (e) {
-        console.error(e);
-        setIsLoggedIn(false);
+
+        setProfile({
+          id: user.id,
+
+          name:
+            meta.full_name ||
+            meta.name ||
+            user.email?.split("@")[0] ||
+            "Dermawan",
+
+          email:
+            user.email || "",
+
+          avatar:
+            meta.avatar_url ||
+            meta.picture ||
+            "",
+
+          phone: "",
+        });
+      } catch (error) {
+        console.error(
+          "Gagal memuat profil:",
+          error
+        );
+
+        if (mounted) {
+          setIsLoggedIn(false);
+        }
       }
     }
 
-    loadProfileFromDatabase();
+    void loadProfileFromDatabase();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      loadProfileFromDatabase();
-    });
+    const {
+      data: { subscription },
+    } =
+      supabase.auth.onAuthStateChange(
+        () => {
+          void loadProfileFromDatabase();
+        }
+      );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Fungsi simpan nomor WA kilat dari dalam popup donasi
-  const handleInlineSavePhone = async () => {
-    const clean = inlinePhone.replace(/[^0-9]/g, '');
-    if (clean.length < 9) {
-      alert('Masukkan nomor WhatsApp yang valid!');
-      return;
-    }
-
-    setSavingPhone(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error('Sesi habis, silakan login ulang.');
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ phone: clean, updated_at: new Date().toISOString() })
-        .eq('id', session.user.id);
-
-      if (error) throw error;
-
-      setProfile((prev: any) => ({ ...prev, phone: clean }));
-      setInlinePhone('');
-      alert('Nomor WhatsApp berhasil disimpan! Silakan lanjutkan donasi.');
-    } catch (err: any) {
-      alert('Gagal menyimpan: ' + err.message);
-    } finally {
-      setSavingPhone(false);
-    }
-  };
-
-  const handleDonate = async () => {
-    const cleanAmount = Number(String(amount || '').replace(/[^0-9]/g, ''));
-    if (!cleanAmount || isNaN(cleanAmount) || cleanAmount < 1000) {
-      alert('Masukkan nominal minimal Rp 1.000!');
-      return;
-    }
-
-    const activePhone = profile?.phone || inlinePhone;
-    const cleanPhone = String(activePhone || '').replace(/[^0-9]/g, '');
-    if (!cleanPhone || cleanPhone.length < 9) {
-      alert('Nomor WhatsApp wajib diisi!');
-      return;
-    }
-
-    const resolvedProgramId = program?._id || program?.id;
-    if (!resolvedProgramId) {
-      alert('ID Program tidak ditemukan.');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/donate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          programId: resolvedProgramId,
-          programTitle: program?.title || 'Sedekah Umum',
-          slug: program?.slug,
-          amount: cleanAmount,
-          donorName: profile?.name?.trim() || 'Hamba Allah',
-          phone: cleanPhone,
-          email: profile?.email?.trim() || '',
-          fundraiserPhone: referral,
-        }),
-      });
-
-      const json = await res.json();
-      
-      // 🚀 Integrasi Midtrans Snap Popup Pembayaran dengan Penanganan Callbacks yang Benar
-      if (json.success && json.token) {
-        if (typeof window !== 'undefined' && window.snap) {
-          window.snap.pay(json.token, {
-            onSuccess: function (result: any) {
-              // Hanya dialihkan ke halaman sukses jika pembayaran benar-benar selesai/berhasil
-              window.location.href = `/donation/success?orderId=${json.orderId}`;
-            },
-            onPending: function (result: any) {
-              // Jika transaksi tertunda (belum dibayar, misal metode QRIS/VA baru dimunculkan)
-              // Berikan opsi atau arahkan ke halaman pending/sukses dengan status pending
-              window.location.href = `/donation/success?orderId=${json.orderId}`;
-            },
-            onError: function (result: any) {
-              alert("Pembayaran gagal, silakan coba lagi.");
-              setSubmitting(false);
-            },
-            onClose: function () {
-              // JIKA POPUP DITUTUP SEBELUM BAYAR: Jangan redirect, cukup aktifkan tombol kembali!
-              setSubmitting(false);
-            }
-          });
-        } else {
-          // Fallback jika script snap belum termuat
-          if (json.paymentUrl) {
-            window.location.href = json.paymentUrl;
-          } else {
-            alert('Midtrans Snap tidak tersedia.');
-            setSubmitting(false);
-          }
-        }
-      } else {
-        alert(json.message || 'Gagal memproses transaksi.');
-        setSubmitting(false);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Terjadi kesalahan koneksi.');
-      setSubmitting(false);
-    }
-  };
+  // ==========================================================================
+  // LOAD PROGRAM
+  // ==========================================================================
 
   useEffect(() => {
-    fetch(`/api/programs?t=${Date.now()}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success && json.data) {
-          const cleanParamSlug = decodeURIComponent(slug).toLowerCase().replace(/[^a-z0-9]/g, '');
-          
-          const found = json.data.find((p: any) => {
-            const cleanDbSlug = (p.slug || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            return cleanDbSlug === cleanParamSlug || p.slug === slug || p._id === slug;
-          });
+    const controller =
+      new AbortController();
 
-          setProgram(found);
+    async function loadProgram() {
+      setLoading(true);
+
+      try {
+        const response =
+          await fetch(
+            "/api/programs",
+            {
+              cache: "no-store",
+              signal:
+                controller.signal,
+            }
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `HTTP ${response.status}`
+          );
         }
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Fetch detail campaign error:', err);
-        setLoading(false);
-      });
+
+        const json =
+          await response.json();
+
+        if (
+          !json?.success ||
+          !Array.isArray(
+            json?.data
+          )
+        ) {
+          setProgram(null);
+          return;
+        }
+
+        const cleanParamSlug =
+          normalizeSlug(slug);
+
+        const found =
+          json.data.find(
+            (item: Program) => {
+              const dbSlug =
+                String(
+                  item.slug || ""
+                );
+
+              const cleanDbSlug =
+                normalizeSlug(
+                  dbSlug
+                );
+
+              return (
+                cleanDbSlug ===
+                  cleanParamSlug ||
+                dbSlug === slug ||
+                item._id === slug ||
+                item.id === slug
+              );
+            }
+          ) || null;
+
+        setProgram(found);
+      } catch (error) {
+        if (
+          error instanceof
+            DOMException &&
+          error.name ===
+            "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "Fetch detail campaign error:",
+          error
+        );
+
+        setProgram(null);
+      } finally {
+        if (
+          !controller.signal.aborted
+        ) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadProgram();
+
+    return () => {
+      controller.abort();
+    };
   }, [slug]);
 
-  const handleCopyLink = () => {
-    if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  // ==========================================================================
+  // SAVE PHONE
+  // ==========================================================================
+
+  const handleInlineSavePhone =
+    async () => {
+      const clean =
+        normalizePhone(
+          inlinePhone
+        );
+
+      if (clean.length < 9) {
+        alert(
+          "Masukkan nomor WhatsApp yang valid."
+        );
+        return;
+      }
+
+      setSavingPhone(true);
+
+      try {
+        const {
+          data: { session },
+        } =
+          await supabase.auth.getSession();
+
+        if (!session?.user) {
+          throw new Error(
+            "Sesi habis, silakan login ulang."
+          );
+        }
+
+        const { error } =
+          await supabase
+            .from("profiles")
+            .update({
+              phone: clean,
+              updated_at:
+                new Date().toISOString(),
+            })
+            .eq(
+              "id",
+              session.user.id
+            );
+
+        if (error) {
+          throw error;
+        }
+
+        setProfile(
+          (prev) => ({
+            ...(prev || {}),
+            phone: clean,
+          })
+        );
+
+        setInlinePhone("");
+
+        alert(
+          "Nomor WhatsApp berhasil disimpan. Silakan lanjutkan donasi."
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Terjadi kesalahan.";
+
+        alert(
+          `Gagal menyimpan: ${message}`
+        );
+      } finally {
+        setSavingPhone(false);
+      }
+    };
+
+  // ==========================================================================
+  // DONATE
+  // ==========================================================================
+
+  const handleDonate =
+    async () => {
+      if (submitting) {
+        return;
+      }
+
+      const cleanAmount =
+        cleanNumber(amount);
+
+      if (
+        !cleanAmount ||
+        cleanAmount < 1000
+      ) {
+        alert(
+          "Masukkan nominal minimal Rp 1.000."
+        );
+        return;
+      }
+
+      const activePhone =
+        profile?.phone ||
+        inlinePhone;
+
+      const cleanPhone =
+        normalizePhone(
+          activePhone
+        );
+
+      if (
+        cleanPhone.length < 9
+      ) {
+        alert(
+          "Nomor WhatsApp wajib diisi dengan benar."
+        );
+        return;
+      }
+
+      const resolvedProgramId =
+        program?._id ||
+        program?.id;
+
+      if (!resolvedProgramId) {
+        alert(
+          "ID program tidak ditemukan."
+        );
+        return;
+      }
+
+      setSubmitting(true);
+
+      try {
+        const response =
+          await fetch(
+            "/api/donate",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify(
+                {
+                  programId:
+                    resolvedProgramId,
+
+                  programTitle:
+                    program?.title ||
+                    "Sedekah Umum",
+
+                  slug:
+                    program?.slug ||
+                    slug,
+
+                  amount:
+                    cleanAmount,
+
+                  donorName:
+                    profile?.name?.trim() ||
+                    "Hamba Allah",
+
+                  phone:
+                    cleanPhone,
+
+                  email:
+                    profile?.email?.trim() ||
+                    "",
+
+                  fundraiserPhone:
+                    referral,
+                }
+              ),
+            }
+          );
+
+        const json =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            json?.message ||
+              "Gagal membuat transaksi."
+          );
+        }
+
+        if (
+          json.success &&
+          json.token
+        ) {
+          if (
+            typeof window !==
+              "undefined" &&
+            window.snap
+          ) {
+            window.snap.pay(
+              json.token,
+              {
+                onSuccess: () => {
+                  window.location.href =
+                    `/donation/success?orderId=${encodeURIComponent(
+                      json.orderId
+                    )}`;
+                },
+
+                onPending: () => {
+                  window.location.href =
+                    `/donation/success?orderId=${encodeURIComponent(
+                      json.orderId
+                    )}`;
+                },
+
+                onError: () => {
+                  alert(
+                    "Pembayaran gagal. Silakan coba lagi."
+                  );
+
+                  setSubmitting(
+                    false
+                  );
+                },
+
+                onClose: () => {
+                  setSubmitting(
+                    false
+                  );
+                },
+              }
+            );
+
+            return;
+          }
+
+          if (
+            json.paymentUrl &&
+            typeof window !==
+              "undefined"
+          ) {
+            window.location.href =
+              json.paymentUrl;
+
+            return;
+          }
+
+          throw new Error(
+            "Midtrans Snap belum tersedia."
+          );
+        }
+
+        throw new Error(
+          json?.message ||
+            "Gagal memproses transaksi."
+        );
+      } catch (error) {
+        console.error(
+          "Donation error:",
+          error
+        );
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Terjadi kesalahan koneksi.";
+
+        alert(message);
+
+        setSubmitting(false);
+      }
+    };
+
+  // ==========================================================================
+  // SHARE
+  // ==========================================================================
+
+  const shareUrl = useMemo(() => {
+    if (
+      typeof window ===
+      "undefined"
+    ) {
+      return "";
     }
-  };
 
-  if (loading) return (
-    <div className="min-h-screen bg-gray-50">
-      <DetailHeader title="Program Donasi" onOpenShare={() => setIsShareModalOpen(true)} />
-      <div className="text-center py-20 text-slate-500 font-medium text-sm sm:text-base">Memuat detail program...</div>
-    </div>
-  );
+    return window.location.href;
+  }, [
+    isShareModalOpen,
+    program,
+  ]);
 
-  if (!program) return (
-    <div className="min-h-screen bg-gray-50">
-      <DetailHeader title="Program Donasi" onOpenShare={() => setIsShareModalOpen(true)} />
-      <div className="text-center py-20 text-red-500 font-medium text-sm sm:text-base">Program tidak ditemukan.</div>
-    </div>
-  );
+  const handleCopyLink =
+    async () => {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return;
+      }
 
-  const rawTarget = program.targetAmount || 50000000;
-  const currentCollected = Number(program.collectedAmount || 0);
-  const percentage = Math.min(Math.round((currentCollected / rawTarget) * 100), 100);
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+      try {
+        await navigator.clipboard.writeText(
+          window.location.href
+        );
+
+        setCopied(true);
+
+        window.setTimeout(
+          () =>
+            setCopied(false),
+          2000
+        );
+      } catch {
+        alert(
+          "Tautan gagal disalin."
+        );
+      }
+    };
+
+  // ==========================================================================
+  // LOADING
+  // ==========================================================================
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DetailHeader
+          title="Program Donasi"
+          onOpenShare={() =>
+            setIsShareModalOpen(
+              true
+            )
+          }
+        />
+
+        <div
+          className="py-20 text-center text-sm font-medium text-slate-500 sm:text-base"
+          role="status"
+        >
+          Memuat detail program...
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================================================
+  // NOT FOUND
+  // ==========================================================================
+
+  if (!program) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DetailHeader
+          title="Program Donasi"
+          onOpenShare={() =>
+            setIsShareModalOpen(
+              true
+            )
+          }
+        />
+
+        <div className="px-4 py-20 text-center">
+          <h1 className="text-lg font-bold text-slate-900">
+            Program tidak ditemukan
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Program yang Anda cari
+            mungkin sudah tidak tersedia
+            atau alamatnya tidak tepat.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================================================
+  // PROGRAM VALUES
+  // ==========================================================================
+
+  const rawTarget =
+    Number(
+      program.targetAmount
+    ) || 50_000_000;
+
+  const currentCollected =
+    Number(
+      program.collectedAmount
+    ) || 0;
+
+  const percentage =
+    rawTarget > 0
+      ? Math.min(
+          Math.round(
+            (currentCollected /
+              rawTarget) *
+              100
+          ),
+          100
+        )
+      : 0;
+
+  const donors =
+    Array.isArray(
+      program.donors
+    )
+      ? program.donors
+      : [];
+
+  const reports =
+    Array.isArray(
+      program.reports
+    )
+      ? program.reports
+      : [];
+
+  // ==========================================================================
+  // OUTPUT
+  // ==========================================================================
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
-      {/* Header */}
-      <DetailHeader title="Program Donasi" onOpenShare={() => setIsShareModalOpen(true)} />
+      <DetailHeader
+        title="Program Donasi"
+        onOpenShare={() =>
+          setIsShareModalOpen(
+            true
+          )
+        }
+      />
 
-      {/* Konten Utama */}
-      <div className="w-full max-w-md mx-auto px-3 pt-4 space-y-4">
-        <div className="bg-white p-4 sm:p-6 shadow-sm border border-gray-200/90 space-y-4 rounded-xl">
-          <div className="overflow-hidden bg-gray-100 aspect-[16/10] w-full border border-gray-100 shadow-inner rounded-xl">
-            <img src={program.image} alt={program.title} className="w-full h-full object-cover" />
+      <main className="mx-auto w-full max-w-md space-y-4 px-3 pt-4">
+        <article className="space-y-4 rounded-xl border border-gray-200/90 bg-white p-4 shadow-sm sm:p-6">
+          <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-gray-100 bg-gray-100 shadow-inner">
+            {program.image ? (
+              <img
+                src={program.image}
+                alt={
+                  program.title ||
+                  "Program kebaikan islami.or.id"
+                }
+                width={800}
+                height={500}
+                loading="eager"
+                fetchPriority="high"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                Gambar program
+                belum tersedia
+              </div>
+            )}
           </div>
 
-          <h1 className="text-base sm:text-xl font-bold text-slate-900 leading-snug tracking-tight">
-            {program.title}
+          {/* H1 UTAMA HALAMAN */}
+          <h1 className="text-base font-bold leading-snug tracking-tight text-slate-900 sm:text-xl">
+            {program.title ||
+              "Program Kebaikan"}
           </h1>
 
           <div className="space-y-2 pt-1">
-            <p className="text-lg sm:text-xl font-extrabold text-[#0d5c91]">
-              Rp {currentCollected.toLocaleString('id-ID')}
+            <p className="text-lg font-extrabold text-[#0d5c91] sm:text-xl">
+              Rp{" "}
+              {currentCollected.toLocaleString(
+                "id-ID"
+              )}
             </p>
-            <div className="flex justify-between items-center text-xs sm:text-sm text-slate-500 font-medium">
-              <span>Terkumpul dari <strong className="text-slate-800">Rp {rawTarget.toLocaleString('id-ID')}</strong></span>
-              <span>{program.daysLeft ? `${program.daysLeft} hari lagi` : 'Mendesak'}</span>
+
+            <div className="flex items-center justify-between text-xs font-medium text-slate-500 sm:text-sm">
+              <span>
+                Terkumpul dari{" "}
+                <strong className="text-slate-800">
+                  Rp{" "}
+                  {rawTarget.toLocaleString(
+                    "id-ID"
+                  )}
+                </strong>
+              </span>
+
+              <span>
+                {program.daysLeft
+                  ? `${program.daysLeft} hari lagi`
+                  : "Mendesak"}
+              </span>
             </div>
 
-            <div className="w-full bg-gray-100 h-2.5 overflow-hidden shadow-inner rounded-full">
-              <div className="bg-[#e91e63] h-full transition-all duration-500" style={{ width: `${percentage}%` }} />
+            <div
+              className="h-2.5 w-full overflow-hidden rounded-full bg-gray-100 shadow-inner"
+              aria-label={`Progres donasi ${percentage}%`}
+            >
+              <div
+                className="h-full bg-[#e91e63] transition-all duration-500"
+                style={{
+                  width: `${percentage}%`,
+                }}
+              />
             </div>
           </div>
 
-          {/* Tab Navigasi */}
-          <div className="flex border-b border-gray-200 text-xs sm:text-sm font-bold text-slate-500 space-x-6 pt-2">
+          {/* ================================================================ */}
+          {/* TABS */}
+          {/* ================================================================ */}
+
+          <div
+            className="flex space-x-6 border-b border-gray-200 pt-2 text-xs font-bold text-slate-500 sm:text-sm"
+            role="tablist"
+            aria-label="Informasi program"
+          >
             <button
-              onClick={() => setActiveTab('cerita')}
-              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'cerita' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
+              type="button"
+              role="tab"
+              aria-selected={
+                activeTab ===
+                "cerita"
+              }
+              onClick={() =>
+                setActiveTab(
+                  "cerita"
+                )
+              }
+              className={`cursor-pointer border-b-2 pb-2.5 transition focus:outline-none ${
+                activeTab ===
+                "cerita"
+                  ? "border-[#0d5c91] text-[#0d5c91]"
+                  : "border-transparent"
+              }`}
             >
               Cerita
             </button>
+
             <button
-              onClick={() => setActiveTab('donatur')}
-              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'donatur' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
+              type="button"
+              role="tab"
+              aria-selected={
+                activeTab ===
+                "donatur"
+              }
+              onClick={() =>
+                setActiveTab(
+                  "donatur"
+                )
+              }
+              className={`cursor-pointer border-b-2 pb-2.5 transition focus:outline-none ${
+                activeTab ===
+                "donatur"
+                  ? "border-[#0d5c91] text-[#0d5c91]"
+                  : "border-transparent"
+              }`}
             >
-              Donatur ({(program.donors || []).length})
+              Donatur (
+              {donors.length})
             </button>
+
             <button
-              onClick={() => setActiveTab('laporan')}
-              className={`pb-2.5 transition focus:outline-none cursor-pointer ${activeTab === 'laporan' ? 'text-[#0d5c91] border-b-2 border-[#0d5c91]' : 'border-b-2 border-transparent'}`}
+              type="button"
+              role="tab"
+              aria-selected={
+                activeTab ===
+                "laporan"
+              }
+              onClick={() =>
+                setActiveTab(
+                  "laporan"
+                )
+              }
+              className={`cursor-pointer border-b-2 pb-2.5 transition focus:outline-none ${
+                activeTab ===
+                "laporan"
+                  ? "border-[#0d5c91] text-[#0d5c91]"
+                  : "border-transparent"
+              }`}
             >
-              Laporan ({(program.reports || []).length})
+              Laporan (
+              {reports.length})
             </button>
           </div>
 
-          {/* Isi Konten Tab */}
+          {/* ================================================================ */}
+          {/* TAB CONTENT */}
+          {/* ================================================================ */}
+
           <div className="py-2 text-left">
-            {activeTab === 'cerita' && (
+            {activeTab ===
+              "cerita" && (
               <div className="space-y-4">
-                {program.category?.toUpperCase() === 'ZAKAT' && (
-                  <EmbeddedZakatCalculator onApplyAmount={(val) => setAmount(val)} />
+                {program.category
+                  ?.trim()
+                  .toUpperCase() ===
+                  "ZAKAT" && (
+                  <EmbeddedZakatCalculator
+                    onApplyAmount={
+                      setAmount
+                    }
+                  />
                 )}
 
-                <div className="text-slate-800 text-base sm:text-lg leading-relaxed space-y-4 font-normal">
+                <div className="space-y-4 text-base font-normal leading-relaxed text-slate-800 sm:text-lg">
                   {program.description ? (
-                    typeof program.description === 'string' ? (
-                      <p>{program.description}</p>
+                    typeof program.description ===
+                    "string" ? (
+                      <p>
+                        {
+                          program.description
+                        }
+                      </p>
                     ) : (
-                      <PortableText value={program.description} />
+                      <PortableText
+                        value={
+                          program.description
+                        }
+                      />
                     )
                   ) : (
-                    <p className="text-slate-400 italic">Belum ada cerita detail.</p>
+                    <p className="italic text-slate-400">
+                      Belum ada
+                      cerita detail.
+                    </p>
                   )}
                 </div>
               </div>
             )}
 
-            {activeTab === 'donatur' && (
+            {activeTab ===
+              "donatur" && (
               <div className="space-y-3 py-1">
-                {(program.donors || []).length > 0 ? (
-                  [...program.donors].reverse().map((donor: any, idx: number) => (
-                    <div key={idx} className="bg-gray-50 border border-gray-200/80 p-3.5 flex items-center justify-between rounded-xl">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-sky-100 text-[#0d5c91] flex items-center justify-center font-bold text-base shadow-inner rounded-full">
-                          {(donor.name || 'H').toUpperCase().slice(0, 1)}
+                {donors.length >
+                0 ? (
+                  [...donors]
+                    .reverse()
+                    .map(
+                      (
+                        donor,
+                        index
+                      ) => (
+                        <div
+                          key={`${donor.name || "donor"}-${index}`}
+                          className="flex items-center justify-between rounded-xl border border-gray-200/80 bg-gray-50 p-3.5"
+                        >
+                          <div className="flex min-w-0 items-center space-x-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-base font-bold text-[#0d5c91] shadow-inner">
+                              {(
+                                donor.name ||
+                                "H"
+                              )
+                                .toUpperCase()
+                                .slice(
+                                  0,
+                                  1
+                                )}
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-slate-800 sm:text-base">
+                                {donor.name ||
+                                  "Hamba Allah"}
+                              </p>
+
+                              <p className="text-xs font-normal text-slate-400">
+                                {donor.date ||
+                                  "Baru saja"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <p className="shrink-0 text-sm font-bold text-[#0d5c91] sm:text-base">
+                            +Rp{" "}
+                            {Number(
+                              donor.amount ||
+                                0
+                            ).toLocaleString(
+                              "id-ID"
+                            )}
+                          </p>
                         </div>
-                        <div>
-                          <p className="text-sm sm:text-base font-bold text-slate-800">{donor.name || 'Hamba Allah'}</p>
-                          <p className="text-xs text-slate-400 font-normal">{donor.date || 'Baru Saja'}</p>
-                        </div>
-                      </div>
-                      <p className="text-sm sm:text-base font-bold text-[#0d5c91]">{`+Rp ${Number(donor.amount || 0).toLocaleString('id-ID')}`}</p>
-                    </div>
-                  ))
+                      )
+                    )
                 ) : (
-                  <p className="text-center py-8 text-sm sm:text-base text-slate-400">Belum ada donatur.</p>
+                  <p className="py-8 text-center text-sm text-slate-400 sm:text-base">
+                    Belum ada
+                    donatur.
+                  </p>
                 )}
               </div>
             )}
 
-            {activeTab === 'laporan' && (
+            {activeTab ===
+              "laporan" && (
               <div className="space-y-4 py-1">
-                {(program.reports || []).length > 0 ? (
-                  [...program.reports].reverse().map((report: any, idx: number) => (
-                    <div key={idx} className="bg-gray-50 border border-gray-200/80 p-4 space-y-2.5 rounded-xl">
-                      <div className="flex items-center justify-between border-b border-gray-200 pb-2.5">
-                        <h4 className="text-sm sm:text-base font-bold text-slate-800">{report.title || 'Laporan Penyaluran'}</h4>
-                        <span className="text-xs text-slate-400 font-medium">{report.date}</span>
-                      </div>
-                      <div className="text-sm sm:text-base text-slate-800 leading-relaxed">
-                        {typeof report.content === 'string' ? <p>{report.content}</p> : <PortableText value={report.content} />}
-                      </div>
-                    </div>
-                  ))
+                {reports.length >
+                0 ? (
+                  [...reports]
+                    .reverse()
+                    .map(
+                      (
+                        report,
+                        index
+                      ) => (
+                        <section
+                          key={`${report.title || "report"}-${index}`}
+                          className="space-y-2.5 rounded-xl border border-gray-200/80 bg-gray-50 p-4"
+                        >
+                          <div className="flex items-center justify-between border-b border-gray-200 pb-2.5">
+                            <h2 className="text-sm font-bold text-slate-800 sm:text-base">
+                              {report.title ||
+                                "Laporan Penyaluran"}
+                            </h2>
+
+                            <span className="text-xs font-medium text-slate-400">
+                              {report.date ||
+                                ""}
+                            </span>
+                          </div>
+
+                          <div className="text-sm leading-relaxed text-slate-800 sm:text-base">
+                            {typeof report.content ===
+                            "string" ? (
+                              <p>
+                                {
+                                  report.content
+                                }
+                              </p>
+                            ) : report.content ? (
+                              <PortableText
+                                value={
+                                  report.content
+                                }
+                              />
+                            ) : null}
+                          </div>
+                        </section>
+                      )
+                    )
                 ) : (
-                  <p className="text-center py-8 text-sm sm:text-base text-slate-400">Belum ada pembaruan laporan.</p>
+                  <p className="py-8 text-center text-sm text-slate-400 sm:text-base">
+                    Belum ada
+                    pembaruan
+                    laporan.
+                  </p>
                 )}
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </article>
+      </main>
 
-      {/* Floating Bottom Bar ala Kitabisa */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none flex justify-center pb-3">
-        <div className="w-[calc(100%-1.5rem)] max-w-md bg-white border border-gray-200 p-3.5 shadow-xl pointer-events-auto rounded-2xl">
-          <button 
-            onClick={() => setIsMobileFormOpen(true)} 
-            className="w-full bg-[#e91e63] hover:bg-pink-700 active:scale-[0.99] text-white text-sm sm:text-base font-extrabold py-4 shadow-md transition-all uppercase tracking-wide cursor-pointer rounded-xl"
+      {/* ==================================================================== */}
+      {/* BOTTOM CTA */}
+      {/* ==================================================================== */}
+
+      <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-3">
+        <div className="pointer-events-auto w-[calc(100%-1.5rem)] max-w-md rounded-2xl border border-gray-200 bg-white p-3.5 shadow-xl">
+          <button
+            type="button"
+            onClick={() =>
+              setIsMobileFormOpen(
+                true
+              )
+            }
+            className="w-full cursor-pointer rounded-xl bg-[#e91e63] py-4 text-sm font-extrabold uppercase tracking-wide text-white shadow-md transition-all hover:bg-pink-700 active:scale-[0.99] sm:text-base"
           >
             Donasi sekarang
           </button>
         </div>
       </div>
 
-      {/* Modal Popup Donasi Ala Kitabisa */}
+      {/* ==================================================================== */}
+      {/* DONATION MODAL */}
+      {/* ==================================================================== */}
+
       {isMobileFormOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-3">
-          <div className="absolute inset-0" onClick={() => setIsMobileFormOpen(false)} />
-          <div className="relative w-full max-w-md bg-white p-5 space-y-4 max-h-[90vh] overflow-y-auto z-10 shadow-2xl border border-gray-200 rounded-t-2xl sm:rounded-2xl">
-            <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wide">Pilih Nominal Donasi</h3>
-              <button 
-                onClick={() => setIsMobileFormOpen(false)} 
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-xs sm:items-center sm:p-3"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Form donasi"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="Tutup form donasi"
+            onClick={() =>
+              setIsMobileFormOpen(
+                false
+              )
+            }
+          />
+
+          <div className="relative z-10 max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-5 shadow-2xl sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-900 sm:text-base">
+                Pilih Nominal
+                Donasi
+              </h2>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setIsMobileFormOpen(
+                    false
+                  )
+                }
+                className="cursor-pointer p-1 text-lg font-bold text-slate-400 hover:text-slate-600"
+                aria-label="Tutup"
               >
                 ✕
               </button>
             </div>
-            <DonationFormFields 
-              profile={profile} setProfile={setProfile}
-              amount={amount} setAmount={setAmount}
-              handleDonate={handleDonate}
-              handleInlineSavePhone={handleInlineSavePhone}
-              submitting={submitting}
-              isLoggedIn={isLoggedIn}
-              inlinePhone={inlinePhone} setInlinePhone={setInlinePhone}
-              savingPhone={savingPhone}
+
+            <DonationFormFields
+              profile={profile}
+              setProfile={
+                setProfile
+              }
+              amount={amount}
+              setAmount={
+                setAmount
+              }
+              handleDonate={
+                handleDonate
+              }
+              handleInlineSavePhone={
+                handleInlineSavePhone
+              }
+              submitting={
+                submitting
+              }
+              isLoggedIn={
+                isLoggedIn
+              }
+              inlinePhone={
+                inlinePhone
+              }
+              setInlinePhone={
+                setInlinePhone
+              }
+              savingPhone={
+                savingPhone
+              }
             />
           </div>
         </div>
       )}
 
-      {/* Modal Share */}
+      {/* ==================================================================== */}
+      {/* SHARE MODAL */}
+      {/* ==================================================================== */}
+
       {isShareModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3">
-          <div className="absolute inset-0" onClick={() => setIsShareModalOpen(false)} />
-          <div className="relative w-full max-w-md bg-white p-5 space-y-4 z-10 shadow-2xl border border-gray-200 text-left rounded-2xl">
-            <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 uppercase tracking-wide">Bagikan Program Kebaikan</h3>
-              <button 
-                onClick={() => setIsShareModalOpen(false)} 
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bagikan program"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="Tutup menu berbagi"
+            onClick={() =>
+              setIsShareModalOpen(
+                false
+              )
+            }
+          />
+
+          <div className="relative z-10 w-full max-w-md space-y-4 rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-900 sm:text-base">
+                Bagikan Program
+                Kebaikan
+              </h2>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setIsShareModalOpen(
+                    false
+                  )
+                }
+                className="cursor-pointer p-1 text-lg font-bold text-slate-400 hover:text-slate-600"
+                aria-label="Tutup"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs sm:text-sm font-semibold text-slate-600 block">Tautan Program</label>
+              <label className="block text-xs font-semibold text-slate-600 sm:text-sm">
+                Tautan Program
+              </label>
+
               <div className="flex items-center gap-2">
-                <input 
-                  type="text" 
-                  readOnly 
-                  value={shareUrl} 
-                  className="flex-1 bg-gray-50 border border-gray-300 px-3.5 py-2.5 text-xs sm:text-sm font-mono text-slate-700 truncate focus:outline-none rounded-lg"
+                <input
+                  type="text"
+                  readOnly
+                  value={
+                    shareUrl
+                  }
+                  className="min-w-0 flex-1 truncate rounded-lg border border-gray-300 bg-gray-50 px-3.5 py-2.5 font-mono text-xs text-slate-700 outline-none sm:text-sm"
                 />
+
                 <button
-                  onClick={handleCopyLink}
-                  className="bg-[#0d5c91] text-white px-4 py-2.5 text-xs sm:text-sm font-bold shrink-0 flex items-center gap-1.5 hover:bg-sky-900 transition shadow-sm cursor-pointer rounded-lg"
+                  type="button"
+                  onClick={() => {
+                    void handleCopyLink();
+                  }}
+                  className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-[#0d5c91] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-sky-900 sm:text-sm"
                 >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{copied ? 'Tersalin' : 'Salin'}</span>
+                  {copied ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+
+                  <span>
+                    {copied
+                      ? "Tersalin"
+                      : "Salin"}
+                  </span>
                 </button>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2.5 pt-1">
               <a
-                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Ayo bantu program kebaikan ini: ${program?.title || ''}\n${shareUrl}`)}`}
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                  `Ayo bantu program kebaikan ini: ${
+                    program.title ||
+                    ""
+                  }\n${shareUrl}`
+                )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center justify-center p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 space-y-1.5 hover:bg-emerald-100 transition shadow-2xs rounded-xl"
+                className="flex flex-col items-center justify-center space-y-1.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-emerald-800 transition hover:bg-emerald-100"
               >
-                <MessageCircle className="w-6 h-6 text-emerald-600" />
-                <span className="text-xs sm:text-sm font-bold">WhatsApp</span>
+                <MessageCircle className="h-6 w-6 text-emerald-600" />
+
+                <span className="text-xs font-bold sm:text-sm">
+                  WhatsApp
+                </span>
               </a>
 
               <a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
+                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                  shareUrl
+                )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center justify-center p-3.5 bg-blue-50 border border-blue-200 text-blue-800 space-y-1.5 hover:bg-blue-100 transition shadow-2xs rounded-xl"
+                className="flex flex-col items-center justify-center space-y-1.5 rounded-xl border border-blue-200 bg-blue-50 p-3.5 text-blue-800 transition hover:bg-blue-100"
               >
-                <svg className="w-6 h-6 fill-current text-blue-600" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                <svg
+                  className="h-6 w-6 fill-current text-blue-600"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
-                <span className="text-xs sm:text-sm font-bold">Facebook</span>
+
+                <span className="text-xs font-bold sm:text-sm">
+                  Facebook
+                </span>
               </a>
 
               <a
-                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(program?.title || '')}`}
+                href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(
+                  shareUrl
+                )}&text=${encodeURIComponent(
+                  program.title ||
+                    ""
+                )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center justify-center p-3.5 bg-gray-100 border border-gray-200 text-slate-800 space-y-1.5 hover:bg-gray-200 transition shadow-2xs rounded-xl"
+                className="flex flex-col items-center justify-center space-y-1.5 rounded-xl border border-gray-200 bg-gray-100 p-3.5 text-slate-800 transition hover:bg-gray-200"
               >
-                <svg className="w-5 h-5 fill-current text-slate-900 mt-0.5" viewBox="0 0 24 24">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                <svg
+                  className="mt-0.5 h-5 w-5 fill-current text-slate-900"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                 </svg>
-                <span className="text-xs sm:text-sm font-bold mt-0.5">Twitter/X</span>
+
+                <span className="mt-0.5 text-xs font-bold sm:text-sm">
+                  Twitter/X
+                </span>
               </a>
             </div>
           </div>

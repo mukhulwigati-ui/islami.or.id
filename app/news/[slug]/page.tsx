@@ -1,9 +1,14 @@
 // app/news/[slug]/page.tsx
 
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import BlogDetailClient from "@/components/BlogDetailClient";
+import BlogDetailClient, {
+  type ArticleData,
+  type RelatedArticleData,
+} from "@/components/BlogDetailClient";
+
 import { clientPublik as client } from "@/lib/sanity";
 
 // ============================================================================
@@ -18,8 +23,8 @@ const DEFAULT_DESCRIPTION =
 
 const DEFAULT_IMAGE = `${SITE_URL}/images/banner.png`;
 
-// Artikel publik cocok memakai ISR.
-// Tidak perlu force-dynamic.
+// ISR.
+// Artikel tetap cepat, tetapi perubahan Sanity dapat diperbarui berkala.
 export const revalidate = 60;
 
 // ============================================================================
@@ -32,83 +37,131 @@ interface PageProps {
   }>;
 }
 
-interface NewsSeoData {
-  id?: string;
-
-  title?: string;
-
-  slug?: string;
-
-  excerpt?: string;
-
-  imageUrl?: string;
-
-  alt?: string;
-
-  publishedAt?: string;
-
-  updatedAt?: string;
-
-  authorName?: string;
-
-  category?: string;
+interface NewsPageData {
+  article: ArticleData | null;
+  allNews: RelatedArticleData[];
 }
 
 // ============================================================================
-// GROQ
+// GROQ QUERY
 // ============================================================================
 
-const NEWS_SEO_QUERY = `
-*[
-  _type == "news" &&
-  defined(slug.current) &&
-  lower(slug.current) == lower($slug)
-][0] {
-  "id": _id,
+const NEWS_DETAIL_QUERY = `
+{
+  "article": *[
+    _type == "news" &&
+    defined(slug.current) &&
+    lower(slug.current) == lower($slug)
+  ][0] {
 
-  title,
+    "id": _id,
 
-  "slug": slug.current,
+    title,
 
-  excerpt,
+    "slug": slug.current,
 
-  "imageUrl": coalesce(
-    image.asset->url,
-    mainImage.asset->url,
-    banner.asset->url
-  ),
+    excerpt,
 
-  "alt": coalesce(
-    image.alt,
-    mainImage.alt,
-    banner.alt,
-    title
-  ),
+    "imageUrl": coalesce(
+      image.asset->url,
+      mainImage.asset->url,
+      banner.asset->url
+    ),
 
-  "publishedAt": coalesce(
-    publishedAt,
-    _createdAt
-  ),
+    "caption": coalesce(
+      image.caption,
+      mainImage.caption,
+      banner.caption
+    ),
 
-  "updatedAt": coalesce(
-    _updatedAt,
-    publishedAt,
-    _createdAt
-  ),
+    "alt": coalesce(
+      image.alt,
+      mainImage.alt,
+      banner.alt,
+      title
+    ),
 
-  "authorName": coalesce(
-    author->name,
-    author.name,
-    authorName,
-    "Redaksi islami.or.id"
-  ),
+    "publishedAt": coalesce(
+      publishedAt,
+      _createdAt
+    ),
 
-  "category": coalesce(
-    category->title,
-    category.title,
-    category,
-    "Artikel Islam"
-  )
+    "updatedAt": coalesce(
+      _updatedAt,
+      publishedAt,
+      _createdAt
+    ),
+
+    "category": coalesce(
+      category->title,
+      category.title,
+      category,
+      "Artikel Islam"
+    ),
+
+    "authorName": coalesce(
+      author->name,
+      author.name,
+      authorName,
+      "Redaksi islami.or.id"
+    ),
+
+    content[] {
+      ...,
+
+      asset-> {
+        ...,
+        url
+      },
+
+      markDefs[] {
+        ...,
+
+        _type == "reference" => {
+          "slug": @->slug.current
+        }
+      }
+    }
+  },
+
+  "allNews": *[
+    _type == "news" &&
+    defined(slug.current) &&
+    lower(slug.current) != lower($slug)
+  ]
+  | order(
+      coalesce(
+        publishedAt,
+        _createdAt
+      ) desc
+    )[0...6] {
+
+    "id": _id,
+
+    title,
+
+    "slug": slug.current,
+
+    "imageUrl": coalesce(
+      image.asset->url,
+      mainImage.asset->url,
+      banner.asset->url
+    ),
+
+    "publishedAt": coalesce(
+      publishedAt,
+      _createdAt
+    ),
+
+    "updatedAt": _updatedAt,
+
+    "category": coalesce(
+      category->title,
+      category.title,
+      category,
+      "Artikel Islam"
+    )
+  }
 }
 `;
 
@@ -124,37 +177,31 @@ function normalizeSlug(value: string): string {
   }
 }
 
-function normalizeImageUrl(
-  imageUrl?: string
-): string {
-  if (!imageUrl) {
+function absoluteImageUrl(value?: string): string {
+  if (!value) {
     return DEFAULT_IMAGE;
   }
 
   if (
-    imageUrl.startsWith("http://") ||
-    imageUrl.startsWith("https://")
+    value.startsWith("https://") ||
+    value.startsWith("http://")
   ) {
-    return imageUrl;
+    return value;
   }
 
-  if (imageUrl.startsWith("/")) {
-    return `${SITE_URL}${imageUrl}`;
+  if (value.startsWith("/")) {
+    return `${SITE_URL}${value}`;
   }
 
-  return `${SITE_URL}/${imageUrl}`;
+  return `${SITE_URL}/${value}`;
 }
 
-function portableDescription(
-  value?: string
-): string {
-  const fallback = DEFAULT_DESCRIPTION;
-
+function cleanDescription(value?: string): string {
   if (
     typeof value !== "string" ||
     !value.trim()
   ) {
-    return fallback;
+    return DEFAULT_DESCRIPTION;
   }
 
   const cleaned = value
@@ -168,28 +215,82 @@ function portableDescription(
   return `${cleaned.slice(0, 157).trim()}...`;
 }
 
-async function getArticleSeo(
-  slug: string
-): Promise<NewsSeoData | null> {
-  try {
-    const data =
-      await client.fetch<NewsSeoData | null>(
-        NEWS_SEO_QUERY,
-        {
-          slug,
-        }
+function safeString(
+  value: unknown,
+  fallback: string
+): string {
+  if (
+    typeof value === "string" &&
+    value.trim()
+  ) {
+    return value.trim();
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "current" in value
+  ) {
+    const current = (
+      value as {
+        current?: unknown;
+      }
+    ).current;
+
+    if (
+      typeof current === "string" &&
+      current.trim()
+    ) {
+      return current.trim();
+    }
+  }
+
+  return fallback;
+}
+
+// ============================================================================
+// DATA FETCH
+// ============================================================================
+//
+// cache() membantu generateMetadata() dan page menggunakan hasil fetch yang sama
+// pada request/render yang sama.
+// ============================================================================
+
+const getNewsData = cache(
+  async (
+    slug: string
+  ): Promise<NewsPageData> => {
+    try {
+      const data =
+        await client.fetch<NewsPageData>(
+          NEWS_DETAIL_QUERY,
+          {
+            slug,
+          }
+        );
+
+      return {
+        article:
+          data?.article || null,
+
+        allNews:
+          Array.isArray(data?.allNews)
+            ? data.allNews
+            : [],
+      };
+    } catch (error) {
+      console.error(
+        "[NEWS DETAIL] Gagal mengambil data artikel:",
+        error
       );
 
-    return data || null;
-  } catch (error) {
-    console.error(
-      "[NEWS PAGE] Gagal mengambil data SEO artikel:",
-      error
-    );
-
-    return null;
+      return {
+        article: null,
+        allNews: [],
+      };
+    }
   }
-}
+);
 
 // ============================================================================
 // METADATA
@@ -198,19 +299,25 @@ async function getArticleSeo(
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { slug: rawSlug } =
-    await params;
+  const {
+    slug: rawSlug,
+  } = await params;
 
   const slug =
     normalizeSlug(rawSlug);
 
-  const article =
-    await getArticleSeo(slug);
+  const {
+    article,
+  } = await getNewsData(slug);
 
-  // Page component tetap akan menghasilkan 404 via notFound().
-  if (!article?.title) {
+  if (
+    !article ||
+    !article.title ||
+    !article.slug
+  ) {
     return {
-      title: "Artikel Tidak Ditemukan",
+      title:
+        "Artikel Tidak Ditemukan",
 
       description:
         "Artikel yang Anda cari tidak ditemukan di islami.or.id.",
@@ -223,22 +330,31 @@ export async function generateMetadata({
   }
 
   const title =
-    article.title.trim();
+    safeString(
+      article.title,
+      "Artikel Islam"
+    );
 
   const description =
-    portableDescription(
+    cleanDescription(
       article.excerpt
     );
 
   const image =
-    normalizeImageUrl(
+    absoluteImageUrl(
       article.imageUrl
     );
 
   const canonical =
     `${SITE_URL}/news/${encodeURIComponent(
-      article.slug || slug
+      article.slug
     )}`;
+
+  const altText =
+    safeString(
+      article.alt,
+      title
+    );
 
   return {
     title,
@@ -260,7 +376,8 @@ export async function generateMetadata({
         "max-image-preview":
           "large",
 
-        "max-snippet": -1,
+        "max-snippet":
+          -1,
 
         "max-video-preview":
           -1,
@@ -272,9 +389,11 @@ export async function generateMetadata({
 
       locale: "id_ID",
 
-      siteName: SITE_NAME,
+      siteName:
+        SITE_NAME,
 
-      url: canonical,
+      url:
+        canonical,
 
       title,
 
@@ -291,24 +410,23 @@ export async function generateMetadata({
           ? [
               article.authorName,
             ]
-          : undefined,
+          : [
+              "Redaksi islami.or.id",
+            ],
 
       images: [
         {
           url: image,
-
           width: 1200,
           height: 630,
-
-          alt:
-            article.alt ||
-            title,
+          alt: altText,
         },
       ],
     },
 
     twitter: {
-      card: "summary_large_image",
+      card:
+        "summary_large_image",
 
       title,
 
@@ -328,14 +446,17 @@ export async function generateMetadata({
 export default async function NewsDetailPage({
   params,
 }: PageProps) {
-  const { slug: rawSlug } =
-    await params;
+  const {
+    slug: rawSlug,
+  } = await params;
 
   const slug =
     normalizeSlug(rawSlug);
 
-  const article =
-    await getArticleSeo(slug);
+  const {
+    article,
+    allNews,
+  } = await getNewsData(slug);
 
   // ==========================================================================
   // REAL SERVER-SIDE 404
@@ -354,15 +475,18 @@ export default async function NewsDetailPage({
   // ==========================================================================
 
   const title =
-    article.title.trim();
+    safeString(
+      article.title,
+      "Artikel Islam"
+    );
 
   const description =
-    portableDescription(
+    cleanDescription(
       article.excerpt
     );
 
   const image =
-    normalizeImageUrl(
+    absoluteImageUrl(
       article.imageUrl
     );
 
@@ -372,12 +496,16 @@ export default async function NewsDetailPage({
     )}`;
 
   const authorName =
-    article.authorName ||
-    "Redaksi islami.or.id";
+    typeof article.authorName === "string" &&
+    article.authorName.trim()
+      ? article.authorName.trim()
+      : "Redaksi islami.or.id";
 
   const category =
-    article.category ||
-    "Artikel Islam";
+    safeString(
+      article.category,
+      "Artikel Islam"
+    );
 
   // ==========================================================================
   // ARTICLE JSON-LD
@@ -387,7 +515,8 @@ export default async function NewsDetailPage({
     "@context":
       "https://schema.org",
 
-    "@type": "Article",
+    "@type":
+      "Article",
 
     "@id":
       `${canonical}#article`,
@@ -438,6 +567,9 @@ export default async function NewsDetailPage({
       "@type":
         "Organization",
 
+      "@id":
+        `${SITE_URL}/#organization`,
+
       name:
         SITE_NAME,
 
@@ -465,6 +597,9 @@ export default async function NewsDetailPage({
 
     "@type":
       "BreadcrumbList",
+
+    "@id":
+      `${canonical}#breadcrumb`,
 
     itemListElement: [
       {
@@ -509,7 +644,7 @@ export default async function NewsDetailPage({
   };
 
   // ==========================================================================
-  // WEBSITE / WEBPAGE RELATIONSHIP
+  // WEBPAGE JSON-LD
   // ==========================================================================
 
   const webPageSchema = {
@@ -544,6 +679,11 @@ export default async function NewsDetailPage({
         SITE_URL,
     },
 
+    breadcrumb: {
+      "@id":
+        `${canonical}#breadcrumb`,
+    },
+
     primaryImageOfPage: {
       "@type":
         "ImageObject",
@@ -557,17 +697,18 @@ export default async function NewsDetailPage({
   };
 
   // ==========================================================================
-  // SAFE JSON SERIALIZER
+  // SAFE JSON-LD
   // ==========================================================================
 
-  const jsonLd = JSON.stringify([
-    articleSchema,
-    breadcrumbSchema,
-    webPageSchema,
-  ]).replace(
-    /</g,
-    "\\u003c"
-  );
+  const jsonLd =
+    JSON.stringify([
+      articleSchema,
+      breadcrumbSchema,
+      webPageSchema,
+    ]).replace(
+      /</g,
+      "\\u003c"
+    );
 
   // ==========================================================================
   // OUTPUT
@@ -575,10 +716,6 @@ export default async function NewsDetailPage({
 
   return (
     <>
-      {/* ================================================================ */}
-      {/* STRUCTURED DATA */}
-      {/* ================================================================ */}
-
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -586,12 +723,10 @@ export default async function NewsDetailPage({
         }}
       />
 
-      {/* ================================================================ */}
-      {/* ARTICLE UI */}
-      {/* ================================================================ */}
-
       <BlogDetailClient
-        slug={slug}
+        slug={article.slug}
+        article={article}
+        allNews={allNews}
       />
     </>
   );

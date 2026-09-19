@@ -154,6 +154,8 @@ const PRESET_AMOUNTS = [
 
 const STATUS_POLL_INTERVAL = 3000;
 
+const SITE_URL = "https://www.islami.or.id";
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -2431,34 +2433,74 @@ export default function CampaignDetailClient({
   // SHARE
   // ==========================================================================
 
+  /**
+   * URL share dibuat sendiri agar selalu bersih dan konsisten.
+   *
+   * Dengan cara ini parameter testing/cache seperti:
+   * ?wa=2
+   * ?ogtest=19
+   * ?share=4
+   *
+   * tidak ikut tersebar ketika pengguna membagikan campaign.
+   *
+   * Parameter referral tetap dipertahankan karena dipakai
+   * untuk pencatatan fundraiser.
+   */
   const shareUrl =
     useMemo(() => {
-      if (
-        typeof window ===
-        "undefined"
-      ) {
-        return "";
+      let decodedSlug =
+        slug;
+
+      try {
+        decodedSlug =
+          decodeURIComponent(
+            slug
+          );
+      } catch {
+        decodedSlug =
+          slug;
       }
 
-      return window
-        .location.href;
+      const cleanSlug =
+        encodeURIComponent(
+          decodedSlug.trim()
+        );
+
+      const baseUrl =
+        `${SITE_URL}/campaign/${cleanSlug}`;
+
+      const cleanReferral =
+        referral?.trim();
+
+      if (
+        cleanReferral
+      ) {
+        return `${baseUrl}?ref=${encodeURIComponent(
+          cleanReferral
+        )}`;
+      }
+
+      return baseUrl;
     }, [
-      isShareModalOpen,
-      program,
+      slug,
+      referral,
     ]);
+
+  // ==========================================================================
+  // COPY LINK
+  // ==========================================================================
 
   const handleCopyLink =
     async () => {
       if (
-        typeof window ===
-        "undefined"
+        !shareUrl
       ) {
         return;
       }
 
       try {
         await navigator.clipboard.writeText(
-          window.location.href
+          shareUrl
         );
 
         setCopied(
@@ -2466,15 +2508,94 @@ export default function CampaignDetailClient({
         );
 
         window.setTimeout(
-          () =>
+          () => {
             setCopied(
               false
-            ),
+            );
+          },
           2000
         );
-      } catch {
+      } catch (
+        error
+      ) {
+        console.error(
+          "Gagal menyalin tautan:",
+          error
+        );
+
         alert(
           "Tautan gagal disalin."
+        );
+      }
+    };
+
+  // ==========================================================================
+  // NATIVE SHARE
+  // ==========================================================================
+
+  const handleNativeShare =
+    async () => {
+      if (
+        typeof navigator ===
+        "undefined"
+      ) {
+        return;
+      }
+
+      /**
+       * Pada browser yang tidak mendukung Web Share API
+       * kita tampilkan modal share bawaan halaman.
+       */
+      if (
+        !navigator.share
+      ) {
+        setIsShareModalOpen(
+          true
+        );
+
+        return;
+      }
+
+      try {
+        await navigator.share({
+          title:
+            program?.title ||
+            "Program Kebaikan",
+
+          text:
+            program?.title
+              ? `Mari dukung program ${program.title}`
+              : "Mari dukung program kebaikan ini.",
+
+          url:
+            shareUrl,
+        });
+      } catch (
+        error
+      ) {
+        /**
+         * AbortError berarti pengguna sendiri menutup
+         * dialog share. Tidak perlu dianggap error.
+         */
+        if (
+          error instanceof DOMException &&
+          error.name ===
+            "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "Native share error:",
+          error
+        );
+
+        /**
+         * Jika native share gagal karena alasan lain,
+         * buka modal share internal sebagai fallback.
+         */
+        setIsShareModalOpen(
+          true
         );
       }
     };
@@ -2591,12 +2712,13 @@ export default function CampaignDetailClient({
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
       <DetailHeader
-        title="Program Donasi"
-        onOpenShare={() =>
-          setIsShareModalOpen(
-            true
-          )
+        title={
+          program.title ||
+          "Program Donasi"
         }
+        onOpenShare={() => {
+          void handleNativeShare();
+        }}
       />
 
       <main className="mx-auto w-full max-w-md space-y-4 px-3 pt-4">
@@ -3137,11 +3259,11 @@ export default function CampaignDetailClient({
 
             <div className="grid grid-cols-3 gap-2.5 pt-1">
               <a
-                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                  `Ayo bantu program kebaikan ini: ${
+                href={`https://wa.me/?text=${encodeURIComponent(
+                  `Mari dukung program kebaikan ini:\n\n${
                     program.title ||
-                    ""
-                  }\n${shareUrl}`
+                    "Program Kebaikan"
+                  }\n\n${shareUrl}`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

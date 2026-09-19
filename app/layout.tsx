@@ -37,23 +37,30 @@ const DEFAULT_DESCRIPTION =
   "Portal Islam Indonesia yang menyajikan artikel keislaman, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan berbagai inspirasi kebaikan.";
 
 // ============================================================================
-// OPEN GRAPH IMAGE
+// SOCIAL IMAGE
 // ============================================================================
 //
-// File harus berada di:
-//
+// Sekarang TIDAK menggunakan:
 // public/og-image.jpg
 //
-// dan harus bisa dibuka langsung:
+// Gunakan Next.js File-Based Metadata:
 //
-// https://www.islami.or.id/og-image.jpg
+// app/opengraph-image.jpg
+// app/twitter-image.jpg
 //
-// Ukuran disarankan:
+// Kedua gambar boleh sama.
+//
+// Ukuran:
 // 1200 x 630 px
 //
+// Next.js akan otomatis membuat:
+//
+// <meta property="og:image" ... />
+// <meta name="twitter:image" ... />
+//
+// Jadi TIDAK perlu lagi menuliskan "images" secara manual
+// di metadata di bawah.
 // ============================================================================
-
-const OG_IMAGE = `${SITE_URL}/og-image.jpg`;
 
 // ============================================================================
 // MASTER SEO METADATA
@@ -94,14 +101,6 @@ export const metadata: Metadata = {
   publisher: SITE_NAME,
 
   // ==========================================================================
-  // CANONICAL
-  // ==========================================================================
-
-  alternates: {
-    canonical: SITE_URL,
-  },
-
-  // ==========================================================================
   // PWA
   // ==========================================================================
 
@@ -134,12 +133,11 @@ export const metadata: Metadata = {
   // OPEN GRAPH
   // ==========================================================================
   //
-  // Dipakai oleh:
-  // - WhatsApp
-  // - Facebook
-  // - Telegram
-  // - LinkedIn
-  // dan platform lain yang membaca Open Graph.
+  // Gambar Open Graph otomatis diambil Next.js dari:
+  //
+  // app/opengraph-image.jpg
+  //
+  // Jangan tambahkan images di sini supaya tidak ada metadata gambar ganda.
   //
   // ==========================================================================
 
@@ -156,20 +154,16 @@ export const metadata: Metadata = {
 
     description:
       "Temukan artikel Islam, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan berbagai inspirasi kebaikan.",
-
-    images: [
-      {
-        url: OG_IMAGE,
-        width: 1200,
-        height: 630,
-        type: "image/jpeg",
-        alt: "islami.or.id - Portal Islam & Inspirasi Muslim Indonesia",
-      },
-    ],
   },
 
   // ==========================================================================
   // TWITTER / X
+  // ==========================================================================
+  //
+  // Gambar Twitter otomatis diambil Next.js dari:
+  //
+  // app/twitter-image.jpg
+  //
   // ==========================================================================
 
   twitter: {
@@ -179,8 +173,6 @@ export const metadata: Metadata = {
 
     description:
       "Artikel Islam, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan inspirasi kebaikan.",
-
-    images: [OG_IMAGE],
   },
 
   // ==========================================================================
@@ -216,10 +208,7 @@ export const metadata: Metadata = {
   // GOOGLE SEARCH CONSOLE
   // ==========================================================================
   //
-  // Jangan memasukkan token palsu.
-  //
-  // Jika nanti sudah mendapatkan verification code dari Google Search Console,
-  // aktifkan:
+  // Jika nanti sudah mendapatkan verification code dari Google Search Console:
   //
   // verification: {
   //   google: "TOKEN_GOOGLE_SEARCH_CONSOLE",

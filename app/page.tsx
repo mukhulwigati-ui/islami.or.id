@@ -27,8 +27,22 @@ const SITE_NAME =
 const SITE_DESCRIPTION =
   "islami.or.id adalah portal Islam Indonesia yang menyajikan artikel Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, serta berbagai program dan inspirasi kebaikan.";
 
-const OG_IMAGE =
-  `${SITE_URL}/images/banner.png`;
+const HOME_TITLE =
+  "islami.or.id | Portal Islam & Inspirasi Muslim Indonesia";
+
+// ============================================================================
+// SOCIAL SHARE IMAGE
+// ============================================================================
+//
+// Gambar social share TIDAK lagi didefinisikan manual dari page.tsx.
+// Gunakan Next.js file-based metadata:
+//
+// app/opengraph-image.jpg
+// app/twitter-image.jpg
+//
+// Pastikan kedua file berukuran 1200 x 630 px.
+// Next.js akan otomatis menghasilkan URL gambar beserta metadata ukuran/type.
+// ============================================================================
 
 // ============================================================================
 // RENDERING STRATEGY
@@ -45,15 +59,16 @@ export const revalidate =
 // ============================================================================
 
 export const metadata: Metadata = {
-  title:
-    "Portal Islam & Inspirasi Muslim Indonesia",
+  // Gunakan absolute agar title homepage tidak ditambah lagi oleh
+  // template title dari app/layout.tsx.
+  title: {
+    absolute: HOME_TITLE,
+  },
 
-  description:
-    SITE_DESCRIPTION,
+  description: SITE_DESCRIPTION,
 
   alternates: {
-    canonical:
-      SITE_URL,
+    canonical: SITE_URL,
   },
 
   robots: {
@@ -63,70 +78,31 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-
-      "max-video-preview":
-        -1,
-
-      "max-image-preview":
-        "large",
-
-      "max-snippet":
-        -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
 
+  // Jangan menambahkan openGraph.images di sini.
+  // Gambar otomatis berasal dari app/opengraph-image.jpg.
   openGraph: {
-    title:
-      "islami.or.id | Portal Islam & Inspirasi Muslim Indonesia",
-
+    title: HOME_TITLE,
     description:
       "Temukan artikel Islam, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, serta berbagai inspirasi dan program kebaikan.",
-
-    url:
-      SITE_URL,
-
-    siteName:
-      SITE_NAME,
-
-    locale:
-      "id_ID",
-
-    type:
-      "website",
-
-    images: [
-      {
-        url:
-          OG_IMAGE,
-
-        width:
-          1200,
-
-        height:
-          630,
-
-        type:
-          "image/png",
-
-        alt:
-          "islami.or.id - Portal Islam dan Inspirasi Muslim Indonesia",
-      },
-    ],
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    locale: "id_ID",
+    type: "website",
   },
 
+  // Jangan menambahkan twitter.images di sini.
+  // Gambar otomatis berasal dari app/twitter-image.jpg.
   twitter: {
-    card:
-      "summary_large_image",
-
-    title:
-      "islami.or.id | Portal Islam & Inspirasi Muslim Indonesia",
-
+    card: "summary_large_image",
+    title: HOME_TITLE,
     description:
       "Artikel Islam, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan inspirasi kebaikan.",
-
-    images: [
-      OG_IMAGE,
-    ],
   },
 };
 
@@ -1178,13 +1154,6 @@ export default async function HomePage() {
             `${SITE_URL}/#organization`,
         },
 
-        primaryImageOfPage: {
-          "@type":
-            "ImageObject",
-
-          url:
-            OG_IMAGE,
-        },
       },
     ],
   };

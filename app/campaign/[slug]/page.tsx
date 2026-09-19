@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { createClient } from "@sanity/client";
 
 import CampaignDetailClient from "@/components/CampaignDetailClient";
+import NewsViewTracker from "@/components/NewsViewTracker";
 
 // ============================================================================
 // TYPES
@@ -602,9 +603,16 @@ export default async function CampaignPage({
   // ==========================================================================
 
   return (
-    <CampaignDetailClient
-      slug={slug}
-      referral={ref ?? null}
-    />
+    <>
+      <NewsViewTracker
+        type="campaign"
+        slug={slug}
+      />
+
+      <CampaignDetailClient
+        slug={slug}
+        referral={ref ?? null}
+      />
+    </>
   );
 }

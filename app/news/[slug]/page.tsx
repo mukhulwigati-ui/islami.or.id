@@ -10,6 +10,7 @@ import BlogDetailClient, {
 } from "@/components/BlogDetailClient";
 
 import { clientPublik as client } from "@/lib/sanity";
+import NewsViewTracker from "@/components/NewsViewTracker";
 
 // ============================================================================
 // CONFIG
@@ -752,6 +753,11 @@ export default async function NewsDetailPage({
         dangerouslySetInnerHTML={{
           __html: jsonLd,
         }}
+      />
+
+      <NewsViewTracker
+        type="news"
+        slug={article.slug}
       />
 
       <BlogDetailClient

@@ -2,9 +2,11 @@
 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
+
 import LayoutClientWrapper from "@/components/LayoutClientWrapper";
 import BottomNav from "@/components/BottomNav";
-import Script from "next/script";
+
 import "./globals.css";
 
 // ============================================================================
@@ -36,30 +38,35 @@ const DEFAULT_TITLE =
 const DEFAULT_DESCRIPTION =
   "Portal Islam Indonesia yang menyajikan artikel keislaman, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan berbagai inspirasi kebaikan.";
 
+const DEFAULT_SOCIAL_DESCRIPTION =
+  "Temukan artikel Islam, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan berbagai inspirasi kebaikan.";
+
 // ============================================================================
 // SOCIAL IMAGE
 // ============================================================================
-//
-// Sekarang TIDAK menggunakan:
-// public/og-image.jpg
 //
 // Gunakan Next.js File-Based Metadata:
 //
 // app/opengraph-image.jpg
 // app/twitter-image.jpg
 //
-// Kedua gambar boleh sama.
-//
 // Ukuran:
 // 1200 x 630 px
 //
-// Next.js akan otomatis membuat:
+// Karena file tersebut berada langsung di folder app,
+// Next.js otomatis membuat:
 //
-// <meta property="og:image" ... />
-// <meta name="twitter:image" ... />
+// og:image
+// twitter:image
 //
-// Jadi TIDAK perlu lagi menuliskan "images" secara manual
-// di metadata di bawah.
+// Jadi gambar TIDAK perlu didefinisikan manual di metadata root.
+//
+// Halaman dinamis seperti:
+//
+// /news/[slug]
+// /campaign/[slug]
+//
+// tetap boleh mempunyai gambar Open Graph sendiri melalui generateMetadata().
 // ============================================================================
 
 // ============================================================================
@@ -67,6 +74,10 @@ const DEFAULT_DESCRIPTION =
 // ============================================================================
 
 export const metadata: Metadata = {
+  // ==========================================================================
+  // BASE URL
+  // ==========================================================================
+
   metadataBase: new URL(SITE_URL),
 
   // ==========================================================================
@@ -101,6 +112,28 @@ export const metadata: Metadata = {
   publisher: SITE_NAME,
 
   // ==========================================================================
+  // KEYWORDS
+  // ==========================================================================
+
+  keywords: [
+    "Islam",
+    "islami",
+    "artikel Islam",
+    "Al-Qur'an",
+    "hadis",
+    "fikih",
+    "doa",
+    "sejarah Islam",
+    "keluarga Muslim",
+    "zakat",
+    "sedekah",
+    "wakaf",
+    "infak",
+    "dakwah",
+    "inspirasi Muslim",
+  ],
+
+  // ==========================================================================
   // PWA
   // ==========================================================================
 
@@ -123,6 +156,7 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
+
       "max-video-preview": -1,
       "max-image-preview": "large",
       "max-snippet": -1,
@@ -133,11 +167,9 @@ export const metadata: Metadata = {
   // OPEN GRAPH
   // ==========================================================================
   //
-  // Gambar Open Graph otomatis diambil Next.js dari:
+  // Gambar otomatis berasal dari:
   //
   // app/opengraph-image.jpg
-  //
-  // Jangan tambahkan images di sini supaya tidak ada metadata gambar ganda.
   //
   // ==========================================================================
 
@@ -152,15 +184,14 @@ export const metadata: Metadata = {
 
     title: DEFAULT_TITLE,
 
-    description:
-      "Temukan artikel Islam, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan berbagai inspirasi kebaikan.",
+    description: DEFAULT_SOCIAL_DESCRIPTION,
   },
 
   // ==========================================================================
   // TWITTER / X
   // ==========================================================================
   //
-  // Gambar Twitter otomatis diambil Next.js dari:
+  // Gambar otomatis berasal dari:
   //
   // app/twitter-image.jpg
   //
@@ -171,8 +202,7 @@ export const metadata: Metadata = {
 
     title: DEFAULT_TITLE,
 
-    description:
-      "Artikel Islam, Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan inspirasi kebaikan.",
+    description: DEFAULT_SOCIAL_DESCRIPTION,
   },
 
   // ==========================================================================
@@ -181,6 +211,13 @@ export const metadata: Metadata = {
 
   icons: {
     icon: [
+      {
+        url: "/favicon.ico",
+        type: "image/x-icon",
+      },
+    ],
+
+    shortcut: [
       {
         url: "/favicon.ico",
         type: "image/x-icon",
@@ -205,10 +242,19 @@ export const metadata: Metadata = {
   },
 
   // ==========================================================================
+  // REFERRER
+  // ==========================================================================
+
+  referrer: "origin-when-cross-origin",
+
+  // ==========================================================================
   // GOOGLE SEARCH CONSOLE
   // ==========================================================================
   //
-  // Jika nanti sudah mendapatkan verification code dari Google Search Console:
+  // Kalau property Google Search Console Anda sudah diverifikasi melalui DNS,
+  // bagian verification ini TIDAK perlu ditambahkan.
+  //
+  // Kalau memakai meta verification, baru aktifkan:
   //
   // verification: {
   //   google: "TOKEN_GOOGLE_SEARCH_CONSOLE",
@@ -265,24 +311,12 @@ export default function RootLayout({
         />
 
         {/* ================================================================ */}
-        {/* MIDTRANS SNAP */}
-        {/* ================================================================ */}
-
-        <Script
-          src="https://app.midtrans.com/snap/snap.js"
-          data-client-key={
-            process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ||
-            "Mid-client-NVjY5ccbH7M47czA"
-          }
-          strategy="lazyOnload"
-          crossOrigin="anonymous"
-        />
-
-        {/* ================================================================ */}
         {/* MAIN APPLICATION */}
         {/* ================================================================ */}
 
-        <LayoutClientWrapper>{children}</LayoutClientWrapper>
+        <LayoutClientWrapper>
+          {children}
+        </LayoutClientWrapper>
 
         {/* ================================================================ */}
         {/* GLOBAL BOTTOM NAVIGATION */}

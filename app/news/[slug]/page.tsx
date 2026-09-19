@@ -21,7 +21,7 @@ const SITE_NAME = "islami.or.id";
 const DEFAULT_DESCRIPTION =
   "Baca artikel Islam terbaru seputar Al-Qur'an, hadis, fikih, doa, sejarah Islam, keluarga Muslim, zakat, sedekah, wakaf, dan inspirasi kebaikan.";
 
-const DEFAULT_IMAGE = `${SITE_URL}/images/banner.png`;
+const DEFAULT_IMAGE = `${SITE_URL}/opengraph-image.jpg`;
 
 // ISR.
 // Artikel tetap cepat, tetapi perubahan Sanity dapat diperbarui berkala.
@@ -65,18 +65,21 @@ const NEWS_DETAIL_QUERY = `
     "imageUrl": coalesce(
       image.asset->url,
       mainImage.asset->url,
+      thumbnail.asset->url,
       banner.asset->url
     ),
 
     "caption": coalesce(
       image.caption,
       mainImage.caption,
+      thumbnail.caption,
       banner.caption
     ),
 
     "alt": coalesce(
       image.alt,
       mainImage.alt,
+      thumbnail.alt,
       banner.alt,
       title
     ),
@@ -145,6 +148,7 @@ const NEWS_DETAIL_QUERY = `
     "imageUrl": coalesce(
       image.asset->url,
       mainImage.asset->url,
+      thumbnail.asset->url,
       banner.asset->url
     ),
 
@@ -177,23 +181,43 @@ function normalizeSlug(value: string): string {
   }
 }
 
-function absoluteImageUrl(value?: string): string {
-  if (!value) {
+function buildSocialImageUrl(value?: string): string {
+  if (!value || !value.trim()) {
     return DEFAULT_IMAGE;
   }
 
-  if (
-    value.startsWith("https://") ||
-    value.startsWith("http://")
+  let absoluteImage = value.trim();
+
+  // Pastikan URL absolut.
+  if (absoluteImage.startsWith("/")) {
+    absoluteImage = `${SITE_URL}${absoluteImage}`;
+  } else if (
+    !absoluteImage.startsWith("https://") &&
+    !absoluteImage.startsWith("http://")
   ) {
-    return value;
+    absoluteImage = `${SITE_URL}/${absoluteImage.replace(/^\/+/, "")}`;
   }
 
-  if (value.startsWith("/")) {
-    return `${SITE_URL}${value}`;
-  }
+  try {
+    const url = new URL(absoluteImage);
 
-  return `${SITE_URL}/${value}`;
+    // Untuk asset Sanity, paksa hasil akhir menjadi JPEG 1200 x 630.
+    // Ini membuat file yang dibaca WhatsApp benar-benar sesuai dengan
+    // metadata Open Graph, bukan hanya deklarasi width/height saja.
+    if (url.hostname === "cdn.sanity.io") {
+      url.searchParams.set("w", "1200");
+      url.searchParams.set("h", "630");
+      url.searchParams.set("fit", "crop");
+      url.searchParams.set("fm", "jpg");
+      url.searchParams.set("q", "85");
+
+      return url.toString();
+    }
+
+    return url.toString();
+  } catch {
+    return DEFAULT_IMAGE;
+  }
 }
 
 function cleanDescription(value?: string): string {
@@ -341,7 +365,7 @@ export async function generateMetadata({
     );
 
   const image =
-    absoluteImageUrl(
+    buildSocialImageUrl(
       article.imageUrl
     );
 
@@ -357,7 +381,11 @@ export async function generateMetadata({
     );
 
   return {
-    title,
+    metadataBase: new URL(SITE_URL),
+
+    title: {
+      absolute: title,
+    },
 
     description,
 
@@ -433,7 +461,10 @@ export async function generateMetadata({
       description,
 
       images: [
-        image,
+        {
+          url: image,
+          alt: altText,
+        },
       ],
     },
   };
@@ -486,7 +517,7 @@ export default async function NewsDetailPage({
     );
 
   const image =
-    absoluteImageUrl(
+    buildSocialImageUrl(
       article.imageUrl
     );
 

@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase/client";
+import ViewCounter from "@/components/ViewCounter";
 
 // ============================================================================
 // TYPES
@@ -2757,6 +2758,14 @@ export default function CampaignDetailClient({
             {program.title ||
               "Program Kebaikan"}
           </h1>
+
+          <div className="flex items-center text-xs text-slate-500 sm:text-sm">
+            <ViewCounter
+              type="campaign"
+              slug={program.slug || slug}
+              className="text-xs text-slate-500 sm:text-sm"
+            />
+          </div>
 
           <div className="space-y-2 pt-1">
             <p className="text-lg font-extrabold text-[#0d5c91] sm:text-xl">

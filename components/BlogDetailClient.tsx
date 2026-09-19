@@ -6,6 +6,7 @@ import { PortableText } from "@portabletext/react";
 
 import RelatedNews from "@/components/RelatedNews";
 import ShareButton from "@/components/ShareButton";
+import ViewCounter from "@/components/ViewCounter";
 
 // ============================================================================
 // TYPES
@@ -571,6 +572,19 @@ export default function BlogDetailClient({
                     </span>
                   </>
                 )}
+
+                <span
+                  aria-hidden="true"
+                  className="text-slate-300"
+                >
+                  •
+                </span>
+
+                <ViewCounter
+                  type="news"
+                  slug={slug}
+                  className="text-[11px] text-slate-500 sm:text-xs"
+                />
 
               </div>
 

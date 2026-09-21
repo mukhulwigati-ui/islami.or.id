@@ -3,35 +3,28 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-import {
-  createServerClient,
-} from "@supabase/ssr";
-
-import {
-  createClient,
-} from "@sanity/client";
+import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@sanity/client";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// ==========================================================
+// ============================================================================
 // KONFIGURASI
-// ==========================================================
+// ============================================================================
 
 const DEFAULT_COMMISSION_RATE = 0.1; // 10%
 
 const MINIMUM_WITHDRAWAL = Number(
-  process.env.FUNDRAISER_MIN_WITHDRAWAL ||
-    50000
+  process.env.FUNDRAISER_MIN_WITHDRAWAL || 50000
 );
 
 const WITHDRAWAL_ENABLED =
-  process.env.FUNDRAISER_WITHDRAWAL_ENABLED !==
-  "false";
+  process.env.FUNDRAISER_WITHDRAWAL_ENABLED !== "false";
 
-// ==========================================================
-// SANITY
-// ==========================================================
+// ============================================================================
+// SANITY WRITE CLIENT
+// ============================================================================
 
 const SANITY_WRITE_TOKEN =
   process.env.SANITY_API_WRITE_TOKEN ||
@@ -53,23 +46,26 @@ const sanity = createClient({
   token: SANITY_WRITE_TOKEN,
 });
 
-// ==========================================================
+// ============================================================================
 // TYPES
-// ==========================================================
+// ============================================================================
 
 type RequestBody = {
   amount?: number | string;
   note?: string;
 
   /**
-   * Boleh masih dikirim frontend lama,
-   * tetapi TIDAK digunakan sebagai identitas.
+   * Masih boleh dikirim frontend lama,
+   * tetapi TIDAK dipakai sebagai identitas.
+   *
+   * Identitas fundraiser selalu diambil dari
+   * user Supabase yang sedang login.
    */
   phone?: string;
 };
 
 type SanityFundraiser = {
-  _id?: string;
+  _id: string;
 
   name?: string;
   phone?: string;
@@ -83,85 +79,155 @@ type SanityFundraiser = {
   accountNumber?: string;
 };
 
+type DonationItem = {
+  amount?: number;
+};
+
 type WithdrawalItem = {
   amount?: number;
   status?: string;
 };
 
+type ActiveWithdrawal = {
+  _id?: string;
+  amount?: number;
+  status?: string;
+  requestedAt?: string;
+};
+
 type QueryResult = {
   fundraiser?: SanityFundraiser | null;
 
-  donations?: {
-    amount?: number;
-  }[];
+  donations?: DonationItem[];
 
   withdrawals?: WithdrawalItem[];
 
-  activeWithdrawal?: {
-    _id?: string;
-    amount?: number;
-    status?: string;
-    requestedAt?: string;
-  } | null;
+  activeWithdrawal?: ActiveWithdrawal | null;
 };
 
-// ==========================================================
-// HELPERS
-// ==========================================================
+// ============================================================================
+// TYPE KHUSUS DOKUMEN WITHDRAWAL
+// ============================================================================
+//
+// Inilah yang memperbaiki error:
+//
+// Record<string, any>
+//
+// diganti menjadi type yang secara eksplisit mempunyai:
+// _type: "fundraiserWithdrawal"
+//
+// ============================================================================
 
-function normalizePhone(
-  input: string
-) {
-  const raw =
-    String(input || "").trim();
+type FundraiserWithdrawalDocument = {
+  _id: string;
 
-  const digits =
-    raw.replace(/[^0-9]/g, "");
+  _type: "fundraiserWithdrawal";
 
-  let international =
-    digits;
+  userId: string;
 
-  if (
-    digits.startsWith("0")
-  ) {
-    international =
-      `62${digits.slice(1)}`;
-  } else if (
-    digits.startsWith("8")
-  ) {
-    international =
-      `62${digits}`;
+  fundraiserName: string;
+
+  fundraiserPhone: string;
+
+  fundraiser?: {
+    _type: "reference";
+    _ref: string;
+  };
+
+  amount: number;
+
+  status: "pending";
+
+  requestedAt: string;
+
+  bankName: string;
+
+  accountNumber: string;
+
+  accountName: string;
+
+  note?: string;
+
+  commissionSnapshot: {
+    totalEarnings: number;
+
+    commissionRate: number;
+
+    totalCommission: number;
+
+    totalWithdrawn: number;
+
+    pendingBefore: number;
+
+    availableBefore: number;
+
+    requestedAmount: number;
+
+    availableAfter: number;
+  };
+};
+
+// ============================================================================
+// LOCK DOCUMENT
+// ============================================================================
+
+type WithdrawalLockDocument = {
+  _id: string;
+
+  _type: "fundraiserWithdrawalLock";
+
+  userId: string;
+
+  fundraiserPhone: string;
+
+  createdAt: string;
+
+  updatedAt: string;
+};
+
+// ============================================================================
+// NORMALISASI NOMOR TELEPON
+// ============================================================================
+
+function normalizePhone(input: string) {
+  const raw = String(input || "").trim();
+
+  const digits = raw.replace(/[^0-9]/g, "");
+
+  let international = digits;
+
+  // 0812... -> 62812...
+  if (digits.startsWith("0")) {
+    international = `62${digits.slice(1)}`;
   }
 
-  let local =
-    digits;
+  // 812... -> 62812...
+  else if (digits.startsWith("8")) {
+    international = `62${digits}`;
+  }
 
-  if (
-    international.startsWith(
-      "62"
+  let local = digits;
+
+  // 62812... -> 0812...
+  if (international.startsWith("62")) {
+    local = `0${international.slice(2)}`;
+  }
+
+  const plus = international
+    ? `+${international}`
+    : "";
+
+  const variants = Array.from(
+    new Set(
+      [
+        raw,
+        digits,
+        international,
+        local,
+        plus,
+      ].filter(Boolean)
     )
-  ) {
-    local =
-      `0${international.slice(2)}`;
-  }
-
-  const plus =
-    international
-      ? `+${international}`
-      : "";
-
-  const variants =
-    Array.from(
-      new Set(
-        [
-          raw,
-          digits,
-          international,
-          local,
-          plus,
-        ].filter(Boolean)
-      )
-    );
+  );
 
   return {
     raw,
@@ -173,15 +239,19 @@ function normalizePhone(
   };
 }
 
-// ==========================================================
-// COMMISSION RATE
-// ==========================================================
+// ============================================================================
+// NORMALISASI COMMISSION RATE
+// ============================================================================
+//
+// 10  -> 10%
+// 0.1 -> 10%
+//
+// ============================================================================
 
 function normalizeCommissionRate(
   input?: number | null
 ) {
-  const rate =
-    Number(input);
+  const rate = Number(input);
 
   if (
     !Number.isFinite(rate) ||
@@ -190,7 +260,6 @@ function normalizeCommissionRate(
     return DEFAULT_COMMISSION_RATE;
   }
 
-  // 10 = 10%
   if (rate > 1) {
     return Math.min(
       rate / 100,
@@ -198,38 +267,29 @@ function normalizeCommissionRate(
     );
   }
 
-  // 0.1 = 10%
   return Math.min(
     rate,
     1
   );
 }
 
-// ==========================================================
-// VALUE PICKERS
-// ==========================================================
+// ============================================================================
+// HELPER AMBIL STRING DARI PROFILE
+// ============================================================================
 
 function pickString(
-  object: Record<
-    string,
-    any
-  > | null | undefined,
-
+  object: Record<string, any> | null | undefined,
   keys: string[]
 ) {
   if (!object) {
     return "";
   }
 
-  for (
-    const key of keys
-  ) {
-    const value =
-      object[key];
+  for (const key of keys) {
+    const value = object[key];
 
     if (
-      typeof value ===
-        "string" &&
+      typeof value === "string" &&
       value.trim()
     ) {
       return value.trim();
@@ -239,27 +299,41 @@ function pickString(
   return "";
 }
 
-function pickNumber(
-  object: Record<
-    string,
-    any
-  > | null | undefined,
+// ============================================================================
+// HELPER AMBIL NUMBER DARI PROFILE
+// ============================================================================
 
+function pickNumber(
+  object: Record<string, any> | null | undefined,
   keys: string[]
 ) {
   if (!object) {
     return undefined;
   }
 
-  for (
-    const key of keys
-  ) {
-    const value =
-      Number(object[key]);
+  for (const key of keys) {
+    const rawValue = object[key];
 
+    /**
+     * Jangan anggap:
+     *
+     * null
+     * undefined
+     * ""
+     *
+     * sebagai angka 0.
+     */
     if (
-      Number.isFinite(value)
+      rawValue === null ||
+      rawValue === undefined ||
+      rawValue === ""
     ) {
+      continue;
+    }
+
+    const value = Number(rawValue);
+
+    if (Number.isFinite(value)) {
       return value;
     }
   }
@@ -267,21 +341,16 @@ function pickNumber(
   return undefined;
 }
 
-// ==========================================================
+// ============================================================================
 // PARSE NOMINAL
-// ==========================================================
+// ============================================================================
 
 function parseAmount(
   input: unknown
-) {
-  if (
-    typeof input ===
-    "number"
-  ) {
+): number | null {
+  if (typeof input === "number") {
     if (
-      Number.isSafeInteger(
-        input
-      ) &&
+      Number.isSafeInteger(input) &&
       input > 0
     ) {
       return input;
@@ -290,25 +359,21 @@ function parseAmount(
     return null;
   }
 
-  const raw =
-    String(input || "")
-      .trim()
-      .replace(/^rp\s*/i, "")
-      .replace(/[.\s]/g, "");
+  const raw = String(
+    input || ""
+  )
+    .trim()
+    .replace(/^rp\s*/i, "")
+    .replace(/[.\s]/g, "");
 
-  if (
-    !/^\d+$/.test(raw)
-  ) {
+  if (!/^\d+$/.test(raw)) {
     return null;
   }
 
-  const amount =
-    Number(raw);
+  const amount = Number(raw);
 
   if (
-    !Number.isSafeInteger(
-      amount
-    ) ||
+    !Number.isSafeInteger(amount) ||
     amount <= 0
   ) {
     return null;
@@ -317,9 +382,9 @@ function parseAmount(
   return amount;
 }
 
-// ==========================================================
-// MASK REKENING
-// ==========================================================
+// ============================================================================
+// MASK NOMOR REKENING
+// ============================================================================
 
 function maskAccountNumber(
   value?: string
@@ -334,9 +399,7 @@ function maskAccountNumber(
       ""
     );
 
-  if (
-    clean.length <= 4
-  ) {
+  if (clean.length <= 4) {
     return clean;
   }
 
@@ -345,9 +408,9 @@ function maskAccountNumber(
   )}${clean.slice(-4)}`;
 }
 
-// ==========================================================
-// NO CACHE RESPONSE
-// ==========================================================
+// ============================================================================
+// RESPONSE TANPA CACHE
+// ============================================================================
 
 function jsonNoStore(
   body: unknown,
@@ -372,21 +435,19 @@ function jsonNoStore(
   );
 }
 
-// ==========================================================
+// ============================================================================
 // POST
-// ==========================================================
+// ============================================================================
 
 export async function POST(
   request: Request
 ) {
   try {
-    // ======================================================
+    // ========================================================================
     // 1. CEK FITUR WITHDRAWAL
-    // ======================================================
+    // ========================================================================
 
-    if (
-      !WITHDRAWAL_ENABLED
-    ) {
+    if (!WITHDRAWAL_ENABLED) {
       return jsonNoStore(
         {
           success: false,
@@ -398,9 +459,9 @@ export async function POST(
       );
     }
 
-    // ======================================================
-    // 2. CEK ENV
-    // ======================================================
+    // ========================================================================
+    // 2. CEK KONFIGURASI SUPABASE
+    // ========================================================================
 
     if (
       !process.env
@@ -423,11 +484,13 @@ export async function POST(
       );
     }
 
-    if (
-      !SANITY_WRITE_TOKEN
-    ) {
+    // ========================================================================
+    // 3. CEK SANITY WRITE TOKEN
+    // ========================================================================
+
+    if (!SANITY_WRITE_TOKEN) {
       console.error(
-        "🔥 SANITY_API_WRITE_TOKEN / SANITY_API_TOKEN belum tersedia."
+        "🔥 SANITY_API_WRITE_TOKEN belum tersedia."
       );
 
       return jsonNoStore(
@@ -441,9 +504,9 @@ export async function POST(
       );
     }
 
-    // ======================================================
-    // 3. SUPABASE SERVER CLIENT
-    // ======================================================
+    // ========================================================================
+    // 4. SUPABASE SERVER CLIENT
+    // ========================================================================
 
     const cookieStore =
       await cookies();
@@ -481,9 +544,11 @@ export async function POST(
                 );
               } catch {
                 /**
-                 * Aman diabaikan jika cookie
-                 * tidak bisa di-set pada context
-                 * tertentu.
+                 * Bisa terjadi bila cookie mencoba
+                 * diperbarui pada context read-only.
+                 *
+                 * Untuk pembacaan session endpoint ini
+                 * aman untuk diabaikan.
                  */
               }
             },
@@ -491,9 +556,9 @@ export async function POST(
         }
       );
 
-    // ======================================================
-    // 4. VERIFIKASI USER LOGIN
-    // ======================================================
+    // ========================================================================
+    // 5. VERIFIKASI USER LOGIN
+    // ========================================================================
 
     const {
       data: {
@@ -520,9 +585,9 @@ export async function POST(
       );
     }
 
-    // ======================================================
-    // 5. AMBIL PROFILE SUPABASE
-    // ======================================================
+    // ========================================================================
+    // 6. AMBIL PROFILE SUPABASE
+    // ========================================================================
 
     const {
       data:
@@ -540,9 +605,7 @@ export async function POST(
         )
         .maybeSingle();
 
-    if (
-      profileError
-    ) {
+    if (profileError) {
       console.error(
         "🔥 Fundraiser profile error:",
         profileError
@@ -559,9 +622,7 @@ export async function POST(
       );
     }
 
-    if (
-      !supabaseProfile
-    ) {
+    if (!supabaseProfile) {
       return jsonNoStore(
         {
           success: false,
@@ -573,9 +634,13 @@ export async function POST(
       );
     }
 
-    // ======================================================
-    // 6. NOMOR WA DIAMBIL DARI DATABASE
-    // ======================================================
+    // ========================================================================
+    // 7. NOMOR WHATSAPP HARUS DARI DATABASE
+    // ========================================================================
+    //
+    // Jangan percaya phone dari request body.
+    //
+    // ========================================================================
 
     const profilePhone =
       pickString(
@@ -588,9 +653,7 @@ export async function POST(
         ]
       );
 
-    if (
-      !profilePhone
-    ) {
+    if (!profilePhone) {
       return jsonNoStore(
         {
           success: false,
@@ -609,8 +672,8 @@ export async function POST(
 
     if (
       !normalized.digits ||
-      normalized.digits
-        .length < 8
+      normalized.digits.length <
+        8
     ) {
       return jsonNoStore(
         {
@@ -623,12 +686,11 @@ export async function POST(
       );
     }
 
-    // ======================================================
-    // 7. PARSE REQUEST
-    // ======================================================
+    // ========================================================================
+    // 8. PARSE REQUEST BODY
+    // ========================================================================
 
-    let body:
-      RequestBody;
+    let body: RequestBody;
 
     try {
       body =
@@ -644,6 +706,10 @@ export async function POST(
         400
       );
     }
+
+    // ========================================================================
+    // 9. VALIDASI NOMINAL
+    // ========================================================================
 
     const amount =
       parseAmount(
@@ -679,6 +745,10 @@ export async function POST(
       );
     }
 
+    // ========================================================================
+    // 10. CATATAN
+    // ========================================================================
+
     const cleanNote =
       String(
         body.note || ""
@@ -689,9 +759,9 @@ export async function POST(
           500
         );
 
-    // ======================================================
-    // 8. QUERY SALDO SERVER-SIDE
-    // ======================================================
+    // ========================================================================
+    // 11. QUERY DATA KEUANGAN TERBARU
+    // ========================================================================
 
     const query = `
       {
@@ -759,21 +829,19 @@ export async function POST(
           )
         ]
         | order(
-            coalesce(
-              requestedAt,
-              _createdAt
-            ) desc
-          )[0] {
-
+          coalesce(
+            requestedAt,
+            _createdAt
+          ) desc
+        )[0] {
           _id,
           amount,
           status,
 
-          "requestedAt":
-            coalesce(
-              requestedAt,
-              _createdAt
-            )
+          "requestedAt": coalesce(
+            requestedAt,
+            _createdAt
+          )
         }
       }
     `;
@@ -788,15 +856,14 @@ export async function POST(
         }
       );
 
-    // ======================================================
-    // 9. SATU WITHDRAWAL AKTIF SAJA
-    // ======================================================
+    // ========================================================================
+    // 12. CEK WITHDRAWAL AKTIF
+    // ========================================================================
     //
-    // Lebih aman untuk sistem transfer manual:
+    // Untuk transfer manual lebih aman hanya memperbolehkan
+    // satu request pending/approved sekaligus.
     //
-    // pending / approved harus diselesaikan dahulu.
-    //
-    // ======================================================
+    // ========================================================================
 
     if (
       data?.activeWithdrawal
@@ -813,11 +880,12 @@ export async function POST(
           success: false,
 
           message:
-            `Masih ada pengajuan penarikan ${activeAmount > 0
-              ? `sebesar Rp ${activeAmount.toLocaleString(
-                  "id-ID"
-                )} `
-              : ""
+            `Masih ada pengajuan penarikan ${
+              activeAmount > 0
+                ? `sebesar Rp ${activeAmount.toLocaleString(
+                    "id-ID"
+                  )} `
+                : ""
             }yang belum selesai. Tunggu sampai pembayaran selesai atau pengajuan ditolak.`,
 
           activeWithdrawal:
@@ -827,9 +895,9 @@ export async function POST(
       );
     }
 
-    // ======================================================
-    // 10. CEK STATUS FUNDRAISER SANITY
-    // ======================================================
+    // ========================================================================
+    // 13. CEK STATUS FUNDRAISER
+    // ========================================================================
 
     const sanityFundraiser =
       data?.fundraiser;
@@ -840,6 +908,14 @@ export async function POST(
           ?.status || ""
       ).toLowerCase();
 
+    /**
+     * Jangan blok jika dokumen fundraiser
+     * belum ada di Sanity karena identitas utama
+     * islami.or.id berasal dari Supabase.
+     *
+     * Tetapi jika ada dan jelas dinonaktifkan,
+     * withdrawal ditolak.
+     */
     if (
       [
         "rejected",
@@ -861,9 +937,9 @@ export async function POST(
       );
     }
 
-    // ======================================================
-    // 11. HITUNG TOTAL DONASI
-    // ======================================================
+    // ========================================================================
+    // 14. TOTAL DONASI
+    // ========================================================================
 
     const donations =
       Array.isArray(
@@ -880,8 +956,7 @@ export async function POST(
         ) => {
           const value =
             Number(
-              item.amount ||
-                0
+              item.amount || 0
             );
 
           if (
@@ -901,9 +976,9 @@ export async function POST(
         0
       );
 
-    // ======================================================
-    // 12. COMMISSION RATE
-    // ======================================================
+    // ========================================================================
+    // 15. RATE KOMISI
+    // ========================================================================
 
     const supabaseRate =
       pickNumber(
@@ -923,6 +998,10 @@ export async function POST(
           supabaseRate
       );
 
+    // ========================================================================
+    // 16. TOTAL HAK KOMISI
+    // ========================================================================
+
     const totalCommission =
       Math.max(
         0,
@@ -933,9 +1012,9 @@ export async function POST(
         )
       );
 
-    // ======================================================
-    // 13. WITHDRAWAL HISTORY
-    // ======================================================
+    // ========================================================================
+    // 17. HITUNG HISTORY WITHDRAWAL
+    // ========================================================================
 
     const withdrawals =
       Array.isArray(
@@ -969,34 +1048,31 @@ export async function POST(
 
       const status =
         String(
-          item.status ||
-            ""
+          item.status || ""
         ).toLowerCase();
 
+      // Sudah benar-benar dibayar
       if (
-        status ===
-          "paid" ||
-        status ===
-          "completed"
+        status === "paid" ||
+        status === "completed"
       ) {
         paidFromHistory +=
           value;
       }
 
+      // Masih mengunci saldo
       if (
-        status ===
-          "pending" ||
-        status ===
-          "approved"
+        status === "pending" ||
+        status === "approved"
       ) {
         pendingWithdrawal +=
           value;
       }
     }
 
-    // ======================================================
-    // 14. LEGACY feePaid
-    // ======================================================
+    // ========================================================================
+    // 18. LEGACY feePaid
+    // ========================================================================
 
     const supabaseFeePaid =
       pickNumber(
@@ -1020,7 +1096,12 @@ export async function POST(
       );
 
     /**
-     * Jangan dijumlahkan supaya tidak double-count.
+     * Jangan menjumlahkan:
+     *
+     * feePaid + paidFromHistory
+     *
+     * karena pembayaran lama mungkin sudah dimigrasikan
+     * menjadi history withdrawal.
      */
     const totalWithdrawn =
       Math.max(
@@ -1028,9 +1109,9 @@ export async function POST(
         paidFromHistory
       );
 
-    // ======================================================
-    // 15. SALDO TERSEDIA
-    // ======================================================
+    // ========================================================================
+    // 19. HITUNG SALDO TERSEDIA
+    // ========================================================================
 
     const availableCommission =
       Math.max(
@@ -1040,6 +1121,10 @@ export async function POST(
           totalWithdrawn -
           pendingWithdrawal
       );
+
+    // ========================================================================
+    // 20. CEK SALDO
+    // ========================================================================
 
     if (
       availableCommission <=
@@ -1077,16 +1162,17 @@ export async function POST(
       );
     }
 
-    // ======================================================
-    // 16. DATA REKENING
-    // ======================================================
+    // ========================================================================
+    // 21. DATA REKENING
+    // ========================================================================
     //
-    // Utamakan data profil Supabase karena user login
-    // mengelola akun islami.or.id dari sana.
+    // Prioritas:
     //
-    // Fallback ke Sanity fundraiser.
+    // Supabase profile
+    // ↓
+    // Sanity fundraiser
     //
-    // ======================================================
+    // ========================================================================
 
     const bankName =
       pickString(
@@ -1130,6 +1216,10 @@ export async function POST(
         ?.accountName ||
       "";
 
+    // ========================================================================
+    // 22. VALIDASI REKENING
+    // ========================================================================
+
     if (
       !bankName ||
       !accountNumber ||
@@ -1146,9 +1236,9 @@ export async function POST(
       );
     }
 
-    // ======================================================
-    // 17. NAMA FUNDRAISER
-    // ======================================================
+    // ========================================================================
+    // 23. NAMA FUNDRAISER
+    // ========================================================================
 
     const fundraiserName =
       pickString(
@@ -1165,27 +1255,32 @@ export async function POST(
       user.email ||
       "Fundraiser";
 
-    // ======================================================
-    // 18. LOCK UNTUK MENCEGAH REQUEST BERSAMAAN
-    // ======================================================
-    //
-    // Ini dokumen internal Sanity.
-    //
-    // Tidak perlu ditampilkan di Studio.
-    //
-    // Dua request yang masuk bersamaan akan memakai
-    // revision lock yang sama. Hanya satu yang berhasil.
-    //
-    // ======================================================
-
-    const lockId =
-      `fundraiserWithdrawalLock-${user.id}`;
+    // ========================================================================
+    // 24. WAKTU
+    // ========================================================================
 
     const now =
       new Date().toISOString();
 
-    await sanity.createIfNotExists({
-      _id: lockId,
+    // ========================================================================
+    // 25. LOCK ID
+    // ========================================================================
+    //
+    // Berguna untuk mencegah double submit paralel.
+    //
+    // ========================================================================
+
+    const lockId =
+      `fundraiserWithdrawalLock-${user.id}`;
+
+    // ========================================================================
+    // 26. CREATE LOCK JIKA BELUM ADA
+    // ========================================================================
+
+    const lockDocument:
+      WithdrawalLockDocument = {
+      _id:
+        lockId,
 
       _type:
         "fundraiserWithdrawalLock",
@@ -1201,82 +1296,102 @@ export async function POST(
 
       updatedAt:
         now,
-    });
+    };
+
+    await sanity.createIfNotExists(
+      lockDocument
+    );
+
+    // ========================================================================
+    // 27. AMBIL REVISION LOCK
+    // ========================================================================
 
     const lock =
       await sanity.fetch<{
         _rev?: string;
       } | null>(
-        `*[_id == $lockId][0]{_rev}`,
+        `
+          *[
+            _id == $lockId
+          ][0] {
+            _rev
+          }
+        `,
+
         {
           lockId,
         }
       );
 
-    if (
-      !lock?._rev
-    ) {
+    if (!lock?._rev) {
       throw new Error(
         "Withdrawal lock tidak ditemukan."
       );
     }
 
-    // ======================================================
-    // 19. DOKUMEN WITHDRAWAL
-    // ======================================================
+    // ========================================================================
+    // 28. GENERATE ID WITHDRAWAL
+    // ========================================================================
+    //
+    // Kita tentukan ID sendiri supaya tidak perlu mencari
+    // ID hasil mutation setelah transaction selesai.
+    //
+    // ========================================================================
+
+    const withdrawalId =
+      `fundraiserWithdrawal-${crypto.randomUUID()}`;
+
+    // ========================================================================
+    // 29. DOKUMEN WITHDRAWAL
+    // ========================================================================
 
     const withdrawalDocument:
-      Record<
-        string,
-        any
-      > = {
+      FundraiserWithdrawalDocument = {
+      _id:
+        withdrawalId,
+
       _type:
         "fundraiserWithdrawal",
 
-      // ===============================================
-      // IDENTITAS USER
-      // ===============================================
+      // ==================================================
+      // USER SUPABASE
+      // ==================================================
 
       userId:
         user.id,
+
+      // ==================================================
+      // IDENTITAS FUNDRAISER
+      // ==================================================
 
       fundraiserName,
 
       fundraiserPhone:
         normalized.international,
 
-      // ===============================================
-      // REFERENCE SANITY
-      // Jika profil fundraiser Sanity tersedia
-      // ===============================================
-
-      ...(sanityFundraiser
-        ? {
-            fundraiser: {
-              _type:
-                "reference",
-
-              _ref:
-                sanityFundraiser._id,
-            },
-          }
-        : {}),
-
-      // ===============================================
-      // PENARIKAN
-      // ===============================================
+      // ==================================================
+      // NOMINAL
+      // ==================================================
 
       amount,
+
+      // ==================================================
+      // STATUS AWAL
+      // ==================================================
 
       status:
         "pending",
 
+      // ==================================================
+      // TANGGAL PENGAJUAN
+      // ==================================================
+
       requestedAt:
         now,
 
-      // ===============================================
+      // ==================================================
       // SNAPSHOT REKENING
-      // ===============================================
+      // ==================================================
 
       bankName,
 
@@ -1284,9 +1399,9 @@ export async function POST(
 
       accountName,
 
-      // ===============================================
+      // ==================================================
       // CATATAN
-      // ===============================================
+      // ==================================================
 
       ...(cleanNote
         ? {
@@ -1295,9 +1410,9 @@ export async function POST(
           }
         : {}),
 
-      // ===============================================
-      // AUDIT SALDO
-      // ===============================================
+      // ==================================================
+      // SNAPSHOT PERHITUNGAN
+      // ==================================================
 
       commissionSnapshot: {
         totalEarnings,
@@ -1325,15 +1440,43 @@ export async function POST(
               amount
           ),
       },
+
+      // ==================================================
+      // REFERENCE SANITY FUNDRAISER
+      // ==================================================
+      //
+      // Hanya dimasukkan jika dokumen fundraiser
+      // benar-benar tersedia.
+      //
+      // ==================================================
+
+      ...(sanityFundraiser?._id
+        ? {
+            fundraiser: {
+              _type:
+                "reference" as const,
+
+              _ref:
+                sanityFundraiser._id,
+            },
+          }
+        : {}),
     };
 
-    // ======================================================
-    // 20. TRANSACTION
-    // ======================================================
+    // ========================================================================
+    // 30. TRANSACTION ATOMIC
+    // ========================================================================
     //
-    // Create withdrawal + update lock dalam satu transaksi.
+    // Dalam satu transaction:
     //
-    // ======================================================
+    // 1. Buat withdrawal
+    // 2. Update lock menggunakan revision terakhir
+    //
+    // Jika dua request masuk bersamaan:
+    //
+    // salah satunya akan mengalami revision conflict.
+    //
+    // ========================================================================
 
     const transaction =
       sanity.transaction();
@@ -1362,28 +1505,14 @@ export async function POST(
           })
     );
 
-    const result =
-      await transaction.commit({
-        visibility:
-          "sync",
-      });
+    await transaction.commit({
+      visibility:
+        "sync",
+    });
 
-    // ======================================================
-    // 21. ID DOKUMEN BARU
-    // ======================================================
-
-    const created =
-      result.results?.find(
-        (
-          item: any
-        ) =>
-          item.operation ===
-          "create"
-      );
-
-    // ======================================================
-    // 22. SUCCESS
-    // ======================================================
+    // ========================================================================
+    // 31. RESPONSE BERHASIL
+    // ========================================================================
 
     return jsonNoStore(
       {
@@ -1394,8 +1523,7 @@ export async function POST(
 
         withdrawal: {
           _id:
-            created?.id ||
-            null,
+            withdrawalId,
 
           amount,
 
@@ -1420,6 +1548,12 @@ export async function POST(
 
           commissionRate,
 
+          commissionPercent:
+            Math.round(
+              commissionRate *
+                100
+            ),
+
           totalCommission,
 
           totalWithdrawn,
@@ -1440,22 +1574,27 @@ export async function POST(
       201
     );
   } catch (
-    error: any
+    error: unknown
   ) {
     console.error(
       "🔥 Fundraiser Withdrawal API Error:",
       error
     );
 
-    const message =
-      String(
-        error?.message ||
-          ""
-      ).toLowerCase();
+    // ========================================================================
+    // NORMALISASI ERROR
+    // ========================================================================
 
-    // ======================================================
+    const message =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : String(
+            error || ""
+          ).toLowerCase();
+
+    // ========================================================================
     // REVISION CONFLICT / DOUBLE REQUEST
-    // ======================================================
+    // ========================================================================
 
     if (
       message.includes(
@@ -1463,6 +1602,9 @@ export async function POST(
       ) ||
       message.includes(
         "conflict"
+      ) ||
+      message.includes(
+        "precondition"
       )
     ) {
       return jsonNoStore(
@@ -1475,6 +1617,40 @@ export async function POST(
         409
       );
     }
+
+    // ========================================================================
+    // WRITE TOKEN / PERMISSION
+    // ========================================================================
+
+    if (
+      message.includes(
+        "unauthorized"
+      ) ||
+      message.includes(
+        "permission"
+      ) ||
+      message.includes(
+        "forbidden"
+      )
+    ) {
+      console.error(
+        "🔥 Sanity write permission error."
+      );
+
+      return jsonNoStore(
+        {
+          success: false,
+
+          message:
+            "Server belum memiliki izin untuk menyimpan pengajuan penarikan.",
+        },
+        500
+      );
+    }
+
+    // ========================================================================
+    // FALLBACK ERROR
+    // ========================================================================
 
     return jsonNoStore(
       {

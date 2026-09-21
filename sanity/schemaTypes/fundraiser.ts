@@ -12,10 +12,61 @@ export default defineType({
 
   type: "document",
 
+  // =========================================================================
+  // GROUP / TAB
+  // =========================================================================
+
+  groups: [
+    {
+      name: "identity",
+      title: "Identitas",
+      default: true,
+    },
+
+    {
+      name: "payment",
+      title: "Rekening",
+    },
+
+    {
+      name: "commission",
+      title: "Komisi",
+    },
+
+    {
+      name: "stats",
+      title: "Statistik",
+    },
+
+    {
+      name: "system",
+      title: "Sistem",
+    },
+  ],
+
+  // =========================================================================
+  // FIELDS
+  // =========================================================================
+
   fields: [
     // =========================================================================
-    // IDENTITAS FUNDRAISER
+    // IDENTITAS DARI SUPABASE
     // =========================================================================
+
+    defineField({
+      name: "supabaseUserId",
+
+      title: "Supabase User ID",
+
+      type: "string",
+
+      group: "system",
+
+      description:
+        "ID akun pengguna dari Supabase Auth. Digunakan untuk sinkronisasi otomatis antara akun islami.or.id dan Sanity.",
+
+      readOnly: true,
+    }),
 
     defineField({
       name: "name",
@@ -24,16 +75,33 @@ export default defineType({
 
       type: "string",
 
+      group: "identity",
+
       description:
         "Nama lengkap fundraiser atau relawan.",
 
       validation: (Rule) =>
         Rule.required()
-          .min(3)
+          .min(2)
           .max(100)
           .error(
             "Nama fundraiser wajib diisi."
           ),
+    }),
+
+    defineField({
+      name: "email",
+
+      title: "Email",
+
+      type: "string",
+
+      group: "identity",
+
+      description:
+        "Email akun islami.or.id yang terhubung dengan fundraiser.",
+
+      readOnly: true,
     }),
 
     defineField({
@@ -43,8 +111,10 @@ export default defineType({
 
       type: "string",
 
+      group: "identity",
+
       description:
-        "Nomor WhatsApp utama fundraiser. Nomor ini juga digunakan untuk mencocokkan transaksi referral.",
+        "Nomor WhatsApp fundraiser. Nomor ini digunakan untuk mencocokkan transaksi referral.",
 
       validation: (Rule) =>
         Rule.required()
@@ -71,8 +141,10 @@ export default defineType({
 
       type: "string",
 
+      group: "identity",
+
       description:
-        "Kode unik fundraiser untuk tautan referral. Contoh: ARIS01. Jika sistem Anda masih menggunakan nomor WhatsApp sebagai referral, field ini dapat dibiarkan kosong.",
+        "Opsional. Jika kosong, sistem tetap menggunakan nomor WhatsApp sebagai kode referral.",
 
       validation: (Rule) =>
         Rule.custom((value) => {
@@ -103,21 +175,25 @@ export default defineType({
 
       type: "string",
 
+      group: "identity",
+
       description:
-        "Hanya fundraiser aktif yang seharusnya menerima atribusi transaksi baru.",
+        "Akun dengan nomor WhatsApp otomatis dibuat sebagai fundraiser aktif. Admin tetap dapat menonaktifkan atau menangguhkan akun.",
 
       options: {
         list: [
           {
-            title: "Aktif",
+            title: "🟢 Aktif",
             value: "active",
           },
+
           {
-            title: "Nonaktif",
+            title: "⚫ Nonaktif",
             value: "inactive",
           },
+
           {
-            title: "Ditangguhkan",
+            title: "🟠 Ditangguhkan",
             value: "suspended",
           },
         ],
@@ -140,10 +216,12 @@ export default defineType({
 
       title: "Program yang Didukung",
 
-      description:
-        "Pilih program tertentu jika fundraiser hanya boleh mempromosikan program tersebut. Jika dikosongkan, fundraiser dapat digunakan untuk seluruh program.",
-
       type: "array",
+
+      group: "identity",
+
+      description:
+        "Jika kosong, fundraiser dapat mempromosikan seluruh program donasi.",
 
       of: [
         {
@@ -162,30 +240,102 @@ export default defineType({
     }),
 
     // =========================================================================
-    // PENGATURAN FEE
+    // DATA REKENING
     // =========================================================================
 
     defineField({
-      name: "feePercentage",
+      name: "bankName",
 
-      title: "Persentase Fee (%)",
+      title: "Bank / E-Wallet",
+
+      type: "string",
+
+      group: "payment",
+
+      description:
+        "Nama bank atau e-wallet tujuan pencairan komisi.",
+    }),
+
+    defineField({
+      name: "accountNumber",
+
+      title: "Nomor Rekening / E-Wallet",
+
+      type: "string",
+
+      group: "payment",
+
+      description:
+        "Nomor rekening atau nomor akun e-wallet untuk pencairan komisi.",
+    }),
+
+    defineField({
+      name: "accountName",
+
+      title: "Nama Pemilik Rekening",
+
+      type: "string",
+
+      group: "payment",
+
+      description:
+        "Nama pemilik rekening sesuai rekening bank atau e-wallet.",
+    }),
+
+    // =========================================================================
+    // KOMISI
+    // =========================================================================
+
+    defineField({
+      name: "commissionRate",
+
+      title: "Persentase Komisi (%)",
 
       type: "number",
 
+      group: "commission",
+
       description:
-        "Persentase fee fundraiser dari nominal donasi berhasil yang teratribusi kepadanya. Contoh: isi 5 untuk fee 5%. Isi 0 jika fundraiser tidak memperoleh fee.",
+        "Contoh: isi 10 untuk komisi 10%. Nilai ini digunakan API fundraiser untuk menghitung hak komisi.",
+
+      initialValue: 10,
+
+      validation: (Rule) =>
+        Rule.required()
+          .min(0)
+          .max(100)
+          .precision(2)
+          .error(
+            "Persentase komisi harus antara 0 sampai 100."
+          ),
+    }),
+
+    // =========================================================================
+    // LEGACY FEE PAID
+    // =========================================================================
+
+    defineField({
+      name: "feePaid",
+
+      title: "Total Fee Lama yang Sudah Dibayarkan",
+
+      type: "number",
+
+      group: "commission",
+
+      description:
+        "Field kompatibilitas untuk pembayaran lama sebelum sistem riwayat penarikan digunakan. Untuk pembayaran baru gunakan menu Penarikan Komisi.",
 
       initialValue: 0,
 
       validation: (Rule) =>
         Rule.required()
           .min(0)
-          .max(100)
-          .precision(2),
+          .integer(),
     }),
 
     // =========================================================================
-    // STATISTIK OTOMATIS
+    // STATISTIK
     // =========================================================================
 
     defineField({
@@ -195,8 +345,10 @@ export default defineType({
 
       type: "number",
 
+      group: "stats",
+
       description:
-        "Akumulasi nominal donasi berhasil yang berasal dari fundraiser ini. Diperbarui otomatis oleh sistem.",
+        "Statistik ringkasan. Nilai utama tetap dihitung dari transaksi donasi sukses.",
 
       readOnly: true,
 
@@ -213,8 +365,7 @@ export default defineType({
 
       type: "number",
 
-      description:
-        "Jumlah transaksi pembayaran berhasil yang teratribusi kepada fundraiser ini.",
+      group: "stats",
 
       readOnly: true,
 
@@ -227,12 +378,11 @@ export default defineType({
     defineField({
       name: "totalFee",
 
-      title: "Total Fee Diperoleh",
+      title: "Total Hak Komisi",
 
       type: "number",
 
-      description:
-        "Akumulasi fee fundraiser yang dihitung dari transaksi berhasil.",
+      group: "stats",
 
       readOnly: true,
 
@@ -245,12 +395,11 @@ export default defineType({
     defineField({
       name: "sisaSaldoFee",
 
-      title: "Sisa Saldo Fee",
+      title: "Saldo Komisi Tersedia",
 
       type: "number",
 
-      description:
-        "Saldo fee yang masih tersedia dan belum dibayarkan kepada fundraiser.",
+      group: "stats",
 
       readOnly: true,
 
@@ -261,29 +410,7 @@ export default defineType({
     }),
 
     // =========================================================================
-    // PEMBAYARAN FEE OLEH ADMIN
-    // =========================================================================
-
-    defineField({
-      name: "feePaid",
-
-      title: "Total Fee Sudah Dibayarkan",
-
-      type: "number",
-
-      description:
-        "Akumulasi fee yang sudah ditransfer kepada fundraiser. Field ini dapat diperbarui oleh admin setelah pembayaran fee dilakukan.",
-
-      initialValue: 0,
-
-      validation: (Rule) =>
-        Rule.required()
-          .min(0)
-          .integer(),
-    }),
-
-    // =========================================================================
-    // INFORMASI TAMBAHAN
+    // CATATAN ADMIN
     // =========================================================================
 
     defineField({
@@ -293,14 +420,16 @@ export default defineType({
 
       type: "text",
 
+      group: "identity",
+
       rows: 3,
 
       description:
-        "Catatan internal mengenai fundraiser. Tidak ditampilkan kepada publik.",
+        "Catatan internal mengenai fundraiser. Tidak ditampilkan kepada pengguna.",
     }),
 
     // =========================================================================
-    // TIMESTAMP SISTEM
+    // TIMESTAMP
     // =========================================================================
 
     defineField({
@@ -309,6 +438,8 @@ export default defineType({
       title: "Tanggal Bergabung",
 
       type: "datetime",
+
+      group: "system",
 
       readOnly: true,
 
@@ -319,17 +450,31 @@ export default defineType({
     defineField({
       name: "updatedAt",
 
-      title: "Terakhir Diperbarui",
+      title: "Terakhir Disinkronkan",
 
       type: "datetime",
+
+      group: "system",
+
+      readOnly: true,
+    }),
+
+    defineField({
+      name: "lastWithdrawalRequestAt",
+
+      title: "Pengajuan Penarikan Terakhir",
+
+      type: "datetime",
+
+      group: "system",
 
       readOnly: true,
     }),
   ],
 
-  // ===========================================================================
-  // PREVIEW SANITY STUDIO
-  // ===========================================================================
+  // =========================================================================
+  // PREVIEW
+  // =========================================================================
 
   preview: {
     select: {
@@ -338,6 +483,9 @@ export default defineType({
       phone: "phone",
 
       status: "status",
+
+      commissionRate:
+        "commissionRate",
 
       totalDana:
         "totalDanaDihimpun",
@@ -353,6 +501,7 @@ export default defineType({
       name,
       phone,
       status,
+      commissionRate,
       totalDana,
       totalTransaksi,
       saldoFee,
@@ -379,6 +528,11 @@ export default defineType({
             ? "🟠 DITANGGUHKAN"
             : "⚫ NONAKTIF";
 
+      const rate =
+        Number(
+          commissionRate || 0
+        );
+
       return {
         title:
           name ||
@@ -389,24 +543,43 @@ export default defineType({
 
           phone || "-",
 
+          `${rate}% komisi`,
+
           `${Number(
-            totalTransaksi ||
-              0
+            totalTransaksi || 0
           )} transaksi`,
 
           `Rp ${dana}`,
 
-          `Fee Rp ${saldo}`,
+          `Saldo Rp ${saldo}`,
         ].join(" • "),
       };
     },
   },
 
-  // ===========================================================================
-  // SORTING
-  // ===========================================================================
+  // =========================================================================
+  // ORDERING
+  // =========================================================================
 
   orderings: [
+    {
+      title:
+        "Fundraiser Terbaru",
+
+      name:
+        "createdAtDesc",
+
+      by: [
+        {
+          field:
+            "createdAt",
+
+          direction:
+            "desc",
+        },
+      ],
+    },
+
     {
       title:
         "Dana Terbesar",
@@ -452,9 +625,11 @@ export default defineType({
 
       by: [
         {
-          field: "name",
+          field:
+            "name",
 
-          direction: "asc",
+          direction:
+            "asc",
         },
       ],
     },

@@ -13,7 +13,6 @@ import Link from "next/link";
 
 import {
   ArrowLeft,
-  Sparkles,
   Copy,
   Check,
   TrendingUp,
@@ -361,6 +360,61 @@ export default function ReferralPage() {
   );
 
   // ==========================================================================
+  // SYNC FUNDRAISER SUPABASE -> SANITY
+  // ==========================================================================
+  //
+  // User yang sudah login dan memiliki nomor WhatsApp otomatis
+  // dibuat / diperbarui sebagai fundraiser di Sanity.
+  //
+  // Identitas user tidak dikirim dari browser. Endpoint sync
+  // membaca user aktif langsung dari session Supabase.
+  //
+  // ==========================================================================
+
+  const syncFundraiser = useCallback(
+    async () => {
+      try {
+        const response = await fetch(
+          "/api/fundraiser/sync",
+          {
+            method: "POST",
+            cache: "no-store",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+          }
+        );
+
+        const json =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !json.success
+        ) {
+          console.warn(
+            "[REFERRAL] Fundraiser sync gagal:",
+            json
+          );
+
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        console.error(
+          "[REFERRAL] Fundraiser sync error:",
+          error
+        );
+
+        return false;
+      }
+    },
+    []
+  );
+
+  // ==========================================================================
   // INITIAL LOAD
   // ==========================================================================
 
@@ -372,7 +426,7 @@ export default function ReferralPage() {
         setLoading(true);
 
         // ================================================================
-        // USER
+        // 1. USER LOGIN
         // ================================================================
 
         const {
@@ -389,7 +443,7 @@ export default function ReferralPage() {
         }
 
         // ================================================================
-        // PROFILE
+        // 2. PROFILE SUPABASE
         // ================================================================
 
         if (user) {
@@ -417,18 +471,51 @@ export default function ReferralPage() {
             setProfile(prof);
           }
 
+          // ==============================================================
+          // 3. NOMOR WA ADA -> OTOMATIS SYNC KE SANITY
+          // ==============================================================
+          //
+          // Alur:
+          //
+          // Supabase profile
+          //      ↓
+          // /api/fundraiser/sync
+          //      ↓
+          // Sanity _type = fundraiser
+          //      ↓
+          // ambil statistik terbaru
+          //
+          // ==============================================================
+
           if (
             active &&
             prof?.phone
           ) {
-            await loadStats(
-              prof.phone
-            );
+            await syncFundraiser();
+
+            if (active) {
+              await loadStats(
+                prof.phone
+              );
+            }
+          } else if (active) {
+            setStats({
+              totalEarnings: 0,
+              donationCount: 0,
+
+              history: [],
+              withdrawals: [],
+
+              totalCommission: 0,
+              totalWithdrawn: 0,
+              pendingWithdrawal: 0,
+              availableCommission: 0,
+            });
           }
         }
 
         // ================================================================
-        // PROGRAMS
+        // 4. PROGRAM DONASI
         // ================================================================
 
         const programResponse =
@@ -473,6 +560,7 @@ export default function ReferralPage() {
   }, [
     supabase,
     loadStats,
+    syncFundraiser,
   ]);
 
   // ==========================================================================
@@ -623,9 +711,22 @@ export default function ReferralPage() {
   // ==========================================================================
 
   const handleRefresh = async () => {
-    if (!phone) return;
+    if (!phone) {
+      return;
+    }
 
-    await loadStats(phone);
+    try {
+      // Sinkronkan profil fundraiser terlebih dahulu
+      await syncFundraiser();
+
+      // Kemudian ambil statistik terbaru
+      await loadStats(phone);
+    } catch (error) {
+      console.error(
+        "[REFERRAL] Refresh error:",
+        error
+      );
+    }
   };
 
   // ==========================================================================
@@ -735,8 +836,8 @@ export default function ReferralPage() {
               },
 
               body: JSON.stringify({
-                phone,
-
+                // Phone sengaja tidak dikirim.
+                // API mengambil identitas fundraiser dari session Supabase.
                 amount,
 
                 note:
@@ -768,6 +869,10 @@ export default function ReferralPage() {
         setWithdrawalAmount("");
         setWithdrawalNote("");
 
+        // Pastikan profil fundraiser di Sanity tetap sinkron
+        await syncFundraiser();
+
+        // Ambil saldo dan history terbaru
         await loadStats(phone);
 
         setActiveHistory(
